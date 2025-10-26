@@ -4,7 +4,7 @@ This directory contains ADRs for effect-supermemory.
 
 ## Index
 
-- (To be populated as ADRs are created)
+- [ADR-001: Error Taxonomy & Layer Design](001-error-taxonomy-layer-design.md) (Proposed)
 
 ## Format
 
