@@ -48,6 +48,32 @@ Core in-memory memory operations (MVP):
 
 All operations are Effect-native and return discriminated errors on failure.
 
+### HttpClient
+
+Effect-native HTTP client for making requests to external APIs. Parameterized by `baseUrl` and default headers.
+
+```ts
+import * as Effect from "effect/Effect";
+import { HttpClientImpl } from "effect-supermemory"; // assuming re-exported from root
+
+const supermemoryClientLayer = HttpClientImpl.Default({
+  baseUrl: "https://api.supermemory.dev",
+  headers: {
+    "Authorization": "Bearer YOUR_API_KEY",
+    "X-App-Name": "my-effect-agent"
+  },
+  timeoutMs: 5000 // 5 seconds
+});
+
+const fetchMemories = Effect.gen(function* () {
+  const client = yield* HttpClientImpl;
+  const response = yield* client.request("/memories", { method: "GET" });
+  return response.body; // Array of memories
+}).pipe(Effect.provide(supermemoryClientLayer));
+
+Effect.runPromise(fetchMemories).then(console.log);
+```
+
 ### Configuration
 
 Memories are isolated by `namespace` via `MemoryConfig` Layer.
