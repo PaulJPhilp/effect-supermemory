@@ -127,7 +127,44 @@ Services need configuration (namespaces, credentials, retry policy). How should 
 
 **Options Considered:**
 
-### Option 1: Layer-based via Context.Tag (Selected)
+### Option 1: Effect.Service with separate instances (Selected)
+
+**Approach:**
+- Services are `Effect.Service` implementations with `Layer.succeed()`
+- Configuration is baked into service instances at creation time
+- Parameters flow through method signatures (not environment)
+- Multiple instances provide isolation (different "namespaces")
+
+**Pros:**
+- Pure Effect.Service pattern; no bare Context.Tag
+- Simple and explicit; parameters in method signatures
+- Testable; mock by providing different service instances
+- Isolation via separate service instances
+
+**Cons:**
+- Less composable than Context.Tag approach
+- Configuration must be known at service instantiation time
+
+**Example:**
+```ts
+// Service definition
+export class MemoryClientImpl extends Effect.Service<MemoryClientImpl>()("MemoryClient", {
+  sync: () => ({
+    put: (key: string, value: string) => Effect.sync(() => store.set(key, value)),
+    get: (key: string) => Effect.sync(() => store.get(key)),
+    // ...
+  })
+}) {}
+
+// Usage - separate instances for isolation
+const store1 = new MemoryClientImpl();  // "namespace 1"
+const store2 = new MemoryClientImpl();  // "namespace 2"
+
+const layer1 = Layer.succeed(MemoryClientImpl, store1);
+const layer2 = Layer.succeed(MemoryClientImpl, store2);
+```
+
+### Option 2: Layer-based via Context.Tag
 
 **Approach:**
 - Config is a Context tag (e.g., `MemoryConfig`)
@@ -136,30 +173,15 @@ Services need configuration (namespaces, credentials, retry policy). How should 
 - Multiple services compose via `Layer.merge()`
 
 **Pros:**
-- Pure dependency injection; no global state
-- Composable; multiple layers can coexist
-- Testable; mock config by providing different layers
-- Aligns with Effect Layer pattern
+- Highly composable; multiple layers can coexist
+- Config injection is pure and testable
 
 **Cons:**
-- Requires understanding of Context tags and Layers
-- Config is implicit (might not be obvious what's required)
+- More complex; requires understanding Context tags
+- Parameters vs config can be confusing
+- Overkill for simple services
 
-**Example:**
-```ts
-export const MemoryConfig = Context.Tag<MemoryConfig>("MemoryConfig");
-
-const program = Effect.gen(function* () {
-  const config = yield* MemoryConfig;
-  const namespace = config.namespace;
-  // Use namespace...
-});
-
-const layer = Layer.succeed(MemoryConfig, { namespace: "my-app" });
-await Effect.runPromise(program.pipe(Effect.provide(layer)));
-```
-
-### Option 2: Parameter-based (operation-level)
+### Option 3: Parameter-based (operation-level)
 
 **Approach:**
 - Config is passed as a parameter to each operation
@@ -167,57 +189,41 @@ await Effect.runPromise(program.pipe(Effect.provide(layer)));
 
 **Pros:**
 - Explicit; no hidden dependencies
-- Simple for single operations
 
 **Cons:**
-- Pollutes API surface with config parameters
-- Breaks composability; forces consumers to thread params through all effects
-- Unmaintainable at scale
-
-### Option 3: Singleton global config
-
-**Approach:**
-- Store config in a module-level variable
-- Access via function (e.g., `getConfig()`)
-
-**Pros:**
-- Simple; no boilerplate
-
-**Cons:**
-- Not testable; singleton persists across tests
-- Not composable; can't have multiple configs simultaneously
-- Hidden dependencies; hard to reason about
+- Pollutes API surface; breaks composability
 
 ---
 
 **Decision:**
 
-We choose **Option 1: Layer-based via Context.Tag**.
+We choose **Option 1: Effect.Service with separate instances**.
 
 **Rationale:**
 
-1. **Pure DI:** No global state; effects are pure functions of their dependencies.
-2. **Composable:** Multiple services + configs can coexist; compose via `Layer.merge()`.
-3. **Testable:** Mock configs by providing different layers; no test pollution.
-4. **Effect Idiomatic:** Matches Effect's Layer/Context patterns; consistent with Effect ecosystem.
-5. **Scalable:** As we add HTTP client (0.2+) with credentials, retry policy, etc., new config fields integrate cleanly via `Layer.merge()`.
+1. **Effect.Service Pattern:** Pure Effect.Service usage without bare Context.Tag.
+2. **Simplicity:** Parameters flow through method signatures; no environment confusion.
+3. **Isolation:** Separate service instances provide clean namespace isolation.
+4. **Testable:** Easy to mock by providing different service instances.
+5. **Future-Proof:** For HTTP client (0.2+), we can extend with Context.Tag if needed.
 
 ---
 
 **Consequences:**
 
 **Positive:**
-- Config is explicit and composable; multiple configurations can coexist.
-- Testing is clean; provide mock config via layers, no test setup pollution.
-- Backward compatible: adding new config fields doesn't break existing code.
+- Clean Effect.Service pattern; no bare Context.Tag usage.
+- Method parameters are explicit and type-safe.
+- Namespace isolation via separate instances is simple and testable.
+- Easy to understand and maintain.
 
 **Negative:**
-- Requires learning Context tags and Layers (but necessary for Effect mastery).
-- Config is implicit in code; not immediately obvious what's required (mitigated via docs + types).
+- Less composable than full Context.Tag approach.
+- Configuration must be known at service creation time.
 
 **On Other Branches:**
-- **create-effect-agent:** Generated projects should use `Layer.merge()` to compose multiple services (MemoryClient + future services).
-- **effect-cli-tui:** CLI/TUI state should follow same pattern (Logger, PromptConfig, etc.).
+- **create-effect-agent:** Generated projects should use `Effect.Service` pattern with separate instances where isolation is needed.
+- **effect-cli-tui:** CLI/TUI services should follow same pattern; use separate instances for different contexts.
 
 ---
 
@@ -226,25 +232,29 @@ We choose **Option 1: Layer-based via Context.Tag**.
 **For all future services in effect-supermemory:**
 
 1. **Errors:** Define discriminated error types in `errors.ts` using `Data.TaggedError`.
-2. **Config:** Define configuration interface in `types.ts`; expose via `Context.Tag` in `service.ts`.
-3. **Service:** Use `Effect.Service` pattern with `Default` export (Live implementation).
-4. **Composition:** Services compose via `Layer.merge()` in consuming code.
+2. **Service:** Use pure `Effect.Service` pattern with `Layer.succeed()` - no bare `Context.Tag`.
+3. **Parameters:** Pass operation parameters through method signatures.
+4. **Isolation:** Use separate service instances for different contexts/namespace isolation.
 
 **Example (MemoryClient):**
 ```ts
 // errors.ts
 export class MemoryNotFoundError extends Data.TaggedError("MemoryNotFoundError")<{ readonly key: string }> {}
 
-// types.ts
-export interface MemoryConfig { readonly namespace: string; }
-
 // service.ts
-export const MemoryConfig = Context.Tag<MemoryConfig>("MemoryConfig");
-export class MemoryClientImpl extends Effect.Service<MemoryClientImpl>()(...) {}
+export class MemoryClientImpl extends Effect.Service<MemoryClientImpl>()("MemoryClient", {
+  sync: () => ({
+    put: (key: string, value: string) => Effect.sync(() => store.set(key, value)),
+    get: (key: string) => Effect.sync(() => store.get(key)),
+    // ...
+  })
+}) {}
+
 export const Default = Layer.succeed(MemoryClientImpl, new MemoryClientImpl());
 
-// Consuming code
-const layer = Layer.merge(Default, Layer.succeed(MemoryConfig, { namespace: "app" }));
+// Usage - separate instances for isolation
+const store1 = new MemoryClientImpl();  // context 1
+const store2 = new MemoryClientImpl();  // context 2
 ```
 
 ---
