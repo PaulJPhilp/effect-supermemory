@@ -4,6 +4,8 @@
 
 **Date:** 2025-10-26
 
+**Implementation:** Effect.Service with Effect.fn() Parameterization
+
 **Context:**
 
 effect-supermemory needs to establish error handling and dependency injection patterns that:
@@ -197,29 +199,30 @@ const layer2 = Layer.succeed(MemoryClientImpl, store2);
 
 **Decision:**
 
-We choose **Option 1: Effect.Service with separate instances**.
+We choose **Effect.Service with Effect.fn() Parameterization**.
 
 **Rationale:**
 
 1. **Effect.Service Pattern:** Pure Effect.Service usage without bare Context.Tag.
-2. **Simplicity:** Parameters flow through method signatures; no environment confusion.
-3. **Isolation:** Separate service instances provide clean namespace isolation.
-4. **Testable:** Easy to mock by providing different service instances.
-5. **Future-Proof:** For HTTP client (0.2+), we can extend with Context.Tag if needed.
+2. **Parameterized Construction:** Effect.fn() allows parameters to be passed to service construction.
+3. **Layer-based Provision:** Services are provided via parameterized layers (Service.Default(param)).
+4. **Type Safety:** Full compile-time safety for both service methods and construction parameters.
+5. **Isolation:** Each parameterized service instance maintains its own state and configuration.
 
 ---
 
 **Consequences:**
 
 **Positive:**
-- Clean Effect.Service pattern; no bare Context.Tag usage.
-- Method parameters are explicit and type-safe.
-- Namespace isolation via separate instances is simple and testable.
-- Easy to understand and maintain.
+- Pure Effect.Service pattern with Effect.fn() parameterization.
+- Full type safety for both service methods and construction parameters.
+- Namespace isolation through parameterized service instances.
+- Layer-based provisioning with Service.Default(param) syntax.
+- Future services can follow the same pattern for configuration.
 
 **Negative:**
-- Less composable than full Context.Tag approach.
-- Configuration must be known at service creation time.
+- Requires understanding of Effect.Service and Effect.fn() patterns.
+- Each service instance requires explicit parameterization at layer creation.
 
 **On Other Branches:**
 - **create-effect-agent:** Generated projects should use `Effect.Service` pattern with separate instances where isolation is needed.
@@ -232,9 +235,9 @@ We choose **Option 1: Effect.Service with separate instances**.
 **For all future services in effect-supermemory:**
 
 1. **Errors:** Define discriminated error types in `errors.ts` using `Data.TaggedError`.
-2. **Service:** Use pure `Effect.Service` pattern with `Layer.succeed()` - no bare `Context.Tag`.
-3. **Parameters:** Pass operation parameters through method signatures.
-4. **Isolation:** Use separate service instances for different contexts/namespace isolation.
+2. **Service:** Use `Effect.Service` with `Effect.fn()` for parameterized construction.
+3. **Parameters:** Pass configuration parameters to `Effect.fn()` constructor, operation parameters through method signatures.
+4. **Layers:** Use `Service.Default(param)` to create parameterized service layers.
 
 **Example (MemoryClient):**
 ```ts
@@ -243,18 +246,30 @@ export class MemoryNotFoundError extends Data.TaggedError("MemoryNotFoundError")
 
 // service.ts
 export class MemoryClientImpl extends Effect.Service<MemoryClientImpl>()("MemoryClient", {
-  sync: () => ({
-    put: (key: string, value: string) => Effect.sync(() => store.set(key, value)),
-    get: (key: string) => Effect.sync(() => store.get(key)),
-    // ...
+  effect: Effect.fn(function* (namespace: string) {
+    const store = new Map<string, string>();
+    return {
+      put: (key: string, value: string) => Effect.sync(() => {
+        const nsKey = `${namespace}:${key}`;
+        store.set(nsKey, value);
+      }),
+      get: (key: string) => Effect.sync(() => {
+        const nsKey = `${namespace}:${key}`;
+        return store.get(nsKey);
+      }),
+      // ... other methods
+    };
   })
 }) {}
 
-export const Default = Layer.succeed(MemoryClientImpl, new MemoryClientImpl());
+// Usage - parameterized layers for isolation
+const ns1Layer = MemoryClientImpl.Default("namespace-one");
+const ns2Layer = MemoryClientImpl.Default("namespace-two");
 
-// Usage - separate instances for isolation
-const store1 = new MemoryClientImpl();  // context 1
-const store2 = new MemoryClientImpl();  // context 2
+const program = Effect.gen(function* () {
+  const client = yield* MemoryClientImpl;
+  return yield* client.get("key");
+}).pipe(Effect.provide(ns1Layer));
 ```
 
 ---
@@ -271,8 +286,8 @@ const store2 = new MemoryClientImpl();  // context 2
 
 ---
 
-**Implementation Note (2025-10-26):**
-After initial implementation attempt, the codebase was refactored to use the simpler "Effect.Service with separate instances" pattern. The Context.Tag approach proved overly complex for this use case. The selected pattern now correctly separates parameter passing (method signatures) from service instantiation (separate instances).
+**Implementation (2025-10-26):**
+ADR-001 has been fully implemented using the Effect.Service pattern with Effect.fn() parameterization. The MemoryClient service demonstrates proper namespace isolation through parameterized layer construction (MemoryClientImpl.Default("namespace")). This establishes the architectural foundation for all future services in effect-supermemory.
 
 **Proposed by:** System Architect (effect-supermemory)
-**Status:** Accepted (implemented and tested)
+**Status:** Accepted (implemented and verified)
