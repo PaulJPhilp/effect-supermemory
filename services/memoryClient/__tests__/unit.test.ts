@@ -1,61 +1,107 @@
 import { describe, it, expect } from "vitest";
 import * as Effect from "effect/Effect";
-import { MemoryClientLive, Default } from "../service.js";
+import * as Layer from "effect/Layer";
+import { MemoryClientImpl } from "../service.js"; // Import the service class
 
-describe("MemoryClient", () => {
-  it("puts and gets a value", async () => {
-    await Effect.runPromise(Default.put("key1", "value1"));
-    const result = await Effect.runPromise(Default.get("key1"));
+describe("MemoryClient (Parameterized Service)", () => {
+  // Layer for a specific namespace, used for most tests
+  const testNamespaceLayer = MemoryClientImpl.Default("test-ns");
+
+  it("puts and gets a value within its namespace", async () => {
+    const program = Effect.gen(function* () {
+      const client = yield* MemoryClientImpl;
+      yield* client.put("key1", "value1");
+      const result = yield* client.get("key1");
+      return result;
+    }).pipe(Effect.provide(testNamespaceLayer)); // Provide the namespace-specific layer
+
+    const result = await Effect.runPromise(program);
     expect(result).toBe("value1");
   });
 
-  it("returns undefined for missing key", async () => {
-    const result = await Effect.runPromise(Default.get("nonexistent"));
+  it("returns undefined for missing key within its namespace", async () => {
+    const program = Effect.gen(function* () {
+      const client = yield* MemoryClientImpl;
+      const result = yield* client.get("nonexistent");
+      return result;
+    }).pipe(Effect.provide(testNamespaceLayer));
+
+    const result = await Effect.runPromise(program);
     expect(result).toBeUndefined();
   });
 
-  it("deletes a key (idempotent)", async () => {
-    await Effect.runPromise(Default.put("key2", "value2"));
-    const deleted = await Effect.runPromise(Default.delete("key2"));
-    const missing = await Effect.runPromise(Default.get("key2"));
-    expect(deleted).toBe(true);
-    expect(missing).toBeUndefined();
+  it("deletes a key (idempotent) within its namespace", async () => {
+    const program = Effect.gen(function* () {
+      const client = yield* MemoryClientImpl;
+      yield* client.put("key2", "value2");
 
-    // Idempotent delete
-    const deletedAgain = await Effect.runPromise(Default.delete("key2"));
-    expect(deletedAgain).toBe(false);
+      const deleted = yield* client.delete("key2");
+      expect(deleted).toBe(true);
+
+      const missing = yield* client.get("key2");
+      expect(missing).toBeUndefined();
+
+      // Idempotent delete
+      const deletedAgain = yield* client.delete("key2");
+      expect(deletedAgain).toBe(false);
+    }).pipe(Effect.provide(testNamespaceLayer));
+
+    await Effect.runPromise(program);
   });
 
-  it("checks existence", async () => {
-    await Effect.runPromise(Default.put("key3", "value3"));
-    const exists1 = await Effect.runPromise(Default.exists("key3"));
-    const exists2 = await Effect.runPromise(Default.exists("missing"));
+  it("checks existence within its namespace", async () => {
+    const program = Effect.gen(function* () {
+      const client = yield* MemoryClientImpl;
+      yield* client.put("key3", "value3");
+      const exists1 = yield* client.exists("key3");
+      const exists2 = yield* client.exists("missing");
+      return { exists1, exists2 };
+    }).pipe(Effect.provide(testNamespaceLayer));
+
+    const { exists1, exists2 } = await Effect.runPromise(program);
     expect(exists1).toBe(true);
     expect(exists2).toBe(false);
   });
 
-  it("clears all values", async () => {
-    await Effect.runPromise(Default.put("key4", "value4"));
-    await Effect.runPromise(Default.put("key5", "value5"));
-    await Effect.runPromise(Default.clear());
-    const result1 = await Effect.runPromise(Default.get("key4"));
-    const result2 = await Effect.runPromise(Default.get("key5"));
+  it("clears all values within its namespace", async () => {
+    const program = Effect.gen(function* () {
+      const client = yield* MemoryClientImpl;
+      yield* client.put("key4", "value4");
+      yield* client.put("key5", "value5");
+      yield* client.clear();
+      const result1 = yield* client.get("key4");
+      const result2 = yield* client.get("key5");
+      return { result1, result2 };
+    }).pipe(Effect.provide(testNamespaceLayer));
+
+    const { result1, result2 } = await Effect.runPromise(program);
     expect(result1).toBeUndefined();
     expect(result2).toBeUndefined();
   });
 
-  it("multiple independent stores (separate service instances)", async () => {
-    // Create two separate MemoryClientLive instances for namespace isolation
-    const store1 = new MemoryClientLive();
-    const store2 = new MemoryClientLive();
+  it("isolates different namespaces correctly", async () => {
+    const ns1Layer = MemoryClientImpl.Default("namespace-one");
+    const ns2Layer = MemoryClientImpl.Default("namespace-two");
 
-    await Effect.runPromise(store1.put("shared_key", "store1_value"));
-    await Effect.runPromise(store2.put("shared_key", "store2_value"));
+    const programNs1 = Effect.gen(function* () {
+      const client = yield* MemoryClientImpl;
+      yield* client.put("shared_key", "value_from_ns1");
+      return yield* client.get("shared_key");
+    }).pipe(Effect.provide(ns1Layer));
 
-    const result1 = await Effect.runPromise(store1.get("shared_key"));
-    const result2 = await Effect.runPromise(store2.get("shared_key"));
+    const programNs2 = Effect.gen(function* () {
+      const client = yield* MemoryClientImpl;
+      const initialGet = yield* client.get("shared_key"); // Should be undefined in ns2
+      yield* client.put("shared_key", "value_from_ns2");
+      const finalGet = yield* client.get("shared_key");
+      return { initialGet, finalGet };
+    }).pipe(Effect.provide(ns2Layer));
 
-    expect(result1).toBe("store1_value");
-    expect(result2).toBe("store2_value");
+    const result1 = await Effect.runPromise(programNs1);
+    const { initialGet, finalGet } = await Effect.runPromise(programNs2);
+
+    expect(result1).toBe("value_from_ns1");
+    expect(initialGet).toBeUndefined(); // Key in ns1 should not be visible in ns2
+    expect(finalGet).toBe("value_from_ns2");
   });
 });

@@ -1,3 +1,4 @@
-export type { MemoryClient } from "./api.js";
+export * from "./api.js";
 export * from "./errors.js";
-export { MemoryClientLive, Default } from "./service.js";
+// export type { MemoryConfig } from "./types.js"; // No longer needed
+export { MemoryClientImpl } from "./service.js";
