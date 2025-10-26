@@ -1,6 +1,6 @@
 # ADR-001: Error Taxonomy & Layer Design
 
-**Status:** Proposed
+**Status:** Accepted
 
 **Date:** 2025-10-26
 
@@ -271,5 +271,8 @@ const store2 = new MemoryClientImpl();  // context 2
 
 ---
 
-**Proposed by:** System Architect (effect-supermemory)  
-**Status:** Proposed (awaiting CTO + cross-project sign-off)
+**Implementation Note (2025-10-26):**
+After initial implementation attempt, the codebase was refactored to use the simpler "Effect.Service with separate instances" pattern. The Context.Tag approach proved overly complex for this use case. The selected pattern now correctly separates parameter passing (method signatures) from service instantiation (separate instances).
+
+**Proposed by:** System Architect (effect-supermemory)
+**Status:** Accepted (implemented and tested)
