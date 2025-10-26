@@ -6,8 +6,10 @@
     "outDir": "./dist",
     "sourceMap": true,
     "inlineSources": true,
-    "noEmit": false
+    "noEmit": false,
+    "types": [],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"]
   },
   "include": ["src", "services"],
-  "exclude": ["test", "**/*.test.ts", "**/__tests__/**"]
+  "exclude": ["test", "**/*.test.ts", "**/__tests__/**", "*.config.*", "vitest.config.ts"]
 }

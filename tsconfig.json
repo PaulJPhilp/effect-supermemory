@@ -11,5 +11,5 @@
     "types": ["vitest/globals"],
     "skipLibCheck": false
   },
-  "include": ["src", "test", "services", "vitest.config.ts"]
+  "include": ["src", "test", "services"]
 }

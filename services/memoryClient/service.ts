@@ -4,50 +4,46 @@ import * as Context from "effect/Context";
 import { MemoryClient } from "./api.js";
 import type { MemoryConfig } from "./types.js";
 
-export const MemoryConfig = Context.Tag<MemoryConfig>("MemoryConfig");
+export const MemoryConfigTag = Context.GenericTag<MemoryConfig>("MemoryConfig");
 
-export class MemoryClientImpl extends Effect.Service<MemoryClientImpl>()(
-  "MemoryClient",
-  {
-    sync: () => {
-      const store = new Map<string, string>();
+class MemoryClientLive implements MemoryClient {
+  constructor(private config: MemoryConfig, private store = new Map<string, string>()) {}
 
-      return {
-        put: (key: string, value: string) =>
-          Effect.gen(function* () {
-            const config = yield* MemoryConfig;
-            const nsKey = `${config.namespace}:${key}`;
-            store.set(nsKey, value);
-          }),
+  put = (key: string, value: string) =>
+    Effect.sync(() => {
+      const nsKey = `${this.config.namespace}:${key}`;
+      this.store.set(nsKey, value);
+    });
 
-        get: (key: string) =>
-          Effect.gen(function* () {
-            const config = yield* MemoryConfig;
-            const nsKey = `${config.namespace}:${key}`;
-            return store.get(nsKey);
-          }),
+  get = (key: string) =>
+    Effect.sync(() => {
+      const nsKey = `${this.config.namespace}:${key}`;
+      return this.store.get(nsKey);
+    });
 
-        delete: (key: string) =>
-          Effect.gen(function* () {
-            const config = yield* MemoryConfig;
-            const nsKey = `${config.namespace}:${key}`;
-            return store.delete(nsKey);
-          }),
+  delete = (key: string) =>
+    Effect.sync(() => {
+      const nsKey = `${this.config.namespace}:${key}`;
+      return this.store.delete(nsKey);
+    });
 
-        exists: (key: string) =>
-          Effect.gen(function* () {
-            const config = yield* MemoryConfig;
-            const nsKey = `${config.namespace}:${key}`;
-            return store.has(nsKey);
-          }),
+  exists = (key: string) =>
+    Effect.sync(() => {
+      const nsKey = `${this.config.namespace}:${key}`;
+      return this.store.has(nsKey);
+    });
 
-        clear: () => Effect.sync(() => store.clear()),
-      } satisfies MemoryClient;
-    },
-  }
-) {}
+  clear = () => Effect.sync(() => this.store.clear());
+}
 
-export const Default = Layer.succeed(
-  MemoryClientImpl,
-  new MemoryClientImpl()
+export const MemoryClientLiveTag = Context.GenericTag<MemoryClient>("MemoryClient");
+
+export const make = (config: MemoryConfig) => new MemoryClientLive(config);
+
+export const Default = Layer.effect(
+  MemoryClientLiveTag,
+  Effect.gen(function* () {
+    const config = yield* MemoryConfigTag;
+    return make(config);
+  })
 );

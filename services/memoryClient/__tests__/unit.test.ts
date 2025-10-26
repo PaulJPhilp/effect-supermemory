@@ -1,18 +1,17 @@
 import { describe, it, expect } from "vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { MemoryClientImpl, MemoryConfig, Default } from "../service.js";
+import { MemoryClientLiveTag, MemoryConfigTag, Default } from "../service.js";
 import type { MemoryConfig as MemoryConfigType } from "../types.js";
 
 describe("MemoryClient", () => {
-  const testLayer = Layer.merge(
-    Default,
-    Layer.succeed(MemoryConfig, { namespace: "test" } as MemoryConfigType)
+  const testLayer = Default.pipe(
+    Layer.provide(Layer.succeed(MemoryConfigTag, { namespace: "test" } as MemoryConfigType))
   );
 
   it("puts and gets a value", async () => {
     const program = Effect.gen(function* () {
-      const client = yield* MemoryClientImpl;
+      const client = yield* MemoryClientLiveTag;
       yield* client.put("key1", "value1");
       const result = yield* client.get("key1");
       expect(result).toBe("value1");
@@ -23,7 +22,7 @@ describe("MemoryClient", () => {
 
   it("returns undefined for missing key", async () => {
     const program = Effect.gen(function* () {
-      const client = yield* MemoryClientImpl;
+      const client = yield* MemoryClientLiveTag;
       const result = yield* client.get("missing");
       expect(result).toBeUndefined();
     });
@@ -33,7 +32,7 @@ describe("MemoryClient", () => {
 
   it("deletes a value (idempotent)", async () => {
     const program = Effect.gen(function* () {
-      const client = yield* MemoryClientImpl;
+      const client = yield* MemoryClientLiveTag;
       yield* client.put("key2", "value2");
 
       const deleted = yield* client.delete("key2");
@@ -51,7 +50,7 @@ describe("MemoryClient", () => {
 
   it("checks existence", async () => {
     const program = Effect.gen(function* () {
-      const client = yield* MemoryClientImpl;
+      const client = yield* MemoryClientLiveTag;
       yield* client.put("key3", "value3");
 
       const exists1 = yield* client.exists("key3");
@@ -66,7 +65,7 @@ describe("MemoryClient", () => {
 
   it("clears all values in namespace", async () => {
     const program = Effect.gen(function* () {
-      const client = yield* MemoryClientImpl;
+      const client = yield* MemoryClientLiveTag;
       yield* client.put("key4", "value4");
       yield* client.put("key5", "value5");
 
@@ -83,30 +82,33 @@ describe("MemoryClient", () => {
   });
 
   it("isolates namespaces", async () => {
-    const program = Effect.gen(function* () {
-      const client = yield* MemoryClientImpl;
+    // Test namespace 1
+    const program1 = Effect.gen(function* () {
+      const client = yield* MemoryClientLiveTag;
       yield* client.put("shared_key", "namespace1_value");
-
-      const ns2Layer = Layer.merge(
-        Default,
-        Layer.succeed(MemoryConfig, {
-          namespace: "namespace2",
-        } as MemoryConfigType)
-      );
-
-      const switchNamespace = Effect.gen(function* () {
-        const client2 = yield* MemoryClientImpl;
-        const result = yield* client2.get("shared_key");
-        expect(result).toBeUndefined();
-
-        yield* client2.put("shared_key", "namespace2_value");
-        const result2 = yield* client2.get("shared_key");
-        expect(result2).toBe("namespace2_value");
-      });
-
-      await Effect.runPromise(switchNamespace.pipe(Effect.provide(ns2Layer)));
+      const result = yield* client.get("shared_key");
+      expect(result).toBe("namespace1_value");
     });
 
-    await Effect.runPromise(program.pipe(Effect.provide(testLayer)));
+    await Effect.runPromise(program1.pipe(Effect.provide(testLayer)));
+
+    // Test namespace 2 (different layer)
+    const ns2Layer = Default.pipe(
+      Layer.provide(Layer.succeed(MemoryConfigTag, {
+        namespace: "namespace2",
+      } as MemoryConfigType))
+    );
+
+    const program2 = Effect.gen(function* () {
+      const client2 = yield* MemoryClientLiveTag;
+      const result = yield* client2.get("shared_key");
+      expect(result).toBeUndefined();
+
+      yield* client2.put("shared_key", "namespace2_value");
+      const result2 = yield* client2.get("shared_key");
+      expect(result2).toBe("namespace2_value");
+    });
+
+    await Effect.runPromise(program2.pipe(Effect.provide(ns2Layer)));
   });
 });
