@@ -14,11 +14,18 @@ pnpm test
 
 ```
 services/
-  └── memoryClient/         # MemoryClient service (Effect.Service)
+  ├── memoryClient/         # MemoryClient service (Effect.Service)
+  │   ├── __tests__/        # unit.test.ts
+  │   ├── api.ts            # Interface contract
+  │   ├── errors.ts         # Discriminated error types
+  │   ├── types.ts          # Data types
+  │   ├── service.ts        # Effect.Service implementation + Default layer
+  │   └── index.ts          # Public exports
+  └── httpClient/           # HttpClient service (Effect.Service)
       ├── __tests__/        # unit.test.ts
       ├── api.ts            # Interface contract
       ├── errors.ts         # Discriminated error types
-      ├── types.ts          # Data types
+      ├── types.ts          # Configuration types
       ├── service.ts        # Effect.Service implementation + Default layer
       └── index.ts          # Public exports
 docs/
