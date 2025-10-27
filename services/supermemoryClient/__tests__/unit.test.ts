@@ -5,10 +5,10 @@ import * as Cause from "effect/Cause";
 import * as Option from "effect/Option";
 import { HttpClientImpl } from "../../httpClient/service.js"; // Dependency to mock
 import { HttpClientError, HttpError, NetworkError, AuthorizationError as HttpClientAuthorizationError, TooManyRequestsError } from "../../httpClient/errors.js";
-import { SupermemoryClientImpl } from "../service.js";
+import { SupermemoryClientImpl, supermemoryClientEffect, SupermemoryClientConfig } from "../service.js";
 import { SupermemoryClientConfigType } from "../types.js";
 import { MemoryClient } from "../../memoryClient/api.js"; // Import MemoryClient interface for type checking
-import { MemoryValidationError, MemoryNotFoundError } from "../../memoryClient/errors.js"; // Expected error types
+import { MemoryValidationError, MemoryNotFoundError, MemoryBatchPartialFailure } from "../../memoryClient/errors.js"; // Expected error types
 import { SupermemoryClient } from "../api.js";
 import * as Utils from "../utils.js";
 
