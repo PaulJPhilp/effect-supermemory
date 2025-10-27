@@ -62,9 +62,59 @@ export const supermemoryClientEffect = Effect.gen(function* () {
         })
       );
     }
-  };
+    };
 
-  return {
+    // Helper to process batch responses and generate MemoryBatchPartialFailure
+      const processBatchResponse = (
+        response: SupermemoryBatchResponse,
+        originalKeys: ReadonlyArray<string>
+      ): Effect.Effect<void, MemoryBatchPartialFailure> => {
+        const failures: { key: string; error: MemoryError }[] = [];
+        let successes = 0;
+
+        const allBackendIds = new Set(response.results.map(item => item.id));
+        const backendErrorMap = new Map<string, SupermemoryBatchResponseItem>();
+        response.results.forEach(item => {
+          if (item.status >= 400 || item.error) { // Item-specific failure
+            backendErrorMap.set(item.id, item);
+          } else {
+            successes++;
+          }
+        });
+
+        // Check for items that were requested but not in response (e.g., backend dropped them or never processed)
+        originalKeys.forEach(key => {
+            if (!allBackendIds.has(key)) {
+                failures.push({ key, error: new MemoryValidationError({ message: `Item ${key} not processed by backend.`}) });
+            }
+        });
+
+        // Translate specific backend item errors
+        backendErrorMap.forEach((item, id) => {
+          let error: MemoryError;
+          if (item.status === 404) {
+            error = new MemoryError.MemoryNotFoundError({ key: id });
+          } else if (item.status === 401 || item.status === 403) {
+            error = new MemoryValidationError({ message: `Authorization failed for item ${id}: ${item.error || 'Unknown'}` });
+          } else if (item.status === 400) {
+            error = new MemoryValidationError({ message: `Bad request for item ${id}: ${item.error || 'Unknown'}` });
+          } else {
+            error = new MemoryValidationError({ message: `Item ${id} failed with status ${item.status}: ${item.error || 'Unknown'}` });
+          }
+          failures.push({ key: id, error });
+        });
+
+        if (failures.length > 0) {
+          return Effect.fail(new MemoryBatchPartialFailure({
+            successes,
+            correlationId: response.correlationId,
+            failures: Chunk.fromIterable(failures),
+          }));
+        }
+        return Effect.void;
+      };
+
+      return {
     put: (key, value) =>
       makeRequestWithRetries<SupermemoryApiMemory>(
         `/api/v1/memories`,
@@ -108,14 +158,79 @@ export const supermemoryClientEffect = Effect.gen(function* () {
       ),
 
     clear: () =>
-      makeRequestWithRetries<void>(
-        `/api/v1/memories`,
-        {
-          method: "DELETE",
-          queryParams: { namespace: namespace },
-        }
-      ).pipe(Effect.asVoid),
-  } satisfies SupermemoryClient;
+    makeRequestWithRetries<void>(
+    `/api/v1/memories`,
+    {
+    method: "DELETE",
+    queryParams: { namespace: namespace },
+    }
+    ).pipe(Effect.asVoid),
+
+        // New Batch Operations
+        putMany: (items) =>
+          makeRequestWithRetries<SupermemoryBatchResponse>(
+            `/api/v1/memories/batch`,
+            {
+              method: "POST",
+              body: items.map(item => ({
+                id: item.key,
+                value: Utils.toBase64(item.value),
+                namespace: namespace,
+              })),
+            }
+          ).pipe(
+            Effect.flatMap((response) => processBatchResponse(response.body, items.map(i => i.key))),
+          ),
+
+        deleteMany: (keys) =>
+          makeRequestWithRetries<SupermemoryBatchResponse>(
+            `/api/v1/memories/batch`,
+            {
+              method: "DELETE",
+              body: keys.map(key => ({ id: key, namespace: namespace })),
+            }
+          ).pipe(
+            Effect.flatMap((response) => processBatchResponse(response.body, keys)),
+          ),
+
+        getMany: (keys) =>
+          makeRequestWithRetries<SupermemoryBatchResponse>(
+            `/api/v1/memories/batchGet`,
+            {
+              method: "POST", // Often GET with body isn't well supported, so POST is common for batchGet
+              body: keys.map(key => ({ id: key, namespace: namespace })),
+            }
+          ).pipe(
+            Effect.flatMap((response) => {
+              const resultMap = new Map<string, string | undefined>();
+              const originalKeysSet = new Set(keys); // Track keys we were asked for
+
+              response.body.results.forEach(item => {
+                if (item.status === 200 && item.value !== undefined) {
+                  resultMap.set(item.id, Utils.fromBase64(item.value));
+                  originalKeysSet.delete(item.id); // Mark as processed
+                } else if (item.status === 404) {
+                  resultMap.set(item.id, undefined); // Explicitly undefined for 404
+                  originalKeysSet.delete(item.id); // Mark as processed
+                }
+              });
+
+              // Process failures (includes items not found that are not 404 explicitly reported by backend)
+              return processBatchResponse(response.body, keys).pipe(
+                Effect.map(() => {
+                  // For any keys asked for but not in response or not handled by explicit 404,
+                  // assume they are undefined.
+                  originalKeysSet.forEach(key => {
+                    if (!resultMap.has(key)) {
+                      resultMap.set(key, undefined);
+                    }
+                  });
+                  return resultMap;
+                })
+              );
+            }),
+          ),
+      } satisfies SupermemoryClient;
 });
 
 export class SupermemoryClientImpl extends Effect.Service<SupermemoryClientImpl>()(

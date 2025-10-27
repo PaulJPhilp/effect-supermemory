@@ -378,4 +378,172 @@ describe("SupermemoryClientImpl", () => {
       }
     }
   });
+
+  // --- New Batch Tests ---
+
+  it("putMany sends a POST request with multiple items and succeeds", async () => {
+    mockHttpClient.request.mockReturnValueOnce(
+      Effect.succeed({
+        status: 200,
+        headers: new Headers(),
+        body: {
+          results: [
+            { id: "key1", status: 201 },
+            { id: "key2", status: 201 },
+          ],
+        },
+      })
+    );
+
+    const items = [{ key: "key1", value: "value1" }, { key: "key2", value: "value2" }];
+    const program = Effect.gen(function* () {
+      const client = yield* SupermemoryClientImpl;
+      return yield* client.putMany(items);
+    }).pipe(createSupermemoryClientLayer());
+
+    await Effect.runPromise(program);
+
+    expect(mockHttpClient.request).toHaveBeenCalledWith(
+      "/api/v1/memories/batch",
+      expect.objectContaining({
+        method: "POST",
+        body: items.map(item => ({ id: item.key, value: Utils.toBase64(item.value), namespace: baseConfig.namespace })),
+      })
+    );
+  });
+
+  it("putMany returns MemoryBatchPartialFailure for mixed success/failure", async () => {
+    mockHttpClient.request.mockReturnValueOnce(
+      Effect.succeed({
+        status: 200,
+        headers: new Headers(),
+        body: {
+          correlationId: "batch-123",
+          results: [
+            { id: "key1", status: 201 },
+            { id: "key2", status: 404, error: "Not Found" },
+            { id: "key3", status: 400, error: "Invalid Value" },
+          ],
+        },
+      })
+    );
+
+    const items = [{ key: "key1", value: "value1" }, { key: "key2", value: "value2" }, { key: "key3", value: "value3" }];
+    const program = Effect.gen(function* () {
+      const client = yield* SupermemoryClientImpl;
+      return yield* client.putMany(items);
+    }).pipe(createSupermemoryClientLayer());
+
+    const result = await Effect.runPromiseExit(program);
+
+    expect(result._tag).toBe("Failure");
+    if (result._tag === "Failure") {
+      const error = Cause.failureOption(result.cause);
+      expect(Option.isSome(error)).toBe(true);
+      if (Option.isSome(error)) {
+        expect(error.value).toBeInstanceOf(MemoryBatchPartialFailure);
+        expect(error.value.successes).toBe(1);
+        expect(error.value.correlationId).toBe("batch-123");
+        expect(error.value.failures).toHaveLength(2);
+        expect(error.value.failures[0].key).toBe("key2");
+        expect(error.value.failures[0].error).toBeInstanceOf(MemoryNotFoundError);
+        expect(error.value.failures[1].key).toBe("key3");
+        expect(error.value.failures[1].error).toBeInstanceOf(MemoryValidationError);
+      }
+    }
+  });
+
+  it("deleteMany sends a DELETE request with multiple keys and succeeds", async () => {
+    mockHttpClient.request.mockReturnValueOnce(
+      Effect.succeed({
+        status: 200,
+        headers: new Headers(),
+        body: {
+          results: [
+            { id: "key1", status: 204 },
+            { id: "key2", status: 204 },
+          ],
+        },
+      })
+    );
+
+    const keys = ["key1", "key2"];
+    const program = Effect.gen(function* () {
+      const client = yield* SupermemoryClientImpl;
+      return yield* client.deleteMany(keys);
+    }).pipe(createSupermemoryClientLayer());
+
+    await Effect.runPromise(program);
+
+    expect(mockHttpClient.request).toHaveBeenCalledWith(
+      "/api/v1/memories/batch",
+      expect.objectContaining({
+        method: "DELETE",
+        body: keys.map(key => ({ id: key, namespace: baseConfig.namespace })),
+      })
+    );
+  });
+
+  it("getMany sends a POST request with multiple keys and returns map", async () => {
+    mockHttpClient.request.mockReturnValueOnce(
+      Effect.succeed({
+        status: 200,
+        headers: new Headers(),
+        body: {
+          results: [
+            { id: "key1", status: 200, value: Utils.toBase64("val1") },
+            { id: "key2", status: 404 }, // Not found
+            { id: "key3", status: 200, value: Utils.toBase64("val3") },
+          ],
+        },
+      })
+    );
+
+    const keys = ["key1", "key2", "key3", "key4_not_in_backend_response"];
+    const program = Effect.gen(function* () {
+      const client = yield* SupermemoryClientImpl;
+      return yield* client.getMany(keys);
+    }).pipe(createSupermemoryClientLayer());
+
+    const result = await Effect.runPromise(program);
+
+    expect(mockHttpClient.request).toHaveBeenCalledWith(
+      "/api/v1/memories/batchGet",
+      expect.objectContaining({
+        method: "POST",
+        body: keys.map(key => ({ id: key, namespace: baseConfig.namespace })),
+      })
+    );
+    expect(result.get("key1")).toBe("val1");
+    expect(result.get("key2")).toBeUndefined();
+    expect(result.get("key3")).toBe("val3");
+    expect(result.get("key4_not_in_backend_response")).toBeUndefined(); // Key not in backend response
+  });
+
+  it("getMany returns MemoryBatchPartialFailure for overall backend error", async () => {
+    mockHttpClient.request.mockReturnValueOnce(
+      Effect.succeed({
+        status: 500, // Overall batch failure
+        headers: new Headers(),
+        body: { error: "Internal Server Error" },
+      })
+    );
+
+    const keys = ["key1", "key2"];
+    const program = Effect.gen(function* () {
+      const client = yield* SupermemoryClientImpl;
+      return yield* client.getMany(keys);
+    }).pipe(createSupermemoryClientLayer());
+
+    const result = await Effect.runPromiseExit(program);
+
+    expect(result._tag).toBe("Failure");
+    if (result._tag === "Failure") {
+      const error = Cause.failureOption(result.cause);
+      expect(Option.isSome(error)).toBe(true);
+      if (error.pipe(Effect.Option.isSome)) {
+        expect(error.value).toBeInstanceOf(MemoryValidationError); // From generic HTTP error
+      }
+    }
+  });
 });

@@ -1,5 +1,6 @@
 import * as Effect from "effect/Effect";
-import { HttpClientError } from "./errors.js";
+import * as Stream from "effect/Stream"; // Import Stream for requestStream return type
+import { HttpClientError, HttpRequestOptions } from "./errors.js";
 
 // Basic HTTP request options
 export interface HttpRequestOptions {
@@ -27,4 +28,14 @@ export interface HttpClient {
     path: string,
     options: HttpRequestOptions
   ) => Effect.Effect<HttpResponse<T>, HttpClientError>;
+
+  /**
+   * Sends an HTTP request and returns the response body as a Stream of Uint8Array chunks.
+   * This is suitable for large responses that should be processed incrementally.
+   * The stream ensures proper resource acquisition and release of the underlying HTTP connection.
+   */
+  readonly requestStream: (
+    path: string,
+    options: HttpRequestOptions
+  ) => Effect.Effect<Stream.Stream<Uint8Array, HttpClientError>, HttpClientError>;
 }

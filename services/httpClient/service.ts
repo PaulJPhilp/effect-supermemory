@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Context from "effect/Context";
+import * as Stream from "effect/Stream"; // Import Stream
 import { HttpClient, HttpRequestOptions, HttpResponse } from "./api.js";
 import { HttpClientConfigType } from "./types.js";
 import * as Errors from "./errors.js";
@@ -129,6 +129,99 @@ export class HttpClientImpl extends Effect.Service<HttpClientImpl>()(
               return Effect.succeed(result as HttpResponse<T>);
             }
           })),
+
+        requestStream: (
+          path: string,
+          options: HttpRequestOptions
+        ): Effect.Effect<Stream.Stream<Uint8Array, Errors.HttpClientError>, Errors.HttpClientError> =>
+          Effect.acquireRelease({
+            acquire: Effect.tryPromise({
+              try: async (signal) => {
+                const url = new URL(path, baseUrl);
+                if (options.queryParams) {
+                  Object.entries(options.queryParams).forEach(([key, value]) => {
+                    url.searchParams.append(key, value);
+                  });
+                }
+
+                const requestHeaders = { ...defaultHeaders, ...options.headers };
+
+                const bodyContent =
+                  typeof options.body === "object" && options.body !== null
+                    ? JSON.stringify(options.body)
+                    : options.body?.toString();
+
+                const response = await effectiveFetch(url.toString(), {
+                  method: options.method,
+                  headers: bodyContent
+                    ? { "Content-Type": "application/json", ...requestHeaders }
+                    : requestHeaders,
+                  body: bodyContent,
+                  signal, // Pass signal to fetch
+                });
+
+                if (!response.ok) {
+                  // Initial response not OK, fail stream creation
+                  let errorBody: unknown = null;
+                  try {
+                    const contentType = response.headers.get("Content-Type");
+                    if (contentType?.includes("application/json")) {
+                      errorBody = await response.json();
+                    } else if (contentType?.includes("text/")) {
+                      errorBody = await response.text();
+                    }
+                  } catch (e) {
+                    // Failed to parse error body, ignore
+                  }
+
+                  if (response.status === 401 || response.status === 403) {
+                    throw new Errors.AuthorizationError({ reason: `Unauthorized: ${response.statusText}`, url: url.toString(), body: errorBody });
+                  }
+                  if (response.status === 429) {
+                    const retryAfter = response.headers.get("Retry-After");
+                    throw new Errors.TooManyRequestsError({ retryAfterSeconds: retryAfter ? parseInt(retryAfter, 10) : undefined, url: url.toString(), body: errorBody });
+                  }
+                  throw new Errors.HttpError({ status: response.status, message: response.statusText, url: url.toString(), body: errorBody });
+                }
+
+                if (!response.body) {
+                  return Stream.empty; // No body to stream
+                }
+
+                const reader = response.body.getReader();
+
+                // Stream from reader, ensuring cancellation propagates
+                const readChunk: Effect.Effect<ReadonlyArray<Uint8Array>, Errors.HttpClientError, never> = Effect.tryPromise({
+                  try: async () => {
+                    const { value, done } = await reader.read();
+                    if (done) return [];
+                    return [value];
+                  },
+                  catch: (e) => new Errors.NetworkError({ cause: e instanceof Error ? e : new Error(String(e)), url: url.toString() }),
+                });
+
+                return Stream.repeatEffectOption(readChunk).pipe(
+                  Stream.flattenChunks,
+                  Stream.filter((chunk) => chunk.length > 0) // Ensure only non-empty chunks
+                );
+              },
+              catch: (error: unknown) => {
+                if (error instanceof Errors.HttpClientError) return error; // Already an HttpClientError
+                if (error instanceof Error && error.name === "AbortError") {
+                  return new Errors.NetworkError({ cause: new Error("Request timed out or aborted"), url: new URL(path, baseUrl).toString() });
+                }
+                return new Errors.NetworkError({ cause: error instanceof Error ? error : new Error(String(error)), url: new URL(path, baseUrl).toString() });
+              },
+              abort: (cause) => Effect.sync(() => {
+                if (cause._tag === "Interrupt") {
+                  // If the Effect Stream is interrupted, cancel the underlying fetch request
+                  // The AbortController signal (passed to fetch) should handle this.
+                  // No direct reader.cancel() needed as fetch's signal will manage.
+                  // If it were a websocket or direct TCP connection, a reader.cancel() might be here.
+                }
+              })
+            })
+          }),
       } satisfies HttpClient;
     }),
   }

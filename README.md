@@ -175,6 +175,80 @@ The client adheres to the following retry policy:
 -   **`delayMs`:** Use a reasonable fixed delay (e.g., 100-500ms for fast backends, 1-2s for slower ones). Exponential backoff with jitter can be implemented in future versions if needed.
 -   Retries add latency. Choose `attempts` and `delayMs` carefully to balance reliability with responsiveness.
 
+### Batch Operations
+
+The `MemoryClient` now supports batch `put`, `get`, and `delete` operations, allowing multiple memory interactions in a single HTTP request for efficiency.
+
+**Methods:**
+
+-   `putMany(items: { key: string; value: string }[]): Effect<void, MemoryError | MemoryBatchError>`
+-   `deleteMany(keys: string[]): Effect<void, MemoryError | MemoryBatchError>`
+-   `getMany(keys: string[]): Effect<ReadonlyMap<string, string | undefined>, MemoryError | MemoryBatchError>`
+
+**Partial Failure Handling:**
+
+-   Batch operations utilize `MemoryBatchPartialFailure` error for reporting mixed success and failure states. This error includes:
+    -   `successes`: Count of successfully processed items.
+    -   `correlationId?`: Optional ID for backend tracing.
+    -   `failures`: An array detailing each failed item's `key` and specific `MemoryError`.
+-   If all items succeed, the Effect returns `void` (for `putMany`/`deleteMany`) or `ReadonlyMap` (for `getMany`).
+
+**Configuration and Limits:**
+
+-   Batch operations inherit `SupermemoryClient`'s construction-time configuration (namespace, apiKey, retries).
+-   Recommended maximum payload size: 1-5 MB.
+-   Soft limit on items per batch: ~1,000 keys/items.
+-   If a batch exceeds backend limits, it will likely result in a `MemoryValidationError`. The library does not currently perform client-side batch splitting (a future enhancement).
+
+### Streaming Operations
+
+The new `MemoryStreamClient` provides `Effect.Stream`-based methods for efficiently retrieving large sets of data, avoiding memory pressure.
+
+**Methods:**
+
+-   `listAllKeys(): Stream<string, MemoryError | StreamError>`: Streams all keys in the configured namespace.
+-   `streamSearch(query: string, options?: SearchOptions): Stream<SearchResult, SearchError | StreamError>`: Streams search results.
+
+**Usage Example:**
+
+```ts
+import * as Effect from "effect/Effect";
+import * as Stream from "effect/Stream";
+import { SupermemoryClientImpl, MemoryStreamClientImpl } from "effect-supermemory";
+
+// Configure clients with shared config
+const commonConfig = {
+  namespace: "my-streaming-app",
+  baseUrl: "https://api.supermemory.dev",
+  apiKey: "sk-YOUR_API_KEY",
+};
+
+const streamingLayer = MemoryStreamClientImpl.Default(commonConfig).pipe(
+  Effect.provide(SupermemoryClientImpl.Default(commonConfig)) // Provide HttpClient dependency via SupermemoryClient's layer
+);
+
+const streamKeysAndLog = Effect.gen(function* () {
+  const streamClient = yield* MemoryStreamClientImpl;
+  yield* streamClient.listAllKeys().pipe(
+    Stream.tap((key) => Effect.log(`Streamed key: ${key}`)),
+    Stream.runDrain // Consume the stream
+  );
+}).pipe(Effect.provide(streamingLayer));
+
+Effect.runPromise(streamKeysAndLog).then(() => console.log("Key streaming finished."));
+```
+
+**Content Framing:**
+
+-   Streaming endpoints are expected to return data in **NDJSON (Newline-Delimited JSON)** or **JSONL (JSON Lines)** format. Each line must be a complete JSON object.
+-   The library handles incremental parsing of these formats.
+
+**Error Handling and Cancellation:**
+
+-   Streams fail immediately on initial HTTP errors (e.g., 401/403).
+-   Mid-stream network errors or JSON parsing errors will terminate the stream with a `StreamReadError` or `JsonParsingError` (translated to `StreamReadError`).
+-   Cancellation of the consuming stream (e.g., `Stream.take(N)`) correctly propagates to cancel the underlying HTTP request, ensuring proper resource release.
+
 ### Configuration
 
 Memories are isolated by `namespace` via `MemoryConfig` Layer.
@@ -192,9 +266,9 @@ const layer = Layer.merge(
 ## Roadmap
 
 - **0.1.0** ✓ Bootstrap: MemoryClient service, in-memory adapter, unit tests
-- **0.2.0** HTTP client (Supermemory SDK integration)
-- **0.3.0** Search/reranking, semantic filtering
-- **0.4.0** Batch operations, streaming
+- **0.2.0** ✓ HTTP client (Supermemory SDK integration)
+- **0.3.0** ✓ Search/reranking, semantic filtering
+- **0.4.0** ✓ Batch operations, streaming
 
 ## License
 

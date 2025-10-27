@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Stream from "effect/Stream";
+import * as Chunk from "effect/Chunk";
 import * as Cause from "effect/Cause";
 import * as Option from "effect/Option";
 import { HttpClientImpl } from "../service.js";
@@ -197,5 +199,106 @@ describe("HttpClientImpl", () => {
     await Effect.runPromise(program);
 
     expect(mockFetch).toHaveBeenCalledWith("https://api.supermemory.dev/search?q=test&limit=10", expect.any(Object));
+  });
+});
+
+describe("HttpClientImpl Streaming", () => {
+  it("requestStream successfully streams text chunks", async () => {
+    const mockBody = createMockReadableStream(["hello", "world"]);
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: new Headers({ "Content-Type": "text/plain" }),
+      body: mockBody,
+    });
+
+    const program = Effect.gen(function* () {
+      const client = yield* HttpClientImpl;
+      const stream = yield* client.requestStream("/stream", { method: "GET" });
+      return yield* Stream.runCollect(stream).pipe(Stream.decodeText()); // Collect and decode text
+    }).pipe(Effect.provide(createTestHttpClientLayer()));
+
+    const result = await Effect.runPromise(program);
+    expect(result).toEqual(Chunk.fromIterable(["hello", "world"]));
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("requestStream handles initial 404 HttpError", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      statusText: "Not Found",
+      headers: new Headers(),
+      body: createMockReadableStream([]), // Empty body for error
+    });
+
+    const program = Effect.gen(function* () {
+      const client = yield* HttpClientImpl;
+      return yield* client.requestStream("/stream-404", { method: "GET" });
+    }).pipe(Effect.provide(createTestHttpClientLayer()));
+
+    const result = await Effect.runPromiseExit(program);
+
+    expect(result._tag).toBe("Failure");
+    if (result._tag === "Failure") {
+      const error = Cause.failureOption(result.cause);
+      expect(Option.isSome(error)).toBe(true);
+      if (Option.isSome(error)) {
+        expect(error.value).toBeInstanceOf(HttpError);
+        expect(error.value).toMatchObject({ status: 404 });
+      }
+    }
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("requestStream propagates NetworkError from underlying fetch", async () => {
+    mockFetch.mockRejectedValueOnce(new TypeError("Failed to connect"));
+
+    const program = Effect.gen(function* () {
+      const client = yield* HttpClientImpl;
+      return yield* client.requestStream("/stream-network-fail", { method: "GET" });
+    }).pipe(Effect.provide(createTestHttpClientLayer()));
+
+    const result = await Effect.runPromiseExit(program);
+
+    expect(result._tag).toBe("Failure");
+    if (result._tag === "Failure") {
+      const error = Cause.failureOption(result.cause);
+      expect(Option.isSome(error)).toBe(true);
+      if (Option.isSome(error)) {
+        expect(error.value).toBeInstanceOf(NetworkError);
+        expect((error.value as NetworkError).cause).toBeInstanceOf(TypeError);
+      }
+    }
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("requestStream cancels underlying reader on stream interruption", async () => {
+    const mockReader = {
+      read: vi.fn(() => Promise.resolve({ value: new TextEncoder().encode("data"), done: false })),
+      releaseLock: vi.fn(),
+      cancel: vi.fn(() => Promise.resolve()), // Mock the cancel method
+    };
+    const mockBody = { getReader: () => mockReader };
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: new Headers({ "Content-Type": "text/plain" }),
+      body: mockBody,
+    });
+
+    const program = Effect.gen(function* () {
+      const client = yield* HttpClientImpl;
+      const stream = yield* client.requestStream("/interrupt", { method: "GET" });
+      // Take only one element, then the stream should be interrupted
+      return yield* stream.pipe(Stream.take(1), Stream.runCollect);
+    }).pipe(Effect.provide(createTestHttpClientLayer()));
+
+    await Effect.runPromise(program);
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(mockReader.read).toHaveBeenCalledTimes(1); // Only one read for take(1)
+    expect(mockReader.cancel).toHaveBeenCalledTimes(1); // Underlying reader should be cancelled
   });
 });
