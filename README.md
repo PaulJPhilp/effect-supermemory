@@ -127,6 +127,54 @@ Effect.runPromise(myProgram).then(() => console.log("Program finished."));
 
 **Assumption for `clear()`:** This method assumes the Supermemory backend provides a `DELETE /api/v1/memories?namespace=:namespace` bulk endpoint. If the actual backend API deviates, this will need to be addressed via an ADR.
 
+### Retries
+
+The `SupermemoryClient` supports optional, configurable retries for transient HTTP errors. This improves reliability for operations susceptible to temporary network issues or backend unavailability.
+
+**Configuration:**
+
+Retries are enabled and configured at the `SupermemoryClientImpl.Default` layer construction time, as part of the `SupermemoryClientConfigType`.
+
+```ts
+import { SupermemoryClientImpl } from "effect-supermemory";
+
+const resilientClientLayer = SupermemoryClientImpl.Default({
+  namespace: "my-resilient-app",
+  baseUrl: "https://api.supermemory.dev",
+  apiKey: "sk-YOUR_API_KEY",
+  retries: {
+    attempts: 3,   // Total attempts including the first one (so 2 retries)
+    delayMs: 2000  // 2-second fixed delay between retries
+  }
+});
+
+// Use resilientClientLayer when providing the SupermemoryClient to your program
+```
+
+**Retry Policy:**
+
+The client adheres to the following retry policy:
+
+-   **Retried Errors:**
+    -   Network-level errors (e.g., connection refused, timeouts).
+    -   HTTP 5xx server errors (e.g., 500 Internal Server Error, 503 Service Unavailable).
+    -   HTTP 429 Too Many Requests (if encountered).
+-   **Fail-Fast Errors (No Retries):**
+    -   HTTP 4xx client errors (e.g., 400 Bad Request, 402 Payment Required), *except* 429.
+    -   HTTP 401 Unauthorized and 403 Forbidden.
+-   **Special Case Handling (No Retries):**
+    -   **404 Not Found:**
+        -   For `get(key)`: returns `undefined` immediately.
+        -   For `delete(key)`: returns `true` immediately (idempotent).
+        -   For `exists(key)`: returns `false` immediately.
+    -   In all these special 404 cases, no retries will be attempted, ensuring prompt and expected behavior.
+
+**Guidance:**
+
+-   **`attempts`:** Start with 2-3 attempts (1 initial call + 1-2 retries) for most cases.
+-   **`delayMs`:** Use a reasonable fixed delay (e.g., 100-500ms for fast backends, 1-2s for slower ones). Exponential backoff with jitter can be implemented in future versions if needed.
+-   Retries add latency. Choose `attempts` and `delayMs` carefully to balance reliability with responsiveness.
+
 ### Configuration
 
 Memories are isolated by `namespace` via `MemoryConfig` Layer.

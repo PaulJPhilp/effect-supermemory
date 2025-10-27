@@ -7,7 +7,7 @@
     "sourceMap": true,
     "inlineSources": true,
     "noEmit": false,
-    "types": [],
+    "types": ["node"],
     "lib": ["ES2022", "DOM", "DOM.Iterable"]
   },
   "include": ["src", "services"],

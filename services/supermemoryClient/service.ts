@@ -1,85 +1,118 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Context from "effect/Context";
-import { HttpClientImpl } from "../../httpClient/service.js"; // Import HttpClient service
+import * as Schedule from "effect/Schedule"; // Import Schedule for retries
+import * as Duration from "effect/Duration";
+import { HttpClientImpl } from "../httpClient/service.js";
 import { SupermemoryClient } from "./api.js";
-import { SupermemoryClientConfigType, SupermemoryApiMemory, SupermemoryId } from "./types.js";
+import { SupermemoryClientConfigType, SupermemoryApiMemory, SupermemoryId, RetryScheduleConfig } from "./types.js"; // Import RetryScheduleConfig
 import * as Utils from "./utils.js";
 import * as SupermemoryErrors from "./errors.js";
-import { HttpClientError, HttpError, HttpRequestOptions } from "../../httpClient/api.js"; // Import specific HttpClientErrors
+import { MemoryNotFoundError } from "./errors.js";
+import { HttpClientError, HttpError, NetworkError, AuthorizationError as HttpClientAuthorizationError, TooManyRequestsError } from "../httpClient/errors.js";
+import { HttpRequestOptions } from "../httpClient/api.js";
 
-export class SupermemoryClientConfig extends Context.Tag("SupermemoryClientConfig")<SupermemoryClientConfigType>() {}
+export const SupermemoryClientConfig = Context.Tag<SupermemoryClientConfigType>("SupermemoryClientConfig")
+
+// Helper function to determine if an HttpClientError should trigger a retry
+const shouldRetryHttpClientError = (error: HttpClientError): boolean => {
+  // Retry on Network errors, 5xx responses, and 429 Too Many Requests
+  if (error._tag === "NetworkError") return true;
+  if (error._tag === "HttpError" && error.status >= 500 && error.status <= 599) return true;
+  if (error._tag === "TooManyRequestsError") return true;
+  return false;
+};
 
 export const supermemoryClientEffect = Effect.gen(function* () {
   const config = yield* SupermemoryClientConfig;
+  const { namespace, baseUrl, apiKey, timeoutMs, retries } = config;
   const httpClient = yield* HttpClientImpl;
 
-  // Helper for common request logic and error translation
-  const makeRequest = <T = unknown>(
+  // Create a Schedule if retries are configured
+  const retrySchedule: Schedule.Schedule<unknown, HttpClientError> | undefined = retries
+    ? Schedule.addDelay(Schedule.recurs(retries.attempts - 1), () => Duration.millis(retries.delayMs))
+    : undefined;
+
+  // Helper for common request logic with retry policy
+  const makeRequestWithRetries = <T = unknown>(
     path: string,
-    options: HttpRequestOptions,
-    keyFor404Translation?: string // Optional key for potential error translation
-  ) =>
-    httpClient
-      .request<T>(path, options)
-      .pipe(
+    options: Omit<HttpRequestOptions, "headers">,
+    keyFor404Translation?: string
+  ) => {
+    const baseRequest = httpClient.request<T>(path, options);
+
+    // Apply retry logic if retrySchedule is defined
+    if (retrySchedule) {
+      return baseRequest.pipe(
+        Effect.retry(retrySchedule), // Apply the schedule
+        Effect.catchIf(shouldRetryHttpClientError, (error) => {
+          // If retries are exhausted and it's a retryable error, re-fail with translated error
+          return Effect.fail(SupermemoryErrors.translateHttpClientError(error, keyFor404Translation));
+        }),
         Effect.mapError((error) => {
-          // Specific 404 handling that returns 'undefined' for GET/EXISTS
-          // or 'true' for DELETE are handled *outside* this generic error translation
+          // Handle non-retryable errors or final translated errors
           return SupermemoryErrors.translateHttpClientError(error, keyFor404Translation);
         })
       );
+    } else {
+      // No retries configured, proceed with base request and direct error translation
+      return baseRequest.pipe(
+        Effect.mapError((error) => {
+          return SupermemoryErrors.translateHttpClientError(error, keyFor404Translation);
+        })
+      );
+    }
+  };
 
   return {
     put: (key, value) =>
-      makeRequest<SupermemoryApiMemory>(
-        `/api/v1/memories`, // POST for creating a new memory
+      makeRequestWithRetries<SupermemoryApiMemory>(
+        `/api/v1/memories`,
         {
           method: "POST",
           body: {
-            id: key, // Assuming key is used as ID on backend
+            id: key,
             value: Utils.toBase64(value),
-            namespace: config.namespace,
-            // metadata could be passed if MemoryClient interface supported it
+            namespace: namespace,
           },
         }
-      ).pipe(Effect.asVoid), // `put` returns void
+      ).pipe(Effect.asVoid),
 
     get: (key) =>
-      makeRequest<SupermemoryApiMemory>(
-        `/api/v1/memories/${key}`,
-        { method: "GET" },
-        key // Pass key for potential error translation
-      ).pipe(
-        Effect.map((response) => Utils.fromBase64(response.body.value)),
-        Effect.catchIf((error) => error instanceof HttpError && error.status === 404, () => Effect.succeed(undefined))
-      ),
-
-    delete: (key) =>
-      makeRequest<void>(
-        `/api/v1/memories/${key}`,
-        { method: "DELETE" }
-      ).pipe(
-        Effect.map(() => true), // Successful delete returns true
-        Effect.catchIf((error) => error instanceof HttpError && error.status === 404, () => Effect.succeed(true)) // 404 on delete is also success (idempotent)
-      ),
-
-    exists: (key) =>
-      makeRequest<SupermemoryApiMemory>(
+      makeRequestWithRetries<SupermemoryApiMemory>(
         `/api/v1/memories/${key}`,
         { method: "GET" },
         key
       ).pipe(
-        Effect.map(() => true), // If request succeeds, memory exists
-        Effect.catchIf((error) => error instanceof HttpError && error.status === 404, () => Effect.succeed(false)) // 404 means it doesn't exist
+        Effect.map((response) => Utils.fromBase64(response.body.value)),
+        Effect.catchIf((error) => error instanceof MemoryNotFoundError, () => Effect.succeed(undefined))
+      ),
+
+    delete: (key) =>
+      makeRequestWithRetries<void>(
+        `/api/v1/memories/${key}`,
+        { method: "DELETE" }
+      ).pipe(
+        Effect.map(() => true),
+        Effect.catchIf((error) => error instanceof MemoryNotFoundError, () => Effect.succeed(true))
+      ),
+
+    exists: (key) =>
+      makeRequestWithRetries<SupermemoryApiMemory>(
+        `/api/v1/memories/${key}`,
+        { method: "GET" },
+        key
+      ).pipe(
+        Effect.map(() => true),
+        Effect.catchIf((error) => error instanceof MemoryNotFoundError, () => Effect.succeed(false))
       ),
 
     clear: () =>
-      makeRequest<void>(
-        `/api/v1/memories`, // Assumed bulk delete endpoint
+      makeRequestWithRetries<void>(
+        `/api/v1/memories`,
         {
           method: "DELETE",
-          queryParams: { namespace: config.namespace }, // Pass namespace as query param
+          queryParams: { namespace: namespace },
         }
       ).pipe(Effect.asVoid),
   } satisfies SupermemoryClient;
@@ -91,18 +124,3 @@ export class SupermemoryClientImpl extends Effect.Service<SupermemoryClientImpl>
     effect: supermemoryClientEffect,
   }
 ) {}
-
-// Layer for SupermemoryClient, parameterized by config
-// Consumers will call SupermemoryClientImpl.Default({ namespace: "...", baseUrl: "...", ... })
-export const createSupermemoryClientLayer = (config: SupermemoryClientConfigType) => {
-  const httpConfig: any = { baseUrl: config.baseUrl, headers: { "Authorization": `Bearer ${config.apiKey}`, "X-Supermemory-Namespace": config.namespace, "Content-Type": "application/json" } };
-  if (config.timeoutMs !== undefined) httpConfig.timeoutMs = config.timeoutMs;
-  return Layer.merge(
-    HttpClientImpl.Default(httpConfig),
-    Layer.effect(SupermemoryClientImpl, supermemoryClientEffect),
-    Layer.succeed(SupermemoryClientConfig, config)
-  );
-};
-
-// For compatibility with the prompt
-SupermemoryClientImpl.Default = createSupermemoryClientLayer;
