@@ -14,7 +14,8 @@
     "paths": {
       "~/*": ["src/*"],
       "effect-supermemory/*": ["./src/*"]
-    }
+    },
+    "strictNullChecks": true
   },
   "include": ["src", "test", "services", "vitest.config.ts"]
 }

@@ -8,7 +8,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "format": "prettier --check ."
+    "lint": "biome check .",
+    "format": "biome check .",
+    "format:fix": "biome format --write ."
   },
   "exports": {
     ".": {
@@ -16,15 +18,25 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "engines": {
     "node": ">=18.18"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.3.7",
     "@effect/vitest": "^0.25.1",
-    "@types/node": "^20.11.30",
-    "effect": "^3.17.7",
-    "typescript": "^5.6.3",
-    "vitest": "^3.2.0"
+    "@types/node": "^20.19.25",
+    "effect": "^3.19.6",
+    "typescript": "^5.9.3",
+    "ultracite": "6.3.6",
+    "vitest": "^4.0.14"
+  },
+  "dependencies": {
+    "@effect/platform": "^0.93.3",
+    "@effect/schema": "^0.75.5",
+    "effect-env": "^0.4.1",
+    "effect-json": "^0.1.0"
   }
 }

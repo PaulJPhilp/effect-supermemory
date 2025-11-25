@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
-import * as Stream from "effect/Stream"; // Import Stream for requestStream return type
-import { HttpClientError, HttpRequestOptions } from "./errors.js";
+import * as Stream from "effect/Stream";
+import { HttpClientError } from "./errors.js";
 
 // Basic HTTP request options
 export interface HttpRequestOptions {
@@ -37,5 +37,8 @@ export interface HttpClient {
   readonly requestStream: (
     path: string,
     options: HttpRequestOptions
-  ) => Effect.Effect<Stream.Stream<Uint8Array, HttpClientError>, HttpClientError>;
+  ) => Effect.Effect<
+    Stream.Stream<Uint8Array, HttpClientError>,
+    HttpClientError
+  >;
 }

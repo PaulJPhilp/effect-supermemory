@@ -8,8 +8,15 @@
     "inlineSources": true,
     "noEmit": false,
     "types": ["node"],
-    "lib": ["ES2022", "DOM", "DOM.Iterable"]
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "strictNullChecks": true
   },
   "include": ["src", "services"],
-  "exclude": ["test", "**/*.test.ts", "**/__tests__/**", "*.config.*", "vitest.config.ts"]
+  "exclude": [
+    "test",
+    "**/*.test.ts",
+    "**/__tests__/**",
+    "*.config.*",
+    "vitest.config.ts"
+  ]
 }

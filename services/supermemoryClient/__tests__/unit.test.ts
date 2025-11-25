@@ -4,11 +4,25 @@ import * as Layer from "effect/Layer";
 import * as Cause from "effect/Cause";
 import * as Option from "effect/Option";
 import { HttpClientImpl } from "../../httpClient/service.js"; // Dependency to mock
-import { HttpClientError, HttpError, NetworkError, AuthorizationError as HttpClientAuthorizationError, TooManyRequestsError } from "../../httpClient/errors.js";
-import { SupermemoryClientImpl, supermemoryClientEffect, SupermemoryClientConfig } from "../service.js";
+import {
+  HttpClientError,
+  HttpError,
+  NetworkError,
+  AuthorizationError as HttpClientAuthorizationError,
+  TooManyRequestsError,
+} from "../../httpClient/errors.js";
+import {
+  SupermemoryClientImpl,
+  supermemoryClientEffect,
+  SupermemoryClientConfig,
+} from "../service.js";
 import { SupermemoryClientConfigType } from "../types.js";
 import { MemoryClient } from "../../memoryClient/api.js"; // Import MemoryClient interface for type checking
-import { MemoryValidationError, MemoryNotFoundError, MemoryBatchPartialFailure } from "../../memoryClient/errors.js"; // Expected error types
+import {
+  MemoryValidationError,
+  MemoryNotFoundError,
+  MemoryBatchPartialFailure,
+} from "../../memoryClient/errors.js"; // Expected error types
 import { SupermemoryClient } from "../api.js";
 import * as Utils from "../utils.js";
 
@@ -18,7 +32,10 @@ const mockHttpClient = {
 };
 
 // Create a layer that provides the mocked HttpClientImpl
-const mockHttpClientLayer = Layer.succeed(HttpClientImpl, mockHttpClient as any);
+const mockHttpClientLayer = Layer.succeed(
+  HttpClientImpl,
+  mockHttpClient as any
+);
 
 const baseConfig: SupermemoryClientConfigType = {
   namespace: "test-ns",
@@ -31,7 +48,14 @@ const createSupermemoryClientLayer = (
   configOverrides?: Partial<SupermemoryClientConfigType>
 ) => {
   const config = { ...baseConfig, ...configOverrides };
-  const httpConfig: any = { baseUrl: config.baseUrl, headers: { "Authorization": `Bearer ${config.apiKey}`, "X-Supermemory-Namespace": config.namespace, "Content-Type": "application/json" } };
+  const httpConfig: any = {
+    baseUrl: config.baseUrl,
+    headers: {
+      Authorization: `Bearer ${config.apiKey}`,
+      "X-Supermemory-Namespace": config.namespace,
+      "Content-Type": "application/json",
+    },
+  };
   if (config.timeoutMs !== undefined) httpConfig.timeoutMs = config.timeoutMs;
   return Layer.merge(
     mockHttpClientLayer,
@@ -57,7 +81,11 @@ describe("SupermemoryClientImpl", () => {
       Effect.succeed({
         status: 201,
         headers: new Headers(),
-        body: { id: "test-key", value: Utils.toBase64("test-value"), namespace: "test-ns" },
+        body: {
+          id: "test-key",
+          value: Utils.toBase64("test-value"),
+          namespace: "test-ns",
+        },
       })
     );
 
@@ -87,7 +115,11 @@ describe("SupermemoryClientImpl", () => {
       Effect.succeed({
         status: 200,
         headers: new Headers(),
-        body: { id: "test-key", value: Utils.toBase64("decoded-value"), namespace: "test-ns" },
+        body: {
+          id: "test-key",
+          value: Utils.toBase64("decoded-value"),
+          namespace: "test-ns",
+        },
       })
     );
 
@@ -103,7 +135,11 @@ describe("SupermemoryClientImpl", () => {
   it("get returns undefined for 404 Not Found", async () => {
     mockHttpClient.request.mockReturnValueOnce(
       Effect.fail(
-        new HttpError({ status: 404, message: "Not Found", url: "/api/v1/memories/nonexistent" })
+        new HttpError({
+          status: 404,
+          message: "Not Found",
+          url: "/api/v1/memories/nonexistent",
+        })
       )
     );
 
@@ -133,7 +169,11 @@ describe("SupermemoryClientImpl", () => {
   it("delete returns true for 404 Not Found (idempotent)", async () => {
     mockHttpClient.request.mockReturnValueOnce(
       Effect.fail(
-        new HttpError({ status: 404, message: "Not Found", url: "/api/v1/memories/nonexistent" })
+        new HttpError({
+          status: 404,
+          message: "Not Found",
+          url: "/api/v1/memories/nonexistent",
+        })
       )
     );
 
@@ -167,7 +207,11 @@ describe("SupermemoryClientImpl", () => {
   it("exists returns false for 404 Not Found", async () => {
     mockHttpClient.request.mockReturnValueOnce(
       Effect.fail(
-        new HttpError({ status: 404, message: "Not Found", url: "/api/v1/memories/nonexistent" })
+        new HttpError({
+          status: 404,
+          message: "Not Found",
+          url: "/api/v1/memories/nonexistent",
+        })
       )
     );
 
@@ -204,7 +248,10 @@ describe("SupermemoryClientImpl", () => {
   it("translates HttpClient AuthorizationError to MemoryValidationError", async () => {
     mockHttpClient.request.mockReturnValueOnce(
       Effect.fail(
-        new HttpClientAuthorizationError({ reason: "Invalid API key", url: "/api/v1/memories" })
+        new HttpClientAuthorizationError({
+          reason: "Invalid API key",
+          url: "/api/v1/memories",
+        })
       )
     );
 
@@ -221,7 +268,9 @@ describe("SupermemoryClientImpl", () => {
       expect(Option.isSome(error)).toBe(true);
       if (Option.isSome(error)) {
         expect(error.value).toBeInstanceOf(MemoryValidationError);
-        expect(error.value.message).toContain("Authorization failed: Invalid API key");
+        expect(error.value.message).toContain(
+          "Authorization failed: Invalid API key"
+        );
       }
     }
   });
@@ -229,7 +278,11 @@ describe("SupermemoryClientImpl", () => {
   it("translates generic HttpError to MemoryValidationError", async () => {
     mockHttpClient.request.mockReturnValueOnce(
       Effect.fail(
-        new HttpError({ status: 500, message: "Internal Server Error", url: "/api/v1/memories" })
+        new HttpError({
+          status: 500,
+          message: "Internal Server Error",
+          url: "/api/v1/memories",
+        })
       )
     );
 
@@ -246,7 +299,9 @@ describe("SupermemoryClientImpl", () => {
       expect(Option.isSome(error)).toBe(true);
       if (Option.isSome(error)) {
         expect(error.value).toBeInstanceOf(MemoryValidationError);
-        expect(error.value.message).toContain("API request failed: HttpError - Internal Server Error");
+        expect(error.value.message).toContain(
+          "API request failed: HttpError - Internal Server Error"
+        );
       }
     }
   });
@@ -255,13 +310,32 @@ describe("SupermemoryClientImpl", () => {
 
   it("retries on NetworkError and succeeds", async () => {
     mockHttpClient.request
-      .mockReturnValueOnce(Effect.fail(new NetworkError({ cause: new Error("Connection failed"), url: "/memories" })))
-      .mockReturnValueOnce(Effect.succeed({ status: 200, headers: new Headers(), body: { id: "foo", value: Utils.toBase64("bar"), namespace: "test-ns" } }));
+      .mockReturnValueOnce(
+        Effect.fail(
+          new NetworkError({
+            cause: new Error("Connection failed"),
+            url: "/memories",
+          })
+        )
+      )
+      .mockReturnValueOnce(
+        Effect.succeed({
+          status: 200,
+          headers: new Headers(),
+          body: {
+            id: "foo",
+            value: Utils.toBase64("bar"),
+            namespace: "test-ns",
+          },
+        })
+      );
 
     const program = Effect.gen(function* () {
       const client = yield* SupermemoryClientImpl;
       return yield* client.get("foo");
-    }).pipe(createSupermemoryClientLayer({ retries: { attempts: 2, delayMs: 100 } }));
+    }).pipe(
+      createSupermemoryClientLayer({ retries: { attempts: 2, delayMs: 100 } })
+    );
 
     const promise = Effect.runPromise(program);
     await vi.advanceTimersByTimeAsync(100); // Advance for the delay
@@ -273,13 +347,22 @@ describe("SupermemoryClientImpl", () => {
   });
 
   it("fails after exhausting retries for persistent 5xx error", async () => {
-    mockHttpClient.request
-      .mockReturnValue(Effect.fail(new HttpError({ status: 500, message: "Server Error", url: "/memories" })));
+    mockHttpClient.request.mockReturnValue(
+      Effect.fail(
+        new HttpError({
+          status: 500,
+          message: "Server Error",
+          url: "/memories",
+        })
+      )
+    );
 
     const program = Effect.gen(function* () {
       const client = yield* SupermemoryClientImpl;
       return yield* client.get("foo");
-    }).pipe(createSupermemoryClientLayer({ retries: { attempts: 3, delayMs: 50 } }));
+    }).pipe(
+      createSupermemoryClientLayer({ retries: { attempts: 3, delayMs: 50 } })
+    );
 
     const promise = Effect.runPromiseExit(program);
     await vi.advanceTimersByTimeAsync(50 * 2); // Advance for 2 delays (3 attempts = 2 delays)
@@ -293,19 +376,26 @@ describe("SupermemoryClientImpl", () => {
       expect(Option.isSome(error)).toBe(true);
       if (Option.isSome(error)) {
         expect(error.value).toBeInstanceOf(MemoryValidationError);
-        expect(error.value.message).toContain("API request failed: HttpError - Server Error");
+        expect(error.value.message).toContain(
+          "API request failed: HttpError - Server Error"
+        );
       }
     }
   });
 
   it("does not retry on 404 (get), returns undefined immediately", async () => {
-    mockHttpClient.request
-      .mockReturnValueOnce(Effect.fail(new HttpError({ status: 404, message: "Not Found", url: "/memories" })));
+    mockHttpClient.request.mockReturnValueOnce(
+      Effect.fail(
+        new HttpError({ status: 404, message: "Not Found", url: "/memories" })
+      )
+    );
 
     const program = Effect.gen(function* () {
       const client = yield* SupermemoryClientImpl;
       return yield* client.get("nonexistent");
-    }).pipe(createSupermemoryClientLayer({ retries: { attempts: 5, delayMs: 100 } }));
+    }).pipe(
+      createSupermemoryClientLayer({ retries: { attempts: 5, delayMs: 100 } })
+    );
 
     const result = await Effect.runPromise(program);
 
@@ -314,13 +404,21 @@ describe("SupermemoryClientImpl", () => {
   });
 
   it("does not retry on 401 (put), fails immediately", async () => {
-    mockHttpClient.request
-      .mockReturnValueOnce(Effect.fail(new HttpClientAuthorizationError({ reason: "Unauthorized", url: "/memories" })));
+    mockHttpClient.request.mockReturnValueOnce(
+      Effect.fail(
+        new HttpClientAuthorizationError({
+          reason: "Unauthorized",
+          url: "/memories",
+        })
+      )
+    );
 
     const program = Effect.gen(function* () {
       const client = yield* SupermemoryClientImpl;
       return yield* client.put("bad-auth", "value");
-    }).pipe(createSupermemoryClientLayer({ retries: { attempts: 5, delayMs: 100 } }));
+    }).pipe(
+      createSupermemoryClientLayer({ retries: { attempts: 5, delayMs: 100 } })
+    );
 
     const result = await Effect.runPromiseExit(program);
 
@@ -338,13 +436,29 @@ describe("SupermemoryClientImpl", () => {
 
   it("retries on 429 TooManyRequestsError and succeeds", async () => {
     mockHttpClient.request
-      .mockReturnValueOnce(Effect.fail(new TooManyRequestsError({ retryAfterSeconds: 1, url: "/memories" })))
-      .mockReturnValueOnce(Effect.succeed({ status: 200, headers: new Headers(), body: { id: "foo", value: Utils.toBase64("bar"), namespace: "test-ns" } }));
+      .mockReturnValueOnce(
+        Effect.fail(
+          new TooManyRequestsError({ retryAfterSeconds: 1, url: "/memories" })
+        )
+      )
+      .mockReturnValueOnce(
+        Effect.succeed({
+          status: 200,
+          headers: new Headers(),
+          body: {
+            id: "foo",
+            value: Utils.toBase64("bar"),
+            namespace: "test-ns",
+          },
+        })
+      );
 
     const program = Effect.gen(function* () {
       const client = yield* SupermemoryClientImpl;
       return yield* client.get("foo");
-    }).pipe(createSupermemoryClientLayer({ retries: { attempts: 2, delayMs: 200 } }));
+    }).pipe(
+      createSupermemoryClientLayer({ retries: { attempts: 2, delayMs: 200 } })
+    );
 
     const promise = Effect.runPromise(program);
     await vi.advanceTimersByTimeAsync(200); // Advance for the delay
@@ -356,8 +470,14 @@ describe("SupermemoryClientImpl", () => {
   });
 
   it("no retries configured means no retries happen", async () => {
-    mockHttpClient.request
-      .mockReturnValueOnce(Effect.fail(new NetworkError({ cause: new Error("Connection failed"), url: "/memories" })));
+    mockHttpClient.request.mockReturnValueOnce(
+      Effect.fail(
+        new NetworkError({
+          cause: new Error("Connection failed"),
+          url: "/memories",
+        })
+      )
+    );
 
     const program = Effect.gen(function* () {
       const client = yield* SupermemoryClientImpl;
@@ -374,7 +494,9 @@ describe("SupermemoryClientImpl", () => {
       expect(Option.isSome(error)).toBe(true);
       if (Option.isSome(error)) {
         expect(error.value).toBeInstanceOf(MemoryValidationError);
-        expect(error.value.message).toContain("API request failed: NetworkError");
+        expect(error.value.message).toContain(
+          "API request failed: NetworkError"
+        );
       }
     }
   });
@@ -395,7 +517,10 @@ describe("SupermemoryClientImpl", () => {
       })
     );
 
-    const items = [{ key: "key1", value: "value1" }, { key: "key2", value: "value2" }];
+    const items = [
+      { key: "key1", value: "value1" },
+      { key: "key2", value: "value2" },
+    ];
     const program = Effect.gen(function* () {
       const client = yield* SupermemoryClientImpl;
       return yield* client.putMany(items);
@@ -407,7 +532,11 @@ describe("SupermemoryClientImpl", () => {
       "/api/v1/memories/batch",
       expect.objectContaining({
         method: "POST",
-        body: items.map(item => ({ id: item.key, value: Utils.toBase64(item.value), namespace: baseConfig.namespace })),
+        body: items.map((item) => ({
+          id: item.key,
+          value: Utils.toBase64(item.value),
+          namespace: baseConfig.namespace,
+        })),
       })
     );
   });
@@ -428,7 +557,11 @@ describe("SupermemoryClientImpl", () => {
       })
     );
 
-    const items = [{ key: "key1", value: "value1" }, { key: "key2", value: "value2" }, { key: "key3", value: "value3" }];
+    const items = [
+      { key: "key1", value: "value1" },
+      { key: "key2", value: "value2" },
+      { key: "key3", value: "value3" },
+    ];
     const program = Effect.gen(function* () {
       const client = yield* SupermemoryClientImpl;
       return yield* client.putMany(items);
@@ -446,9 +579,13 @@ describe("SupermemoryClientImpl", () => {
         expect(error.value.correlationId).toBe("batch-123");
         expect(error.value.failures).toHaveLength(2);
         expect(error.value.failures[0].key).toBe("key2");
-        expect(error.value.failures[0].error).toBeInstanceOf(MemoryNotFoundError);
+        expect(error.value.failures[0].error).toBeInstanceOf(
+          MemoryNotFoundError
+        );
         expect(error.value.failures[1].key).toBe("key3");
-        expect(error.value.failures[1].error).toBeInstanceOf(MemoryValidationError);
+        expect(error.value.failures[1].error).toBeInstanceOf(
+          MemoryValidationError
+        );
       }
     }
   });
@@ -479,7 +616,7 @@ describe("SupermemoryClientImpl", () => {
       "/api/v1/memories/batch",
       expect.objectContaining({
         method: "DELETE",
-        body: keys.map(key => ({ id: key, namespace: baseConfig.namespace })),
+        body: keys.map((key) => ({ id: key, namespace: baseConfig.namespace })),
       })
     );
   });
@@ -511,7 +648,7 @@ describe("SupermemoryClientImpl", () => {
       "/api/v1/memories/batchGet",
       expect.objectContaining({
         method: "POST",
-        body: keys.map(key => ({ id: key, namespace: baseConfig.namespace })),
+        body: keys.map((key) => ({ id: key, namespace: baseConfig.namespace })),
       })
     );
     expect(result.get("key1")).toBe("val1");

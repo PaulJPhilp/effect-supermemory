@@ -26,7 +26,9 @@ export class AuthorizationError extends Data.TaggedError("AuthorizationError")<{
   readonly url: string;
 }> {}
 
-export class TooManyRequestsError extends Data.TaggedError("TooManyRequestsError")<{
+export class TooManyRequestsError extends Data.TaggedError(
+  "TooManyRequestsError"
+)<{
   readonly retryAfterSeconds?: number;
   readonly url: string;
 }> {}

@@ -1,4 +1,14 @@
-import { Memory } from "../memoryClient/api.js";
+export interface Memory {
+  readonly key: string;
+  readonly value: string;
+}
+
+export interface SupermemoryClientConfigType {
+  readonly namespace: string;
+  readonly baseUrl: string;
+  readonly apiKey: string;
+  readonly timeoutMs?: number;
+}
 
 export interface SearchOptions {
   readonly limit?: number;

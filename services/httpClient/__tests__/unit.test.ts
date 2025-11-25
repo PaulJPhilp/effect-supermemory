@@ -1,13 +1,17 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Stream from "effect/Stream";
-import * as Chunk from "effect/Chunk";
+import * as Json from "effect-json";
 import * as Cause from "effect/Cause";
+import * as Chunk from "effect/Chunk";
+import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
+import * as Stream from "effect/Stream";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { AuthorizationError, HttpError, NetworkError } from "../errors.js";
 import { HttpClientImpl } from "../service.js";
-import { HttpError, NetworkError, AuthorizationError, TooManyRequestsError } from "../errors.js";
 import { HttpClientConfigType } from "../types.js";
+
+// Schema for unknown JSON values
+const UnknownSchema = Schema.Unknown;
 
 // Mock the global fetch
 const mockFetch = vi.fn();
@@ -15,12 +19,31 @@ beforeEach(() => {
   mockFetch.mockClear();
 });
 
-const createTestHttpClientLayer = (configOverrides?: Partial<HttpClientConfigType>) => {
+const createTestHttpClientLayer = (
+  configOverrides?: Partial<HttpClientConfigType>
+) => {
   const defaultConfig: HttpClientConfigType = {
     baseUrl: "https://api.supermemory.dev",
     fetch: mockFetch as typeof globalThis.fetch, // Inject mock fetch
   };
   return HttpClientImpl.Default({ ...defaultConfig, ...configOverrides });
+};
+
+// Helper function to create a mock ReadableStream
+const createMockReadableStream = (chunks: string[]): ReadableStream => {
+  const encoder = new TextEncoder();
+  let index = 0;
+
+  return new ReadableStream({
+    pull(controller) {
+      if (index < chunks.length) {
+        controller.enqueue(encoder.encode(chunks[index]));
+        index++;
+      } else {
+        controller.close();
+      }
+    },
+  });
 };
 
 describe("HttpClientImpl", () => {
@@ -30,7 +53,7 @@ describe("HttpClientImpl", () => {
       status: 200,
       headers: new Headers({ "Content-Type": "application/json" }),
       json: () => Promise.resolve({ id: "mem1", content: "test" }),
-      text: () => Promise.resolve(''),
+      text: () => Promise.resolve(""),
     });
 
     const program = Effect.gen(function* () {
@@ -40,7 +63,10 @@ describe("HttpClientImpl", () => {
 
     const response = await Effect.runPromise(program);
 
-    expect(mockFetch).toHaveBeenCalledWith("https://api.supermemory.dev/memories/mem1", expect.any(Object));
+    expect(mockFetch).toHaveBeenCalledWith(
+      "https://api.supermemory.dev/memories/mem1",
+      expect.any(Object)
+    );
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ id: "mem1", content: "test" });
   });
@@ -51,7 +77,7 @@ describe("HttpClientImpl", () => {
       status: 201,
       headers: new Headers({ "Content-Type": "application/json" }),
       json: () => Promise.resolve({ success: true }),
-      text: () => Promise.resolve(''),
+      text: () => Promise.resolve(""),
     });
 
     const program = Effect.gen(function* () {
@@ -64,11 +90,19 @@ describe("HttpClientImpl", () => {
 
     const response = await Effect.runPromise(program);
 
-    expect(mockFetch).toHaveBeenCalledWith("https://api.supermemory.dev/memories", expect.objectContaining({
-      method: "POST",
-      headers: expect.objectContaining({ "Content-Type": "application/json" }),
-      body: JSON.stringify({ content: "new memory" }),
-    }));
+    const expectedBody = await Effect.runPromise(
+      Json.stringify(UnknownSchema, { content: "new memory" })
+    );
+    expect(mockFetch).toHaveBeenCalledWith(
+      "https://api.supermemory.dev/memories",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          "Content-Type": "application/json",
+        }),
+        body: expectedBody,
+      })
+    );
     expect(response.status).toBe(201);
     expect(response.body).toEqual({ success: true });
   });
@@ -80,7 +114,7 @@ describe("HttpClientImpl", () => {
       statusText: "Not Found",
       headers: new Headers(),
       json: () => Promise.resolve({ message: "Item not found" }),
-      text: () => Promise.resolve('Item not found'),
+      text: () => Promise.resolve("Item not found"),
     });
 
     const program = Effect.gen(function* () {
@@ -113,7 +147,7 @@ describe("HttpClientImpl", () => {
       statusText: "Unauthorized",
       headers: new Headers(),
       json: () => Promise.resolve({}),
-      text: () => Promise.resolve(''),
+      text: () => Promise.resolve(""),
     });
 
     const program = Effect.gen(function* () {
@@ -167,19 +201,26 @@ describe("HttpClientImpl", () => {
       status: 200,
       headers: new Headers(),
       json: () => Promise.resolve({}),
-      text: () => Promise.resolve(''),
+      text: () => Promise.resolve(""),
     });
 
     const program = Effect.gen(function* () {
       const client = yield* HttpClientImpl;
       return yield* client.request("/status", { method: "GET" });
-    }).pipe(Effect.provide(createTestHttpClientLayer({ headers: { "X-Custom-Header": "Test" } })));
+    }).pipe(
+      Effect.provide(
+        createTestHttpClientLayer({ headers: { "X-Custom-Header": "Test" } })
+      )
+    );
 
     await Effect.runPromise(program);
 
-    expect(mockFetch).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({
-      headers: expect.objectContaining({ "X-Custom-Header": "Test" }),
-    }));
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        headers: expect.objectContaining({ "X-Custom-Header": "Test" }),
+      })
+    );
   });
 
   it("applies query parameters", async () => {
@@ -188,17 +229,23 @@ describe("HttpClientImpl", () => {
       status: 200,
       headers: new Headers(),
       json: () => Promise.resolve({}),
-      text: () => Promise.resolve(''),
+      text: () => Promise.resolve(""),
     });
 
     const program = Effect.gen(function* () {
       const client = yield* HttpClientImpl;
-      return yield* client.request("/search", { method: "GET", queryParams: { q: "test", limit: "10" } });
+      return yield* client.request("/search", {
+        method: "GET",
+        queryParams: { q: "test", limit: "10" },
+      });
     }).pipe(Effect.provide(createTestHttpClientLayer()));
 
     await Effect.runPromise(program);
 
-    expect(mockFetch).toHaveBeenCalledWith("https://api.supermemory.dev/search?q=test&limit=10", expect.any(Object));
+    expect(mockFetch).toHaveBeenCalledWith(
+      "https://api.supermemory.dev/search?q=test&limit=10",
+      expect.any(Object)
+    );
   });
 });
 
@@ -256,7 +303,9 @@ describe("HttpClientImpl Streaming", () => {
 
     const program = Effect.gen(function* () {
       const client = yield* HttpClientImpl;
-      return yield* client.requestStream("/stream-network-fail", { method: "GET" });
+      return yield* client.requestStream("/stream-network-fail", {
+        method: "GET",
+      });
     }).pipe(Effect.provide(createTestHttpClientLayer()));
 
     const result = await Effect.runPromiseExit(program);
@@ -275,7 +324,12 @@ describe("HttpClientImpl Streaming", () => {
 
   it("requestStream cancels underlying reader on stream interruption", async () => {
     const mockReader = {
-      read: vi.fn(() => Promise.resolve({ value: new TextEncoder().encode("data"), done: false })),
+      read: vi.fn(() =>
+        Promise.resolve({
+          value: new TextEncoder().encode("data"),
+          done: false,
+        })
+      ),
       releaseLock: vi.fn(),
       cancel: vi.fn(() => Promise.resolve()), // Mock the cancel method
     };
@@ -290,7 +344,9 @@ describe("HttpClientImpl Streaming", () => {
 
     const program = Effect.gen(function* () {
       const client = yield* HttpClientImpl;
-      const stream = yield* client.requestStream("/interrupt", { method: "GET" });
+      const stream = yield* client.requestStream("/interrupt", {
+        method: "GET",
+      });
       // Take only one element, then the stream should be interrupted
       return yield* stream.pipe(Stream.take(1), Stream.runCollect);
     }).pipe(Effect.provide(createTestHttpClientLayer()));

@@ -1,0 +1,123 @@
+/**
+ * @since 1.0.0
+ * @module Config
+ *
+ * Configuration layer for effect-supermemory.
+ * Loads settings from environment variables with sensible defaults.
+ */
+import { Schema as S } from "effect";
+import { EnvService, createSimpleEnv } from "effect-env";
+import * as Context from "effect/Context";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import * as Redacted from "effect/Redacted";
+
+/**
+ * Configuration for the Supermemory client.
+ *
+ * @since 1.0.0
+ * @category Config
+ */
+export interface SupermemoryConfig {
+  /**
+   * API key for authentication (redacted in logs).
+   */
+  readonly apiKey: Redacted.Redacted<string>;
+
+  /**
+   * Optional workspace ID for multi-tenant setups.
+   */
+  readonly workspaceId: string | undefined;
+
+  /**
+   * Base URL for the Supermemory API.
+   * @default "https://api.supermemory.ai"
+   */
+  readonly baseUrl: string;
+
+  /**
+   * Default similarity threshold for search operations.
+   * @default 0.7
+   */
+  readonly defaultThreshold: number;
+
+  /**
+   * Request timeout in milliseconds.
+   * @default 30000
+   */
+  readonly timeoutMs: number;
+}
+
+/**
+ * Context tag for SupermemoryConfig.
+ *
+ * @since 1.0.0
+ * @category Context
+ */
+export class SupermemoryConfigService extends Context.Tag(
+  "@effect-supermemory/Config"
+)<SupermemoryConfigService, SupermemoryConfig>() {}
+
+/**
+ * Environment schema for Supermemory configuration.
+ */
+const envSchema = S.Struct({
+  SUPERMEMORY_API_KEY: S.String,
+  SUPERMEMORY_WORKSPACE_ID: S.optional(S.String),
+  SUPERMEMORY_BASE_URL: S.optional(S.String),
+  SUPERMEMORY_DEFAULT_THRESHOLD: S.optional(S.String),
+  SUPERMEMORY_TIMEOUT_MS: S.optional(S.String),
+});
+
+/**
+ * Layer that loads SupermemoryConfig from environment variables.
+ *
+ * Required environment variables:
+ * - `SUPERMEMORY_API_KEY` (required)
+ *
+ * Optional environment variables:
+ * - `SUPERMEMORY_WORKSPACE_ID`
+ * - `SUPERMEMORY_BASE_URL` (default: "https://api.supermemory.ai")
+ * - `SUPERMEMORY_DEFAULT_THRESHOLD` (default: 0.7)
+ * - `SUPERMEMORY_TIMEOUT_MS` (default: 30000)
+ *
+ * @since 1.0.0
+ * @category Layers
+ */
+export const SupermemoryConfigLive = Layer.effect(
+  SupermemoryConfigService,
+  Effect.gen(function* () {
+    const env = yield* EnvService as any;
+    const apiKey = yield* env.get("SUPERMEMORY_API_KEY");
+    const workspaceId = yield* env.get("SUPERMEMORY_WORKSPACE_ID");
+    const baseUrl = yield* env.get("SUPERMEMORY_BASE_URL");
+    const defaultThresholdStr = yield* env.get("SUPERMEMORY_DEFAULT_THRESHOLD");
+    const timeoutMsStr = yield* env.get("SUPERMEMORY_TIMEOUT_MS");
+
+    return {
+      apiKey: Redacted.make(apiKey),
+      workspaceId,
+      baseUrl: baseUrl ?? "https://api.supermemory.ai",
+      defaultThreshold: defaultThresholdStr ? Number(defaultThresholdStr) : 0.7,
+      timeoutMs: timeoutMsStr ? Number(timeoutMsStr) : 30000,
+    };
+  })
+).pipe(Layer.provide(createSimpleEnv(envSchema)));
+
+/**
+ * Create a config layer from explicit values.
+ * Useful for testing or programmatic configuration.
+ *
+ * @since 1.0.0
+ * @category Layers
+ */
+export const SupermemoryConfigFromValues = (
+  config: Partial<SupermemoryConfig> & { apiKey: Redacted.Redacted<string> }
+): Layer.Layer<SupermemoryConfigService> =>
+  Layer.succeed(SupermemoryConfigService, {
+    apiKey: config.apiKey,
+    workspaceId: config.workspaceId,
+    baseUrl: config.baseUrl ?? "https://api.supermemory.ai",
+    defaultThreshold: config.defaultThreshold ?? 0.7,
+    timeoutMs: config.timeoutMs ?? 30000,
+  });

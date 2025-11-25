@@ -5,14 +5,14 @@ export const SupermemoryId = Brand.nominal<SupermemoryId>();
 
 export interface RetryScheduleConfig {
   readonly attempts: number; // Total number of attempts (1 means no retries, just initial call)
-  readonly delayMs: number;  // Fixed delay in milliseconds between attempts
+  readonly delayMs: number; // Fixed delay in milliseconds between attempts
 }
 
 // Configuration for the SupermemoryClient service itself
 export interface SupermemoryClientConfigType {
   readonly namespace: string;
   readonly baseUrl: string; // Supermemory API base URL
-  readonly apiKey: string;  // API key for Authorization header
+  readonly apiKey: string; // API key for Authorization header
   readonly timeoutMs?: number; // Optional timeout for HTTP requests
   readonly retries?: RetryScheduleConfig; // New: Optional retry configuration
 }
@@ -25,4 +25,17 @@ export interface SupermemoryApiMemory {
   readonly metadata?: Record<string, unknown>;
   readonly createdAt: string; // ISO date string
   readonly updatedAt: string; // ISO date string
+}
+
+// Batch response types
+export interface SupermemoryBatchResponseItem {
+  readonly id: string;
+  readonly status: number;
+  readonly value?: string;
+  readonly error?: string;
+}
+
+export interface SupermemoryBatchResponse {
+  readonly correlationId?: string;
+  readonly results: ReadonlyArray<SupermemoryBatchResponseItem>;
 }

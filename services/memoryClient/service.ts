@@ -1,5 +1,4 @@
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
 import { MemoryClient } from "./api.js";
 // No longer importing MemoryConfig type or tag as it's a direct parameter now
 
@@ -37,8 +36,33 @@ export class MemoryClientImpl extends Effect.Service<MemoryClientImpl>()(
 
         clear: () =>
           Effect.sync(() => {
-            // Clear only keys belonging to this namespace instance's store
-            store.clear(); // The store itself is already isolated by 'namespace' parameter
+            store.clear();
+          }),
+
+        putMany: (items) =>
+          Effect.sync(() => {
+            for (const { key, value } of items) {
+              const nsKey = `${namespace}:${key}`;
+              store.set(nsKey, value);
+            }
+          }),
+
+        deleteMany: (keys) =>
+          Effect.sync(() => {
+            for (const key of keys) {
+              const nsKey = `${namespace}:${key}`;
+              store.delete(nsKey);
+            }
+          }),
+
+        getMany: (keys) =>
+          Effect.sync(() => {
+            const result = new Map<string, string | undefined>();
+            for (const key of keys) {
+              const nsKey = `${namespace}:${key}`;
+              result.set(key, store.get(nsKey));
+            }
+            return result;
           }),
       } satisfies MemoryClient;
     }),

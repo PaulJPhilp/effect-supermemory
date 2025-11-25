@@ -12,7 +12,11 @@ export class MemoryValidationError extends Data.TaggedError(
   readonly message: string;
 }> {}
 
-export class MemoryBatchPartialFailure extends Data.TaggedError("MemoryBatchPartialFailure")<{
+export type MemoryFailureError = MemoryNotFoundError | MemoryValidationError;
+
+export class MemoryBatchPartialFailure extends Data.TaggedError(
+  "MemoryBatchPartialFailure"
+)<{
   readonly successes: number;
   readonly correlationId?: string; // Optional correlation ID for tracing
   readonly failures: ReadonlyArray<{ key: string; error: MemoryError }>; // Detailed error per failed key
@@ -20,6 +24,7 @@ export class MemoryBatchPartialFailure extends Data.TaggedError("MemoryBatchPart
 
 export type MemoryError =
   | MemoryNotFoundError
-  | MemoryValidationError;
+  | MemoryValidationError
+  | MemoryBatchPartialFailure;
 
 export type MemoryBatchError = MemoryBatchPartialFailure;
