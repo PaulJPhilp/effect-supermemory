@@ -1,30 +1,25 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Cause from "effect/Cause";
 import * as Option from "effect/Option";
-import { HttpClientImpl } from "../../httpClient/service.js"; // Dependency to mock
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  HttpClientError,
+  AuthorizationError as HttpClientAuthorizationError,
   HttpError,
   NetworkError,
-  AuthorizationError as HttpClientAuthorizationError,
-  TooManyRequestsError,
+  TooManyRequestsError
 } from "../../httpClient/errors.js";
+import { HttpClientImpl } from "../../httpClient/service.js"; // Dependency to mock
+import {
+  MemoryBatchPartialFailure,
+  MemoryNotFoundError,
+  MemoryValidationError,
+} from "../../memoryClient/errors.js"; // Expected error types
+import * as Utils from "../helpers.js";
 import {
   SupermemoryClientImpl,
-  supermemoryClientEffect,
-  SupermemoryClientConfig,
 } from "../service.js";
 import { SupermemoryClientConfigType } from "../types.js";
-import { MemoryClient } from "../../memoryClient/api.js"; // Import MemoryClient interface for type checking
-import {
-  MemoryValidationError,
-  MemoryNotFoundError,
-  MemoryBatchPartialFailure,
-} from "../../memoryClient/errors.js"; // Expected error types
-import { SupermemoryClient } from "../api.js";
-import * as Utils from "../utils.js";
 
 // Mock the HttpClientImpl service
 const mockHttpClient = {
@@ -59,8 +54,7 @@ const createSupermemoryClientLayer = (
   if (config.timeoutMs !== undefined) httpConfig.timeoutMs = config.timeoutMs;
   return Layer.merge(
     mockHttpClientLayer,
-    Layer.effect(SupermemoryClientImpl, supermemoryClientEffect),
-    Layer.succeed(SupermemoryClientConfig, config),
+    Layer.effect(SupermemoryClientImpl, SupermemoryClientImpl.effect(config)),
     HttpClientImpl.Default(httpConfig)
   );
 };
@@ -456,9 +450,7 @@ describe("SupermemoryClientImpl", () => {
     const program = Effect.gen(function* () {
       const client = yield* SupermemoryClientImpl;
       return yield* client.get("foo");
-    }).pipe(
-      createSupermemoryClientLayer({ retries: { attempts: 2, delayMs: 200 } })
-    );
+    }).pipe(Effect.provide(createSupermemoryClientLayer({ retries: { attempts: 2, delayMs: 200 } })));
 
     const promise = Effect.runPromise(program);
     await vi.advanceTimersByTimeAsync(200); // Advance for the delay
@@ -482,7 +474,7 @@ describe("SupermemoryClientImpl", () => {
     const program = Effect.gen(function* () {
       const client = yield* SupermemoryClientImpl;
       return yield* client.get("foo");
-    }).pipe(createSupermemoryClientLayer({})); // Explicitly no retries
+    }).pipe(Effect.provide(createSupermemoryClientLayer({}))); // Explicitly no retries
 
     const result = await Effect.runPromiseExit(program);
 
@@ -494,7 +486,7 @@ describe("SupermemoryClientImpl", () => {
       expect(Option.isSome(error)).toBe(true);
       if (Option.isSome(error)) {
         expect(error.value).toBeInstanceOf(MemoryValidationError);
-        expect(error.value.message).toContain(
+        expect((error.value as MemoryValidationError).message).toContain(
           "API request failed: NetworkError"
         );
       }
@@ -524,7 +516,7 @@ describe("SupermemoryClientImpl", () => {
     const program = Effect.gen(function* () {
       const client = yield* SupermemoryClientImpl;
       return yield* client.putMany(items);
-    }).pipe(createSupermemoryClientLayer());
+    }).pipe(Effect.provide(createSupermemoryClientLayer()));
 
     await Effect.runPromise(program);
 
@@ -565,7 +557,7 @@ describe("SupermemoryClientImpl", () => {
     const program = Effect.gen(function* () {
       const client = yield* SupermemoryClientImpl;
       return yield* client.putMany(items);
-    }).pipe(createSupermemoryClientLayer());
+    }).pipe(Effect.provide(createSupermemoryClientLayer()));
 
     const result = await Effect.runPromiseExit(program);
 
@@ -574,16 +566,17 @@ describe("SupermemoryClientImpl", () => {
       const error = Cause.failureOption(result.cause);
       expect(Option.isSome(error)).toBe(true);
       if (Option.isSome(error)) {
-        expect(error.value).toBeInstanceOf(MemoryBatchPartialFailure);
-        expect(error.value.successes).toBe(1);
-        expect(error.value.correlationId).toBe("batch-123");
-        expect(error.value.failures).toHaveLength(2);
-        expect(error.value.failures[0].key).toBe("key2");
-        expect(error.value.failures[0].error).toBeInstanceOf(
+        const batchError = error.value as MemoryBatchPartialFailure;
+        expect(batchError).toBeInstanceOf(MemoryBatchPartialFailure);
+        expect(batchError.successes).toBe(1);
+        expect(batchError.correlationId).toBe("batch-123");
+        expect(batchError.failures).toHaveLength(2);
+        expect(batchError.failures[0].key).toBe("key2");
+        expect(batchError.failures[0].error).toBeInstanceOf(
           MemoryNotFoundError
         );
-        expect(error.value.failures[1].key).toBe("key3");
-        expect(error.value.failures[1].error).toBeInstanceOf(
+        expect(batchError.failures[1].key).toBe("key3");
+        expect(batchError.failures[1].error).toBeInstanceOf(
           MemoryValidationError
         );
       }
@@ -608,7 +601,7 @@ describe("SupermemoryClientImpl", () => {
     const program = Effect.gen(function* () {
       const client = yield* SupermemoryClientImpl;
       return yield* client.deleteMany(keys);
-    }).pipe(createSupermemoryClientLayer());
+    }).pipe(Effect.provide(createSupermemoryClientLayer()));
 
     await Effect.runPromise(program);
 
@@ -640,7 +633,7 @@ describe("SupermemoryClientImpl", () => {
     const program = Effect.gen(function* () {
       const client = yield* SupermemoryClientImpl;
       return yield* client.getMany(keys);
-    }).pipe(createSupermemoryClientLayer());
+    }).pipe(Effect.provide(createSupermemoryClientLayer()));
 
     const result = await Effect.runPromise(program);
 
@@ -670,7 +663,7 @@ describe("SupermemoryClientImpl", () => {
     const program = Effect.gen(function* () {
       const client = yield* SupermemoryClientImpl;
       return yield* client.getMany(keys);
-    }).pipe(createSupermemoryClientLayer());
+    }).pipe(Effect.provide(createSupermemoryClientLayer()));
 
     const result = await Effect.runPromiseExit(program);
 
@@ -678,7 +671,7 @@ describe("SupermemoryClientImpl", () => {
     if (result._tag === "Failure") {
       const error = Cause.failureOption(result.cause);
       expect(Option.isSome(error)).toBe(true);
-      if (error.pipe(Effect.Option.isSome)) {
+      if (Option.isSome(error)) {
         expect(error.value).toBeInstanceOf(MemoryValidationError); // From generic HTTP error
       }
     }

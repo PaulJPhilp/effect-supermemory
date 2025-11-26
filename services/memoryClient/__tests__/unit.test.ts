@@ -1,6 +1,5 @@
-import { describe, it, expect } from "vitest";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
+import { describe, expect, it } from "vitest";
 import { MemoryClientImpl } from "../service.js"; // Import the service class
 
 describe("MemoryClient (Parameterized Service)", () => {
@@ -58,9 +57,9 @@ describe("MemoryClient (Parameterized Service)", () => {
       return { exists1, exists2 };
     }).pipe(Effect.provide(testNamespaceLayer));
 
-    const { exists1, exists2 } = await Effect.runPromise(program);
-    expect(exists1).toBe(true);
-    expect(exists2).toBe(false);
+    const result = await Effect.runPromise(program);
+    expect(result.exists1).toBe(true);
+    expect(result.exists2).toBe(false);
   });
 
   it("clears all values within its namespace", async () => {
@@ -74,9 +73,9 @@ describe("MemoryClient (Parameterized Service)", () => {
       return { result1, result2 };
     }).pipe(Effect.provide(testNamespaceLayer));
 
-    const { result1, result2 } = await Effect.runPromise(program);
-    expect(result1).toBeUndefined();
-    expect(result2).toBeUndefined();
+    const clearResult = await Effect.runPromise(program);
+    expect(clearResult.result1).toBeUndefined();
+    expect(clearResult.result2).toBeUndefined();
   });
 
   it("isolates different namespaces correctly", async () => {
@@ -98,10 +97,10 @@ describe("MemoryClient (Parameterized Service)", () => {
     }).pipe(Effect.provide(ns2Layer));
 
     const result1 = await Effect.runPromise(programNs1);
-    const { initialGet, finalGet } = await Effect.runPromise(programNs2);
+    const ns2Result = await Effect.runPromise(programNs2);
 
     expect(result1).toBe("value_from_ns1");
-    expect(initialGet).toBeUndefined(); // Key in ns1 should not be visible in ns2
-    expect(finalGet).toBe("value_from_ns2");
+    expect(ns2Result.initialGet).toBeUndefined(); // Key in ns1 should not be visible in ns2
+    expect(ns2Result.finalGet).toBe("value_from_ns2");
   });
 });

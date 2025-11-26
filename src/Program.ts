@@ -15,12 +15,15 @@ const httpClientLayer = HttpClientImpl.Default({
 	timeoutMs: 5_000,
 });
 
-const supermemoryClientLayer = SupermemoryClientImpl.Default({
-	namespace: "demo-namespace",
-	baseUrl: "https://api.supermemory.ai",
-	apiKey: "test-api-key",
-	timeoutMs: 5_000,
-});
+const supermemoryClientLayer = Layer.provide(
+	SupermemoryClientImpl.Default({
+		namespace: "demo-namespace",
+		baseUrl: "https://api.supermemory.ai",
+		apiKey: "test-api-key",
+		timeoutMs: 5_000,
+	}),
+	httpClientLayer
+);
 
 const AppLayer = Layer.mergeAll(
 	supermemoryConfigLayer,
@@ -30,10 +33,4 @@ const AppLayer = Layer.mergeAll(
 
 const program = Effect.log("effect-supermemory demo runtime initialized");
 
-Effect.runPromise(
-	program.pipe(
-		Effect.provide(supermemoryConfigLayer),
-		Effect.provide(httpClientLayer),
-		Effect.provide(supermemoryClientLayer)
-	)
-);
+Effect.runPromise(Effect.provide(program, AppLayer));

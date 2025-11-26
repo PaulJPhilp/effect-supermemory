@@ -7,36 +7,48 @@ import { HttpResponse } from "../../httpClient/api.js";
 import { HttpClientError, HttpError } from "../../httpClient/errors.js";
 import { HttpClientImpl } from "../../httpClient/service.js";
 import { MemoryValidationError } from "../../memoryClient/errors.js";
-import { SearchQueryError } from "../errors.js";
-import { SearchClientDefault, SearchClientImpl } from "../service.js";
-import { SupermemoryClientConfigType } from "../types.js";
-import * as Utils from "../utils.js";
-
-// Test HttpClient implementation that returns predetermined responses
-class TestHttpClient {
-  constructor(
-    private responses: Map<string, HttpResponse<any> | HttpClientError>
-  ) {}
-
-  request<T = any>(
-    path: string,
-    options: any
-  ): Effect.Effect<HttpResponse<T>, HttpClientError> {
-    const key = `${options.method} ${path}`;
-    const response = this.responses.get(key);
-    if (response && "_tag" in response) {
-      return Effect.fail(response as HttpClientError);
-    }
-    return Effect.succeed(response as HttpResponse<T>);
-  }
-}
+import { SearchError, SearchQueryError } from "../errors.js";
+import * as Utils from "../helpers.js";
+import { SearchClientImpl } from "../service.js";
+import { SearchResult, SupermemoryClientConfigType } from "../types.js";
 
 // Create a test HttpClient layer
 const createTestHttpClientLayer = (
   responses: Map<string, HttpResponse<any> | HttpClientError>
 ) => {
-  const testHttpClient = new TestHttpClient(responses);
-  return Layer.succeed(HttpClientImpl, testHttpClient as any);
+  const mockFetch = (url: string, options?: RequestInit) => {
+    const method = options?.method || "GET";
+    const path = url.replace("https://api.supermemory.dev", "");
+    const key = `${method} ${path}`;
+    const response = responses.get(key);
+
+    if (response && "_tag" in response) {
+      // It's an error - check if it has status property
+      const status = "status" in response ? response.status : 500;
+      const message = "message" in response ? response.message : "Unknown error";
+
+      return Promise.resolve({
+        ok: false,
+        status,
+        statusText: message,
+        headers: new Headers(),
+      });
+    }
+
+    // It's a successful response
+    return Promise.resolve({
+      ok: true,
+      status: response?.status || 200,
+      statusText: "OK",
+      headers: response?.headers || new Headers(),
+      json: () => Promise.resolve(response?.body || {}),
+    });
+  };
+
+  return HttpClientImpl.Default({
+    baseUrl: "https://api.supermemory.dev",
+    fetch: mockFetch as any,
+  });
 };
 
 const baseConfig: SupermemoryClientConfigType = {
@@ -52,7 +64,7 @@ const createSearchClientLayer = (
 ) => {
   const config = { ...baseConfig, ...configOverrides };
   const testHttpClientLayer = createTestHttpClientLayer(responses);
-  return SearchClientDefault(config).pipe(
+  return SearchClientImpl.Default(config).pipe(
     Layer.provideMerge(testHttpClientLayer)
   );
 };
@@ -83,7 +95,7 @@ describe("SearchClientImpl", () => {
     const program = Effect.gen(function* () {
       const client = yield* SearchClientImpl;
       return yield* client.search("test query");
-    }).pipe(Effect.provide(createSearchClientLayer(undefined, responses)));
+    }).pipe(Effect.provide(createSearchClientLayer(undefined, responses))) as Effect.Effect<SearchResult[], SearchError>;
 
     const result = await Effect.runPromise(program);
 
@@ -114,7 +126,7 @@ describe("SearchClientImpl", () => {
         offset: 10,
         minRelevanceScore: 0.8,
       });
-    }).pipe(Effect.provide(createSearchClientLayer(undefined, responses)));
+    }).pipe(Effect.provide(createSearchClientLayer(undefined, responses))) as Effect.Effect<SearchResult[], SearchError>;
 
     await Effect.runPromise(program);
   });
@@ -140,7 +152,7 @@ describe("SearchClientImpl", () => {
           status: "active",
         },
       });
-    }).pipe(Effect.provide(createSearchClientLayer(undefined, responses)));
+    }).pipe(Effect.provide(createSearchClientLayer(undefined, responses))) as Effect.Effect<SearchResult[], SearchError>;
 
     await Effect.runPromise(program);
   });
@@ -160,7 +172,7 @@ describe("SearchClientImpl", () => {
     const program = Effect.gen(function* () {
       const client = yield* SearchClientImpl;
       return yield* client.search("query", { maxAgeHours: 24 });
-    }).pipe(Effect.provide(createSearchClientLayer(undefined, responses)));
+    }).pipe(Effect.provide(createSearchClientLayer(undefined, responses))) as Effect.Effect<SearchResult[], SearchError>;
 
     await Effect.runPromise(program);
   });
@@ -196,7 +208,7 @@ describe("SearchClientImpl", () => {
     const program = Effect.gen(function* () {
       const client = yield* SearchClientImpl;
       return yield* client.search("multi query");
-    }).pipe(Effect.provide(createSearchClientLayer(undefined, responses)));
+    }).pipe(Effect.provide(createSearchClientLayer(undefined, responses))) as Effect.Effect<SearchResult[], SearchError>;
 
     const result = await Effect.runPromise(program);
 
@@ -227,7 +239,7 @@ describe("SearchClientImpl", () => {
     const program = Effect.gen(function* () {
       const client = yield* SearchClientImpl;
       return yield* client.search("no results query");
-    }).pipe(Effect.provide(createSearchClientLayer(undefined, responses)));
+    }).pipe(Effect.provide(createSearchClientLayer(undefined, responses))) as Effect.Effect<SearchResult[], SearchError>;
 
     const result = await Effect.runPromise(program);
 
@@ -249,7 +261,7 @@ describe("SearchClientImpl", () => {
     const program = Effect.gen(function* () {
       const client = yield* SearchClientImpl;
       return yield* client.search("invalid query");
-    }).pipe(Effect.provide(createSearchClientLayer(undefined, responses)));
+    }).pipe(Effect.provide(createSearchClientLayer(undefined, responses))) as Effect.Effect<SearchResult[], SearchError>;
 
     const result = await Effect.runPromiseExit(program);
 
@@ -278,7 +290,7 @@ describe("SearchClientImpl", () => {
     const program = Effect.gen(function* () {
       const client = yield* SearchClientImpl;
       return yield* client.search("query");
-    }).pipe(Effect.provide(createSearchClientLayer(undefined, responses)));
+    }).pipe(Effect.provide(createSearchClientLayer(undefined, responses))) as Effect.Effect<SearchResult[], SearchError>;
 
     const result = await Effect.runPromiseExit(program);
 
@@ -288,7 +300,7 @@ describe("SearchClientImpl", () => {
       expect(Option.isSome(error)).toBe(true);
       if (Option.isSome(error)) {
         expect(error.value).toBeInstanceOf(MemoryValidationError);
-        expect(error.value.message).toContain("Search request failed");
+        expect((error.value as MemoryValidationError).message).toContain("Search request failed");
       }
     }
   });
@@ -308,7 +320,7 @@ describe("SearchClientImpl", () => {
     const program = Effect.gen(function* () {
       const client = yield* SearchClientImpl;
       return yield* client.search("query", undefined);
-    }).pipe(Effect.provide(createSearchClientLayer(undefined, responses)));
+    }).pipe(Effect.provide(createSearchClientLayer(undefined, responses))) as Effect.Effect<SearchResult[], SearchError>;
 
     await Effect.runPromise(program);
   });
@@ -328,13 +340,13 @@ describe("SearchClientImpl", () => {
     const program = Effect.gen(function* () {
       const client = yield* SearchClientImpl;
       return yield* client.search("query");
-    }).pipe(Effect.provide(createSearchClientLayer(undefined, responses)));
+    }).pipe(Effect.provide(createSearchClientLayer(undefined, responses))) as Effect.Effect<SearchResult[], SearchError>;
 
     await Effect.runPromise(program);
   });
 
   it("includes timeout in HttpClient config when provided", async () => {
-    const layer = SearchClientDefault({ ...baseConfig, timeoutMs: 5000 });
+    const layer = SearchClientImpl.Default({ ...baseConfig, timeoutMs: 5000 });
 
     // Since we can't easily inspect the internal HttpClient config,
     // we can test that the layer is created without error

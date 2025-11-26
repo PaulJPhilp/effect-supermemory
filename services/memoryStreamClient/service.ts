@@ -9,8 +9,8 @@ import {
 import { SearchResult } from "../searchClient/types.js";
 import { MemoryStreamClient } from "./api.js";
 import { StreamReadError, type StreamError } from "./errors.js";
+import { JsonParsingError, ndjsonDecoder } from "./helpers.js";
 import { MemoryStreamClientConfigType } from "./types.js";
-import { JsonParsingError, ndjsonDecoder } from "./utils.js";
 
 export class MemoryStreamClientImpl extends Effect.Service<MemoryStreamClientImpl>()(
   "MemoryStreamClient",
@@ -93,9 +93,9 @@ export class MemoryStreamClientImpl extends Effect.Service<MemoryStreamClientImp
                   Stream.mapError((error) =>
                     error instanceof JsonParsingError
                       ? new StreamReadError({
-                          message: error.message,
-                          cause: error.cause,
-                        })
+                        message: error.message,
+                        cause: error.cause,
+                      })
                       : error
                   )
                 );
@@ -161,9 +161,9 @@ export class MemoryStreamClientImpl extends Effect.Service<MemoryStreamClientImp
                   Stream.mapError((error) =>
                     error instanceof JsonParsingError
                       ? new StreamReadError({
-                          message: error.message,
-                          cause: error.cause,
-                        })
+                        message: error.message,
+                        cause: error.cause,
+                      })
                       : error
                   )
                 );
@@ -173,7 +173,7 @@ export class MemoryStreamClientImpl extends Effect.Service<MemoryStreamClientImp
       } satisfies MemoryStreamClient;
     }),
   }
-) {}
+) { }
 
 export const Default = (config: MemoryStreamClientConfigType) =>
   MemoryStreamClientImpl.Default(config);

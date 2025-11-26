@@ -262,7 +262,9 @@ describe("HttpClientImpl Streaming", () => {
     const program = Effect.gen(function* () {
       const client = yield* HttpClientImpl;
       const stream = yield* client.requestStream("/stream", { method: "GET" });
-      return yield* Stream.runCollect(stream).pipe(Stream.decodeText()); // Collect and decode text
+      const chunks = yield* Stream.runCollect(stream);
+      // Decode Uint8Array chunks to text
+      return Chunk.map(chunks, chunk => new TextDecoder().decode(chunk));
     }).pipe(Effect.provide(createTestHttpClientLayer()));
 
     const result = await Effect.runPromise(program);

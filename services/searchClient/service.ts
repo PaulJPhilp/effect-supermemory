@@ -2,19 +2,16 @@ import * as Effect from "effect/Effect";
 import { HttpRequestOptions } from "../httpClient/api.js";
 import { HttpClientImpl } from "../httpClient/service.js";
 import { MemoryValidationError } from "../memoryClient/errors.js";
+import { SupermemoryClientConfigType } from "../supermemoryClient/types.js";
 import { SearchClient } from "./api.js";
-import { SearchQueryError } from "./errors.js";
-import {
-  SearchOptions,
-  SearchResult,
-  SupermemoryClientConfigType,
-} from "./types.js";
-import * as Utils from "./utils.js";
+import { SearchError, SearchQueryError } from "./errors.js";
+import * as Utils from "./helpers.js";
+import { ID, MemoryValue, Metadata, Namespace, QueryParams, RelevanceScore, SearchFilters, SearchOptions, SearchResult, Timestamp } from "./types.js";
 
 // Helper to encode filters
 function encodeFilters(
-  filters?: Record<string, string | number | boolean | string[]>
-): Record<string, string> {
+  filters?: SearchFilters
+): QueryParams {
   if (!filters) return {};
   const params: Record<string, string> = {};
   for (const [key, value] of Object.entries(filters)) {
@@ -27,7 +24,7 @@ function encodeFilters(
       params[`filter.${key}`] = value.toString();
     }
   }
-  return params;
+  return params as QueryParams;
 }
 
 export class SearchClientImpl extends Effect.Service<SearchClientImpl>()(
@@ -39,8 +36,9 @@ export class SearchClientImpl extends Effect.Service<SearchClientImpl>()(
       const makeRequest = <T = unknown>(
         path: string,
         options: HttpRequestOptions
-      ) =>
+      ): Effect.Effect<T, SearchError> =>
         httpClient.request<T>(path, options).pipe(
+          Effect.map(response => response.body),
           Effect.mapError((error) => {
             if (error._tag === "HttpError" && error.status === 400) {
               return new SearchQueryError({
@@ -58,13 +56,13 @@ export class SearchClientImpl extends Effect.Service<SearchClientImpl>()(
         search: (query: string, options?: SearchOptions) =>
           makeRequest<{
             results: Array<{
-              id: string;
-              value: string;
-              relevanceScore: number;
-              namespace: string;
-              metadata?: Record<string, unknown>;
-              createdAt: string;
-              updatedAt: string;
+              id: ID;
+              value: MemoryValue;
+              relevanceScore: RelevanceScore;
+              namespace: Namespace;
+              metadata?: Metadata;
+              createdAt: Timestamp;
+              updatedAt: Timestamp;
             }>;
             total: number;
           }>(`/api/v1/search`, {
@@ -87,8 +85,16 @@ export class SearchClientImpl extends Effect.Service<SearchClientImpl>()(
             },
           }).pipe(
             Effect.map((response) =>
-              response.body.results.map(
-                (item): SearchResult => ({
+              response.results.map(
+                (item: {
+                  id: ID;
+                  value: MemoryValue;
+                  relevanceScore: RelevanceScore;
+                  namespace: Namespace;
+                  metadata?: Metadata;
+                  createdAt: Timestamp;
+                  updatedAt: Timestamp;
+                }): SearchResult => ({
                   memory: {
                     key: item.id,
                     value: Utils.fromBase64(item.value),
@@ -102,3 +108,4 @@ export class SearchClientImpl extends Effect.Service<SearchClientImpl>()(
     }),
   }
 ) { }
+

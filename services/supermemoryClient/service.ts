@@ -12,13 +12,13 @@ import {
 } from "../memoryClient/errors.js";
 import { SupermemoryClient } from "./api.js";
 import * as SupermemoryErrors from "./errors.js";
+import * as Utils from "./helpers.js";
 import {
   SupermemoryApiMemory,
   SupermemoryBatchResponse,
   SupermemoryBatchResponseItem,
   SupermemoryClientConfigType,
 } from "./types.js";
-import * as Utils from "./utils.js";
 
 // Helper function to determine if an HttpClientError should trigger a retry
 const shouldRetryHttpClientError = (error: HttpClientError): boolean => {
