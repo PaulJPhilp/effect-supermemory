@@ -5,7 +5,7 @@
  * Ingest service for adding content to Supermemory.
  * Handles text, URLs, and file uploads with schema validation.
  */
-import * as Schema from "@effect/schema/Schema";
+import { Schema } from "effect";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";

@@ -1,9 +1,9 @@
+import { Schema } from "effect";
 import * as Json from "effect-json";
 import * as Cause from "effect/Cause";
 import * as Chunk from "effect/Chunk";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthorizationError, HttpError, NetworkError } from "../errors.js";

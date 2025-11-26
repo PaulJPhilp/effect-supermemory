@@ -5,7 +5,7 @@
  * Domain models and schemas for effect-supermemory.
  * All types are defined using @effect/schema for runtime validation.
  */
-import * as Schema from "@effect/schema/Schema";
+import { Schema } from "effect";
 
 // =============================================================================
 // Core Entity Schemas

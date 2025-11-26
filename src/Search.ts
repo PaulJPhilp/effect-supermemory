@@ -5,7 +5,7 @@
  * Search service for querying Supermemory.
  * Provides separate methods for RAG (documents) and Chat (memories) paths.
  */
-import * as Schema from "@effect/schema/Schema";
+import { Schema } from "effect";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";

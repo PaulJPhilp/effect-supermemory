@@ -9,7 +9,7 @@ import * as HttpClient from "@effect/platform/HttpClient";
 import * as HttpClientError from "@effect/platform/HttpClientError";
 import * as HttpClientRequest from "@effect/platform/HttpClientRequest";
 import * as HttpClientResponse from "@effect/platform/HttpClientResponse";
-import * as Schema from "@effect/schema/Schema";
+import { Schema } from "effect";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -70,9 +70,9 @@ export const mapHttpError = (
 ): SupermemoryError => {
   const message =
     typeof body === "object" &&
-    body !== null &&
-    "message" in body &&
-    typeof (body as { message: unknown }).message === "string"
+      body !== null &&
+      "message" in body &&
+      typeof (body as { message: unknown }).message === "string"
       ? (body as { message: string }).message
       : `HTTP ${status}`;
 
@@ -142,7 +142,7 @@ export interface SupermemoryHttpClient {
  */
 export class SupermemoryHttpClientService extends Context.Tag(
   "@effect-supermemory/HttpClient"
-)<SupermemoryHttpClientService, SupermemoryHttpClient>() {}
+)<SupermemoryHttpClientService, SupermemoryHttpClient>() { }
 
 // =============================================================================
 // Client Implementation
