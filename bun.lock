@@ -5,9 +5,9 @@
     "": {
       "name": "effect-supermemory",
       "dependencies": {
+        "effect-env": "/Users/paul/Projects/Published/effect-env",
         "@effect/platform": "^0.93.4",
         "@effect/schema": "^0.75.5",
-        "effect-env": "^0.4.1",
         "effect-json": "^0.1.0",
       },
       "devDependencies": {
@@ -227,7 +227,7 @@
 
     "effect": ["effect@3.19.6", "", { "dependencies": { "@standard-schema/spec": "^1.0.0", "fast-check": "^3.23.1" } }, "sha512-Eh1E/CI+xCAcMSDC5DtyE29yWJINC0zwBbwHappQPorjKyS69rCA8qzpsHpfhKnPDYgxdg8zkknii8mZ+6YMQA=="],
 
-    "effect-env": ["effect-env@0.4.1", "", { "dependencies": { "dotenv": "^16.6.1", "effect": "^3.19.3" } }, "sha512-nYRNHr6gZmrcs2MDxfRGcjxXT3ZtN21R9TVewMrV9x/93BxtZDPAhKnP7i/erhL1acRfGMKB1utfQUOxuIxVkg=="],
+    "effect-env": ["effect-env@file:../../Published/effect-env", { "dependencies": { "dotenv": "^16.6.1", "effect": "^3.19.3" }, "devDependencies": { "typescript": "^5.9.3", "vitest": "^4.0.8" } }],
 
     "effect-json": ["effect-json@0.1.0", "", { "dependencies": { "effect": "latest" }, "peerDependencies": { "superjson": "^2.0.0" }, "optionalPeers": ["superjson"] }, "sha512-tLnrj56qvzhX/EBhvfY+pNDAt3JdDspgRfTktgYYwd4CX3DSAeBSD6Nmx5lyiDod6g3LJ03taUE/9/m6we/AoQ=="],
 

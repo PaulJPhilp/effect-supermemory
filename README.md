@@ -5,9 +5,9 @@ Effect-native client abstractions for Supermemory long-term memory API.
 ## Quick Start
 
 ```bash
-pnpm install
-pnpm build
-pnpm test
+bun install
+bun run build
+bun run test
 ```
 
 ## Project Structure
@@ -44,11 +44,12 @@ src/
 
 ## Development
 
-- `pnpm typecheck` – TypeScript strict mode check
-- `pnpm build` – Emit to `dist/`
-- `pnpm test` – Run all tests
-- `pnpm test:watch` – Watch mode
-- `pnpm format` – Check formatting
+- `bun run typecheck` – TypeScript strict mode check
+- `bun run build` – Emit to `dist/`
+- `bun run test` – Run all tests
+- `bun run test:watch` – Watch mode
+- `bun run format` – Check formatting
+- `bun run format:fix` – Fix formatting issues
 
 ## API
 

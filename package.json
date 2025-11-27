@@ -3,11 +3,15 @@
   "version": "0.1.0",
   "private": false,
   "type": "module",
+  "packageManager": "bun@latest",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:integration:watch": "vitest --config vitest.integration.config.ts",
+    "mock:server": "bun test-setup/mock-server.ts",
     "lint": "biome check .",
     "format": "biome check .",
     "format:fix": "biome format --write ."
@@ -37,7 +41,7 @@
   "dependencies": {
     "@effect/platform": "^0.93.4",
     "@effect/schema": "^0.75.5",
-    "effect-env": "^0.4.1",
+    "effect-env": "/Users/paul/Projects/Published/effect-env",
     "effect-json": "^0.1.0"
   }
 }

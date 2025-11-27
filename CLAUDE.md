@@ -6,30 +6,31 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 # Install dependencies
-pnpm install
+bun install
 
 # Type checking
-pnpm typecheck
+bun run typecheck
 
 # Build (emits to dist/)
-pnpm build
+bun run build
 
 # Testing
-pnpm test              # Run all tests
-pnpm test:watch        # Watch mode
+bun run test              # Run all tests
+bun run test:watch        # Watch mode
 
 # Code formatting
-pnpm format            # Check formatting
+bun run format            # Check formatting
+bun run format:fix        # Fix formatting issues
 ```
 
 ### Running Individual Tests
 
 ```bash
 # Run a single test file
-pnpm vitest run services/memoryClient/__tests__/unit.test.ts
+bun run vitest run services/memoryClient/__tests__/unit.test.ts
 
 # Run tests in watch mode for a specific file
-pnpm vitest services/httpClient/__tests__/unit.test.ts
+bun run vitest services/httpClient/__tests__/unit.test.ts
 ```
 
 ## Architecture Overview
