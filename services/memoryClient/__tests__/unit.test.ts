@@ -1,4 +1,4 @@
-import * as Effect from "effect/Effect";
+import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 import { MemoryClientImpl } from "../service.js"; // Import the service class
 

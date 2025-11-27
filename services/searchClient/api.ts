@@ -1,10 +1,10 @@
-import * as Effect from "effect/Effect";
-import { SearchOptions, SearchResult } from "./types.js";
-import { SearchError } from "./errors.js";
+import type * as Effect from "effect/Effect";
+import type { SearchError } from "./errors.js";
+import type { SearchOptions, SearchResult } from "./types.js";
 
-export interface SearchClient {
+export type SearchClient = {
   readonly search: (
     query: string,
     options?: SearchOptions
   ) => Effect.Effect<SearchResult[], SearchError>;
-}
+};

@@ -1,11 +1,10 @@
-import * as Effect from "effect/Effect";
-import * as Stream from "effect/Stream";
-import { type MemoryError } from "../memoryClient/errors.js";
-import { type SearchError } from "../searchClient/errors.js";
-import { SearchOptions, SearchResult } from "../searchClient/types.js";
-import { type StreamError } from "./errors.js";
+import type { Effect, Stream } from "effect";
+import type { MemoryError } from "../memoryClient/errors.js";
+import type { SearchError } from "../searchClient/errors.js";
+import type { SearchOptions, SearchResult } from "../searchClient/types.js";
+import type { StreamError } from "./errors.js";
 
-export interface MemoryStreamClient {
+export type MemoryStreamClient = {
   readonly listAllKeys: () => Effect.Effect<
     Stream.Stream<string, MemoryError | StreamError>,
     MemoryError | StreamError
@@ -18,4 +17,4 @@ export interface MemoryStreamClient {
     Stream.Stream<SearchResult, SearchError | StreamError>,
     SearchError | StreamError
   >;
-}
+};

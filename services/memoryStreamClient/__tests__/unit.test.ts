@@ -6,15 +6,15 @@ import * as Stream from "effect/Stream";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   AuthorizationError as HttpClientAuthorizationError,
-  HttpClientError,
+  type HttpClientError,
   NetworkError,
 } from "../../httpClient/errors.js";
 import { HttpClientImpl } from "../../httpClient/service.js";
 import { MemoryValidationError } from "../../memoryClient/errors.js";
-import { SearchResult } from "../../searchClient/types.js";
+import type { SearchResult } from "../../searchClient/types.js";
 import { StreamReadError } from "../errors.js";
 import { MemoryStreamClientImpl } from "../service.js";
-import { MemoryStreamClientConfigType } from "../types.js";
+import type { MemoryStreamClientConfigType } from "../types.js";
 
 // Mock the HttpClientImpl service
 const mockHttpClient = {
@@ -36,25 +36,21 @@ const baseConfig: MemoryStreamClientConfigType = {
 
 const createMemoryStreamClientLayer = (
   configOverrides?: Partial<MemoryStreamClientConfigType>
-) => {
-  return MemoryStreamClientImpl.Default({
+) =>
+  MemoryStreamClientImpl.Default({
     ...baseConfig,
     ...configOverrides,
   }).pipe(Layer.provide(mockHttpClientLayer));
-};
 
 // Helper for creating a mock ReadableStream source for HttpClient.requestStream
 const createMockByteStream = (
   textChunks: string[]
-): Stream.Stream<Uint8Array, HttpClientError> => {
-  return Stream.fromIterable(
-    textChunks.map((s) => new TextEncoder().encode(s))
-  ).pipe(
+): Stream.Stream<Uint8Array, HttpClientError> =>
+  Stream.fromIterable(textChunks.map((s) => new TextEncoder().encode(s))).pipe(
     Stream.mapError(
       (e) => new NetworkError({ cause: new Error(String(e)), url: "mock-url" })
     )
   );
-};
 
 describe("MemoryStreamClientImpl", () => {
   beforeEach(() => {
@@ -92,7 +88,7 @@ describe("MemoryStreamClientImpl", () => {
       { memory: { key: "mem1", value: "foo" }, relevanceScore: 0.9 },
       { memory: { key: "mem2", value: "bar" }, relevanceScore: 0.8 },
     ];
-    const ndjsonResponse = searchResults.map((r) => JSON.stringify(r) + "\n");
+    const ndjsonResponse = searchResults.map((r) => `${JSON.stringify(r)}\n`);
     mockHttpClient.requestStream.mockReturnValueOnce(
       Effect.succeed(createMockByteStream(ndjsonResponse))
     );

@@ -1,5 +1,5 @@
-import * as Effect from "effect/Effect";
-import { MemoryClient } from "./api.js";
+import { Effect } from "effect";
+import type { MemoryClient } from "./api.js";
 // No longer importing MemoryConfig type or tag as it's a direct parameter now
 
 export class MemoryClientImpl extends Effect.Service<MemoryClientImpl>()(

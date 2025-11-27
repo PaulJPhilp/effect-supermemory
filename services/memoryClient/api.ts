@@ -1,9 +1,8 @@
-import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
-import { HttpClientImpl } from "../httpClient/service.js"; // For R type
-import { MemoryBatchError, MemoryError } from "./errors.js"; // Import batch error
+import { Effect, Option } from "effect";
+import type { HttpClientImpl } from "../httpClient/service.js"; // For R type
+import type { MemoryBatchError, MemoryError } from "./errors.js"; // Import batch error
 
-export interface MemoryClient {
+export type MemoryClient = {
   readonly put: (
     key: string,
     value: string
@@ -19,17 +18,17 @@ export interface MemoryClient {
   ) => Effect.Effect<void, MemoryError | MemoryBatchError, HttpClientImpl>;
 
   readonly deleteMany: (
-    keys: ReadonlyArray<string>
+    keys: readonly string[]
   ) => Effect.Effect<void, MemoryError | MemoryBatchError, HttpClientImpl>;
 
   readonly getMany: (
-    keys: ReadonlyArray<string>
+    keys: readonly string[]
   ) => Effect.Effect<
     ReadonlyMap<string, string | undefined>,
     MemoryError | MemoryBatchError,
     HttpClientImpl
   >;
-}
+};
 
 export const getOption =
   (client: MemoryClient) =>

@@ -1,24 +1,38 @@
 import * as Effect from "effect/Effect";
-import { HttpRequestOptions } from "../httpClient/api.js";
+import type { HttpRequestOptions } from "../httpClient/api.js";
 import { HttpClientImpl } from "../httpClient/service.js";
 import { MemoryValidationError } from "../memoryClient/errors.js";
-import { SupermemoryClientConfigType } from "../supermemoryClient/types.js";
-import { SearchClient } from "./api.js";
-import { SearchError, SearchQueryError } from "./errors.js";
+import type { SupermemoryClientConfigType } from "../supermemoryClient/types.js";
+import type { SearchClient } from "./api.js";
+import { type SearchError, SearchQueryError } from "./errors.js";
 import * as Utils from "./helpers.js";
-import { ID, MemoryValue, Metadata, Namespace, QueryParams, RelevanceScore, SearchFilters, SearchOptions, SearchResult, Timestamp } from "./types.js";
+import type {
+  ID,
+  MemoryValue,
+  Metadata,
+  Namespace,
+  QueryParams,
+  RelevanceScore,
+  SearchFilters,
+  SearchOptions,
+  SearchResult,
+  Timestamp,
+} from "./types.js";
 
 // Helper to encode filters
-function encodeFilters(
-  filters?: SearchFilters
-): QueryParams {
-  if (!filters) return {};
+function encodeFilters(filters?: SearchFilters): QueryParams {
+  if (!filters) {
+    return {};
+  }
   const params: Record<string, string> = {};
   for (const [key, value] of Object.entries(filters)) {
     if (Array.isArray(value)) {
       value.forEach((v) => {
-        if (!params[`filter.${key}`]) params[`filter.${key}`] = v.toString();
-        else params[`filter.${key}`] += `,${v.toString()}`;
+        if (params[`filter.${key}`]) {
+          params[`filter.${key}`] += `,${v.toString()}`;
+        } else {
+          params[`filter.${key}`] = v.toString();
+        }
       });
     } else {
       params[`filter.${key}`] = value.toString();
@@ -30,7 +44,7 @@ function encodeFilters(
 export class SearchClientImpl extends Effect.Service<SearchClientImpl>()(
   "SearchClient",
   {
-    effect: Effect.fn(function* (config: SupermemoryClientConfigType) {
+    effect: Effect.fn(function* (_config: SupermemoryClientConfigType) {
       const httpClient = yield* HttpClientImpl;
 
       const makeRequest = <T = unknown>(
@@ -38,7 +52,7 @@ export class SearchClientImpl extends Effect.Service<SearchClientImpl>()(
         options: HttpRequestOptions
       ): Effect.Effect<T, SearchError> =>
         httpClient.request<T>(path, options).pipe(
-          Effect.map(response => response.body),
+          Effect.map((response) => response.body),
           Effect.mapError((error) => {
             if (error._tag === "HttpError" && error.status === 400) {
               return new SearchQueryError({
@@ -65,7 +79,7 @@ export class SearchClientImpl extends Effect.Service<SearchClientImpl>()(
               updatedAt: Timestamp;
             }>;
             total: number;
-          }>(`/api/v1/search`, {
+          }>("/api/v1/search", {
             method: "GET",
             queryParams: {
               q: query,
@@ -107,5 +121,4 @@ export class SearchClientImpl extends Effect.Service<SearchClientImpl>()(
       } satisfies SearchClient;
     }),
   }
-) { }
-
+) {}

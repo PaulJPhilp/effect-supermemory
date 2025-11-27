@@ -1,23 +1,22 @@
-import * as Effect from "effect/Effect";
-import * as Stream from "effect/Stream";
-import { HttpClientError } from "./errors.js";
+import type { Effect, Stream } from "effect";
+import type { HttpClientError } from "./errors.js";
 
 // Basic HTTP request options
-export interface HttpRequestOptions {
+export type HttpRequestOptions = {
   readonly method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
   readonly headers?: Record<string, string>;
   readonly body?: unknown; // Will be JSON.stringified for most requests
   readonly queryParams?: Record<string, string>;
-}
+};
 
 // Basic HTTP response structure
-export interface HttpResponse<T = unknown> {
+export type HttpResponse<T = unknown> = {
   readonly status: number;
   readonly headers: Headers;
   readonly body: T;
-}
+};
 
-export interface HttpClient {
+export type HttpClient = {
   /**
    * Sends an HTTP request and returns the response body as JSON.
    * Automatically handles error status codes (>= 400) by transforming to HttpClientError.
@@ -41,4 +40,4 @@ export interface HttpClient {
     Stream.Stream<Uint8Array, HttpClientError>,
     HttpClientError
   >;
-}
+};

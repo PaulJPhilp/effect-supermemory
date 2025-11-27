@@ -1,8 +1,7 @@
-import * as Effect from "effect/Effect";
-import * as Stream from "effect/Stream";
-import { HttpClient, HttpRequestOptions, HttpResponse } from "./api.js";
+import { Effect, Stream } from "effect";
+import type { HttpClient, HttpRequestOptions, HttpResponse } from "./api.js";
 import * as Errors from "./errors.js";
-import { HttpClientConfigType } from "./types.js";
+import type { HttpClientConfigType } from "./types.js";
 
 // Use platform's global fetch by default, allow override for testing
 const defaultFetch = globalThis.fetch;
@@ -106,25 +105,20 @@ export class HttpClientImpl extends Effect.Service<HttpClientImpl>()(
               clearTimeout(timeoutId);
             }
 
-            let responseBody: T;
-            try {
-              const contentType = response.headers.get("Content-Type");
-              if (contentType?.includes("application/json")) {
-                responseBody = (yield* Effect.tryPromise({
-                  try: () => response.json(),
-                  catch: () => null as T,
-                })) as T;
-              } else if (contentType?.includes("text/")) {
-                responseBody = (yield* Effect.tryPromise({
-                  try: () => response.text(),
-                  catch: () => null as T,
-                })) as T;
-              } else {
-                responseBody = null as T;
-              }
-            } catch (parseError) {
-              responseBody = null as T;
-            }
+            // Parse response body using Effect.try
+            const responseBody: T = yield* Effect.tryPromise({
+              try: async () => {
+                const contentType = response.headers.get("Content-Type");
+                if (contentType?.includes("application/json")) {
+                  return (await response.json()) as T;
+                }
+                if (contentType?.includes("text/")) {
+                  return (await response.text()) as T;
+                }
+                return null as T;
+              },
+              catch: () => null as T,
+            });
 
             if (!response.ok) {
               if (response.status === 401 || response.status === 403) {
@@ -139,7 +133,7 @@ export class HttpClientImpl extends Effect.Service<HttpClientImpl>()(
                   url: url.toString(),
                 };
                 if (retryAfter) {
-                  errorObj.retryAfterSeconds = parseInt(retryAfter, 10);
+                  errorObj.retryAfterSeconds = Number.parseInt(retryAfter, 10);
                 }
                 throw new Errors.TooManyRequestsError(errorObj);
               }
@@ -217,7 +211,7 @@ export class HttpClientImpl extends Effect.Service<HttpClientImpl>()(
               if (response.status === 429) {
                 const retryAfter = response.headers.get("Retry-After");
                 const retryAfterSeconds = retryAfter
-                  ? parseInt(retryAfter, 10)
+                  ? Number.parseInt(retryAfter, 10)
                   : undefined;
                 return yield* Effect.fail(
                   new Errors.TooManyRequestsError({

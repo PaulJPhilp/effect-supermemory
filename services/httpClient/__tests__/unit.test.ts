@@ -1,14 +1,14 @@
 import { Schema } from "effect";
-import * as Json from "effect-json";
 import * as Cause from "effect/Cause";
 import * as Chunk from "effect/Chunk";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Stream from "effect/Stream";
+import * as Json from "effect-json";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthorizationError, HttpError, NetworkError } from "../errors.js";
 import { HttpClientImpl } from "../service.js";
-import { HttpClientConfigType } from "../types.js";
+import type { HttpClientConfigType } from "../types.js";
 
 // Schema for unknown JSON values
 const UnknownSchema = Schema.Unknown;
@@ -264,7 +264,7 @@ describe("HttpClientImpl Streaming", () => {
       const stream = yield* client.requestStream("/stream", { method: "GET" });
       const chunks = yield* Stream.runCollect(stream);
       // Decode Uint8Array chunks to text
-      return Chunk.map(chunks, chunk => new TextDecoder().decode(chunk));
+      return Chunk.map(chunks, (chunk) => new TextDecoder().decode(chunk));
     }).pipe(Effect.provide(createTestHttpClientLayer()));
 
     const result = await Effect.runPromise(program);

@@ -6,21 +6,17 @@
  * error mapping, and telemetry middleware.
  */
 import * as HttpClient from "@effect/platform/HttpClient";
-import * as HttpClientError from "@effect/platform/HttpClientError";
+import type * as HttpClientError from "@effect/platform/HttpClientError";
 import * as HttpClientRequest from "@effect/platform/HttpClientRequest";
-import * as HttpClientResponse from "@effect/platform/HttpClientResponse";
-import { Schema } from "effect";
-import * as Context from "effect/Context";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Redacted from "effect/Redacted";
+import type * as HttpClientResponse from "@effect/platform/HttpClientResponse";
+import { Context, Effect, Layer, Redacted, Schema } from "effect";
 import { SupermemoryConfigService } from "./Config.js";
 import {
   SupermemoryAuthenticationError,
+  type SupermemoryError,
   SupermemoryRateLimitError,
   SupermemoryServerError,
   SupermemoryValidationError,
-  type SupermemoryError,
 } from "./Errors.js";
 
 // =============================================================================
@@ -46,15 +42,21 @@ const extractRetryAfter = (
   headers: HttpClientResponse.HttpClientResponse["headers"]
 ): number | undefined => {
   const retryAfter = headers["retry-after"];
-  if (!retryAfter) return undefined;
+  if (!retryAfter) {
+    return;
+  }
 
-  const seconds = parseInt(retryAfter, 10);
-  if (!isNaN(seconds)) return seconds * 1000;
+  const seconds = Number.parseInt(retryAfter, 10);
+  if (!Number.isNaN(seconds)) {
+    return seconds * 1000;
+  }
 
   const date = Date.parse(retryAfter);
-  if (!isNaN(date)) return Math.max(0, date - Date.now());
+  if (!Number.isNaN(date)) {
+    return Math.max(0, date - Date.now());
+  }
 
-  return undefined;
+  return;
 };
 
 /**
@@ -70,9 +72,9 @@ export const mapHttpError = (
 ): SupermemoryError => {
   const message =
     typeof body === "object" &&
-      body !== null &&
-      "message" in body &&
-      typeof (body as { message: unknown }).message === "string"
+    body !== null &&
+    "message" in body &&
+    typeof (body as { message: unknown }).message === "string"
       ? (body as { message: string }).message
       : `HTTP ${status}`;
 
@@ -108,7 +110,7 @@ export const mapHttpError = (
  * @since 1.0.0
  * @category Services
  */
-export interface SupermemoryHttpClient {
+export type SupermemoryHttpClient = {
   /**
    * Make a request to a v3 endpoint (documents, RAG search).
    */
@@ -132,7 +134,7 @@ export interface SupermemoryHttpClient {
       readonly schema?: Schema.Schema<A, I, R>;
     }
   ) => Effect.Effect<A, SupermemoryError, R>;
-}
+};
 
 /**
  * Context tag for SupermemoryHttpClient.
@@ -142,7 +144,7 @@ export interface SupermemoryHttpClient {
  */
 export class SupermemoryHttpClientService extends Context.Tag(
   "@effect-supermemory/HttpClient"
-)<SupermemoryHttpClientService, SupermemoryHttpClient>() { }
+)<SupermemoryHttpClientService, SupermemoryHttpClient>() {}
 
 // =============================================================================
 // Client Implementation
@@ -159,8 +161,8 @@ const makeBaseRequest = (
 ): Effect.Effect<
   HttpClientRequest.HttpClientRequest,
   HttpClientError.HttpClientError
-> => {
-  return Effect.gen(function* () {
+> =>
+  Effect.gen(function* () {
     let request = HttpClientRequest.make(method)(url).pipe(
       HttpClientRequest.setHeader(
         "Authorization",
@@ -180,7 +182,6 @@ const makeBaseRequest = (
 
     return request;
   });
-};
 
 /**
  * Process response with error mapping and schema validation.

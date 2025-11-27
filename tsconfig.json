@@ -7,15 +7,34 @@
     "module": "ESNext",
     "target": "ES2022",
     "moduleResolution": "Bundler",
-    "lib": ["ES2022"],
-    "types": ["vitest/globals"],
+    "lib": [
+      "ES2022"
+    ],
+    "types": [
+      "vitest/globals"
+    ],
     "skipLibCheck": false,
     "baseUrl": "./",
     "paths": {
-      "~/*": ["src/*"],
-      "effect-supermemory/*": ["./src/*"]
+      "~/*": [
+        "src/*"
+      ],
+      "effect-supermemory/*": [
+        "./src/*"
+      ]
     },
-    "strictNullChecks": true
+    "strictNullChecks": true,
+    "esModuleInterop": true,
+    "plugins": [
+      {
+        "name": "@effect/language-service"
+      }
+    ]
   },
-  "include": ["src", "test", "services", "vitest.config.ts"]
+  "include": [
+    "src",
+    "test",
+    "services",
+    "vitest.config.ts"
+  ]
 }

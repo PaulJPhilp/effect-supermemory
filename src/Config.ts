@@ -5,12 +5,8 @@
  * Configuration layer for effect-supermemory.
  * Loads settings from environment variables with sensible defaults.
  */
-import { Schema as S } from "effect";
-import { EnvService, createSimpleEnv } from "effect-env";
-import * as Context from "effect/Context";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Redacted from "effect/Redacted";
+import { Context, Effect, Layer, Redacted, Schema as S } from "effect";
+import { createSimpleEnv, EnvService } from "effect-env";
 
 /**
  * Configuration for the Supermemory client.
@@ -18,7 +14,7 @@ import * as Redacted from "effect/Redacted";
  * @since 1.0.0
  * @category Config
  */
-export interface SupermemoryConfig {
+export type SupermemoryConfig = {
   /**
    * API key for authentication (redacted in logs).
    */
@@ -46,7 +42,7 @@ export interface SupermemoryConfig {
    * @default 30000
    */
   readonly timeoutMs: number;
-}
+};
 
 /**
  * Context tag for SupermemoryConfig.
@@ -99,7 +95,7 @@ export const SupermemoryConfigLive = Layer.effect(
       workspaceId,
       baseUrl: baseUrl ?? "https://api.supermemory.ai",
       defaultThreshold: defaultThresholdStr ? Number(defaultThresholdStr) : 0.7,
-      timeoutMs: timeoutMsStr ? Number(timeoutMsStr) : 30000,
+      timeoutMs: timeoutMsStr ? Number(timeoutMsStr) : 30_000,
     };
   })
 ).pipe(Layer.provide(createSimpleEnv(envSchema)));
@@ -119,5 +115,5 @@ export const SupermemoryConfigFromValues = (
     workspaceId: config.workspaceId,
     baseUrl: config.baseUrl ?? "https://api.supermemory.ai",
     defaultThreshold: config.defaultThreshold ?? 0.7,
-    timeoutMs: config.timeoutMs ?? 30000,
+    timeoutMs: config.timeoutMs ?? 30_000,
   });

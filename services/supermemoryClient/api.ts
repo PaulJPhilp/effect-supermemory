@@ -1,9 +1,9 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { MemoryError } from "./errors.js";
+import type { MemoryError } from "./errors.js";
 
 // This interface implements the MemoryClient interface with specific error types.
-export interface SupermemoryClient {
+export type SupermemoryClient = {
   readonly put: (
     key: string,
     value: string
@@ -16,12 +16,12 @@ export interface SupermemoryClient {
     items: ReadonlyArray<{ key: string; value: string }>
   ) => Effect.Effect<void, MemoryError>;
   readonly deleteMany: (
-    keys: ReadonlyArray<string>
+    keys: readonly string[]
   ) => Effect.Effect<void, MemoryError>;
   readonly getMany: (
-    keys: ReadonlyArray<string>
+    keys: readonly string[]
   ) => Effect.Effect<ReadonlyMap<string, string | undefined>, MemoryError>;
-}
+};
 
 export const getOption =
   (client: SupermemoryClient) =>

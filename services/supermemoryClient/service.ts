@@ -1,19 +1,17 @@
-import * as Duration from "effect/Duration";
-import * as Effect from "effect/Effect";
-import * as Schedule from "effect/Schedule";
-import { HttpRequestOptions } from "../httpClient/api.js";
-import { HttpClientError } from "../httpClient/errors.js";
+import { Duration, Effect, Schedule } from "effect";
+import type { HttpRequestOptions } from "../httpClient/api.js";
+import type { HttpClientError } from "../httpClient/errors.js";
 import { HttpClientImpl } from "../httpClient/service.js";
 import {
   MemoryBatchPartialFailure,
-  MemoryError,
+  type MemoryError,
   MemoryNotFoundError,
   MemoryValidationError,
 } from "../memoryClient/errors.js";
-import { SupermemoryClient } from "./api.js";
+import type { SupermemoryClient } from "./api.js";
 import * as SupermemoryErrors from "./errors.js";
 import * as Utils from "./helpers.js";
-import {
+import type {
   SupermemoryApiMemory,
   SupermemoryBatchResponse,
   SupermemoryBatchResponseItem,
@@ -22,10 +20,19 @@ import {
 
 // Helper function to determine if an HttpClientError should trigger a retry
 const shouldRetryHttpClientError = (error: HttpClientError): boolean => {
-  if (error._tag === "NetworkError") return true;
-  if (error._tag === "HttpError" && error.status >= 500 && error.status <= 599)
+  if (error._tag === "NetworkError") {
     return true;
-  if (error._tag === "TooManyRequestsError") return true;
+  }
+  if (
+    error._tag === "HttpError" &&
+    error.status >= 500 &&
+    error.status <= 599
+  ) {
+    return true;
+  }
+  if (error._tag === "TooManyRequestsError") {
+    return true;
+  }
   return false;
 };
 
@@ -37,12 +44,13 @@ export class SupermemoryClientImpl extends Effect.Service<SupermemoryClientImpl>
       const httpClient = yield* HttpClientImpl;
 
       // Create a Schedule if retries are configured
-      const retrySchedule: Schedule.Schedule<unknown, HttpClientError> | undefined =
-        retries
-          ? Schedule.addDelay(Schedule.recurs(retries.attempts - 1), () =>
+      const retrySchedule:
+        | Schedule.Schedule<unknown, HttpClientError>
+        | undefined = retries
+        ? Schedule.addDelay(Schedule.recurs(retries.attempts - 1), () =>
             Duration.millis(retries.delayMs)
           )
-          : undefined;
+        : undefined;
 
       // Helper for common request logic with retry policy
       const makeRequestWithRetries = <T = unknown>(
@@ -87,23 +95,22 @@ export class SupermemoryClientImpl extends Effect.Service<SupermemoryClientImpl>
               return error as unknown as MemoryError;
             })
           );
-        } else {
-          // No retries configured, proceed with base request and direct error translation
-          return baseRequest.pipe(
-            Effect.mapError((error) => {
-              return SupermemoryErrors.translateHttpClientError(
-                error,
-                keyFor404Translation
-              );
-            })
-          );
         }
+        // No retries configured, proceed with base request and direct error translation
+        return baseRequest.pipe(
+          Effect.mapError((error) =>
+            SupermemoryErrors.translateHttpClientError(
+              error,
+              keyFor404Translation
+            )
+          )
+        );
       };
 
       // Helper to process batch responses and generate MemoryBatchPartialFailure
       const processBatchResponse = (
         response: SupermemoryBatchResponse,
-        originalKeys: ReadonlyArray<string>
+        originalKeys: readonly string[]
       ): Effect.Effect<void, MemoryBatchPartialFailure> => {
         const failures: { key: string; error: MemoryError }[] = [];
         let successes = 0;
@@ -159,7 +166,7 @@ export class SupermemoryClientImpl extends Effect.Service<SupermemoryClientImpl>
             failures: { key: string; error: MemoryError }[];
           } = {
             successes,
-            failures: failures,
+            failures,
           };
 
           if (response.correlationId) {
@@ -173,12 +180,12 @@ export class SupermemoryClientImpl extends Effect.Service<SupermemoryClientImpl>
 
       return {
         put: (key, value) =>
-          makeRequestWithRetries<SupermemoryApiMemory>(`/api/v1/memories`, {
+          makeRequestWithRetries<SupermemoryApiMemory>("/api/v1/memories", {
             method: "POST",
             body: {
               id: key,
               value: Utils.toBase64(value),
-              namespace: namespace,
+              namespace,
             },
           }).pipe(Effect.asVoid),
 
@@ -220,21 +227,21 @@ export class SupermemoryClientImpl extends Effect.Service<SupermemoryClientImpl>
           ),
 
         clear: () =>
-          makeRequestWithRetries<void>(`/api/v1/memories`, {
+          makeRequestWithRetries<void>("/api/v1/memories", {
             method: "DELETE",
-            queryParams: { namespace: namespace },
+            queryParams: { namespace },
           }).pipe(Effect.asVoid),
 
         // New Batch Operations
         putMany: (items) =>
           makeRequestWithRetries<SupermemoryBatchResponse>(
-            `/api/v1/memories/batch`,
+            "/api/v1/memories/batch",
             {
               method: "POST",
               body: items.map((item) => ({
                 id: item.key,
                 value: Utils.toBase64(item.value),
-                namespace: namespace,
+                namespace,
               })),
             }
           ).pipe(
@@ -248,21 +255,23 @@ export class SupermemoryClientImpl extends Effect.Service<SupermemoryClientImpl>
 
         deleteMany: (keys) =>
           makeRequestWithRetries<SupermemoryBatchResponse>(
-            `/api/v1/memories/batch`,
+            "/api/v1/memories/batch",
             {
               method: "DELETE",
-              body: keys.map((key) => ({ id: key, namespace: namespace })),
+              body: keys.map((key) => ({ id: key, namespace })),
             }
           ).pipe(
-            Effect.flatMap((response) => processBatchResponse(response.body, keys))
+            Effect.flatMap((response) =>
+              processBatchResponse(response.body, keys)
+            )
           ),
 
         getMany: (keys) =>
           makeRequestWithRetries<SupermemoryBatchResponse>(
-            `/api/v1/memories/batchGet`,
+            "/api/v1/memories/batchGet",
             {
               method: "POST", // Often GET with body isn't well supported, so POST is common for batchGet
-              body: keys.map((key) => ({ id: key, namespace: namespace })),
+              body: keys.map((key) => ({ id: key, namespace })),
             }
           ).pipe(
             Effect.flatMap((response) => {
@@ -297,4 +306,4 @@ export class SupermemoryClientImpl extends Effect.Service<SupermemoryClientImpl>
       } satisfies SupermemoryClient;
     }),
   }
-) { } 
+) {}

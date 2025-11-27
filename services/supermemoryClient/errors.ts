@@ -1,13 +1,9 @@
-import { Data } from "effect";
+import type { HttpClientError } from "../../services/httpClient/errors.js";
 import {
   MemoryError,
   MemoryNotFoundError,
   MemoryValidationError,
 } from "../../services/memoryClient/errors.js"; // Import existing MemoryErrors
-import {
-  HttpClientError,
-  AuthorizationError as HttpClientAuthorizationError,
-} from "../../services/httpClient/errors.js";
 
 // SupermemoryClient-specific errors, if any, could be defined here.
 // For now, we mainly translate HttpClientError to existing MemoryError.

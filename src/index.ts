@@ -1,54 +1,75 @@
 // Re-export configuration and errors
-export {
-	SupermemoryConfigFromValues, SupermemoryConfigLive, SupermemoryConfigService, type SupermemoryConfig
-} from "./Config.js";
-
-export {
-	SupermemoryAuthenticationError,
-	SupermemoryRateLimitError, SupermemoryServerError, SupermemoryValidationError, type SupermemoryError
-} from "./Errors.js";
-
-// Re-export domain models
-export {
-	DeleteResponse, DocumentChunk, DocumentStatus, IngestOptions, IngestResponse, Metadata, SearchDocumentsResponse,
-	SearchMemoriesResponse, SearchOptions, SupermemoryDocument,
-	SupermemoryMemory, Threshold
-} from "./Domain.js";
-
-// Re-export HTTP client
-export {
-	ApiVersions, SupermemoryHttpClientLive, SupermemoryHttpClientService, mapHttpError, type SupermemoryHttpClient
-} from "./Client.js";
-
-// Re-export Ingest service
-export {
-	IngestServiceLive, IngestServiceTag, type IngestService
-} from "./Ingest.js";
-
-// Re-export Search service and Filter API
-export {
-	Filter, SearchServiceLive, SearchServiceTag, toJSON, type FilterExpression, type SearchService
-} from "./Search.js";
-
-export {
-	MemoryBatchPartialFailure,
-	MemoryClient,
-	MemoryClientImpl,
-	MemoryError, MemoryNotFoundError,
-	MemoryValidationError, getOption as memoryGetOption, type MemoryBatchError,
-	type MemoryFailureError
-} from "../services/memoryClient/index.js";
 
 export * from "../services/httpClient/index.js";
-
+export {
+  getOption as memoryGetOption,
+  type MemoryBatchError,
+  MemoryBatchPartialFailure,
+  MemoryClient,
+  MemoryClientImpl,
+  MemoryError,
+  type MemoryFailureError,
+  MemoryNotFoundError,
+  MemoryValidationError,
+} from "../services/memoryClient/index.js";
+export * from "../services/memoryStreamClient/index.js";
 export * from "../services/supermemoryClient/errors.js";
 export * from "../services/supermemoryClient/helpers.js";
 export {
-	SupermemoryClient,
-	SupermemoryClientConfigType,
-	SupermemoryClientImpl,
-	getOption as supermemoryGetOption
+  getOption as supermemoryGetOption,
+  SupermemoryClient,
+  SupermemoryClientConfigType,
+  SupermemoryClientImpl,
 } from "../services/supermemoryClient/index.js";
 export * from "../services/supermemoryClient/types.js";
-
-export * from "../services/memoryStreamClient/index.js";
+// Re-export HTTP client
+export {
+  ApiVersions,
+  mapHttpError,
+  type SupermemoryHttpClient,
+  SupermemoryHttpClientLive,
+  SupermemoryHttpClientService,
+} from "./Client.js";
+export {
+  type SupermemoryConfig,
+  SupermemoryConfigFromValues,
+  SupermemoryConfigLive,
+  SupermemoryConfigService,
+} from "./Config.js";
+// Re-export domain models
+export {
+  DeleteResponse,
+  DocumentChunk,
+  DocumentStatus,
+  IngestOptions,
+  IngestResponse,
+  Metadata,
+  SearchDocumentsResponse,
+  SearchMemoriesResponse,
+  SearchOptions,
+  SupermemoryDocument,
+  SupermemoryMemory,
+  Threshold,
+} from "./Domain.js";
+export {
+  SupermemoryAuthenticationError,
+  type SupermemoryError,
+  SupermemoryRateLimitError,
+  SupermemoryServerError,
+  SupermemoryValidationError,
+} from "./Errors.js";
+// Re-export Ingest service
+export {
+  type IngestService,
+  IngestServiceLive,
+  IngestServiceTag,
+} from "./Ingest.js";
+// Re-export Search service and Filter API
+export {
+  Filter,
+  type FilterExpression,
+  type SearchService,
+  SearchServiceLive,
+  SearchServiceTag,
+  toJSON,
+} from "./Search.js";

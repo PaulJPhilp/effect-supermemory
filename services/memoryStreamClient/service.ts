@@ -1,179 +1,198 @@
-import * as Effect from "effect/Effect";
-import * as Stream from "effect/Stream";
-import { type HttpClientError } from "../httpClient/errors.js";
+import { Effect, Stream } from "effect";
+import type { HttpRequestOptions } from "../httpClient/api.js";
 import { HttpClientImpl } from "../httpClient/service.js";
 import {
-  MemoryValidationError,
-  type MemoryError,
+	MemoryValidationError,
+	type MemoryError
 } from "../memoryClient/errors.js";
-import { SearchResult } from "../searchClient/types.js";
+import type { SearchError } from "../searchClient/errors.js";
+import { SearchOptions, SearchResult } from "../searchClient/types.js";
 import { MemoryStreamClient } from "./api.js";
 import { StreamReadError, type StreamError } from "./errors.js";
-import { JsonParsingError, ndjsonDecoder } from "./helpers.js";
 import { MemoryStreamClientConfigType } from "./types.js";
 
 export class MemoryStreamClientImpl extends Effect.Service<MemoryStreamClientImpl>()(
-  "MemoryStreamClient",
-  {
-    effect: Effect.fn(function* (config: MemoryStreamClientConfigType) {
-      const { namespace, baseUrl, apiKey, timeoutMs } = config;
+	"MemoryStreamClient",
+	{
+		effect: Effect.fn(function* (config: MemoryStreamClientConfigType) {
+			const { namespace, baseUrl, apiKey, timeoutMs } = config;
 
-      const httpClientLayer = HttpClientImpl.Default({
-        baseUrl,
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "X-Supermemory-Namespace": namespace,
-          "Content-Type": "application/json",
-        },
-        ...(timeoutMs !== undefined ? { timeoutMs } : {}),
-      });
+			const httpClientLayer = HttpClientImpl.Default({
+				baseUrl,
+				headers: {
+					Authorization: `Bearer ${apiKey}`,
+					"X-Supermemory-Namespace": namespace,
+					"Content-Type": "application/json",
+				},
+				...(timeoutMs !== undefined ? { timeoutMs } : {}),
+			});
 
-      const httpClient = yield* HttpClientImpl.pipe(
-        Effect.provide(httpClientLayer)
-      );
+			return {
+				listAllKeys: (): Effect.Effect<
+					Stream.Stream<string, MemoryError | StreamError>,
+					MemoryError | StreamError
+				> => {
+					return Effect.gen(function* () {
+						const httpClient = yield* HttpClientImpl.pipe(
+							Effect.provide(httpClientLayer)
+						);
+						const keysPath = `/v1/keys/${encodeURIComponent(namespace)}`;
 
-      const translateHttpError = (
-        error: HttpClientError
-      ): MemoryError | StreamError => {
-        if (error._tag === "AuthorizationError") {
-          return new MemoryValidationError({
-            message: `Authorization failed: ${error.reason}`,
-          });
-        }
-        if (
-          error._tag === "HttpError" &&
-          error.status >= 400 &&
-          error.status < 500 &&
-          error.status !== 429
-        ) {
-          return new MemoryValidationError({
-            message: `API request failed: ${error.status} - ${error.message}`,
-          });
-        }
-        return new StreamReadError({
-          message: `Stream initiation failed: ${error._tag}`,
-          cause: error,
-        });
-      };
+						const options: HttpRequestOptions = {
+							method: "GET",
+							headers: {
+								"Content-Type": "application/json",
+								Accept: "application/x-ndjson",
+							},
+						};
 
-      return {
-        listAllKeys: () =>
-          httpClient
-            .requestStream(`/api/v1/memories/keys/stream`, { method: "GET" })
-            .pipe(
-              Effect.mapError(translateHttpError),
-              Effect.map((byteStream) => {
-                const decoded = ndjsonDecoder(
-                  byteStream as unknown as Stream.Stream<
-                    Uint8Array,
-                    StreamReadError
-                  >
-                );
-                return decoded.pipe(
-                  Stream.mapEffect((parsed) =>
-                    Effect.try({
-                      try: () => {
-                        if (
-                          typeof parsed === "object" &&
-                          parsed !== null &&
-                          "key" in parsed &&
-                          typeof parsed.key === "string"
-                        ) {
-                          return parsed.key;
-                        }
-                        throw new Error("Invalid stream item format for key.");
-                      },
-                      catch: (e) =>
-                        new StreamReadError({
-                          message: `Failed to parse key: ${String(e)}`,
-                          details: parsed,
-                        }),
-                    })
-                  ),
-                  Stream.mapError((error) =>
-                    error instanceof JsonParsingError
-                      ? new StreamReadError({
-                        message: error.message,
-                        cause: error.cause,
-                      })
-                      : error
-                  )
-                );
-              })
-            ),
+						const response = yield* httpClient.request<string>(keysPath, options)
+							.pipe(
+								Effect.mapError((error): MemoryError | StreamError => {
+									if (error._tag === "HttpError") {
+										return new MemoryValidationError({
+											message: `HTTP ${error.status}: ${error.message}`,
+										});
+									}
+									if (error._tag === "NetworkError") {
+										return new StreamReadError({
+											message: `Network error: ${error.message}`,
+											cause: error,
+										});
+									}
+									return new StreamReadError({
+										message: `HTTP client error: ${error._tag}`,
+										cause: error,
+									});
+								})
+							);
 
-        streamSearch: (query, options) => {
-          const filtersJson = options?.filters
-            ? JSON.stringify(options.filters)
-            : undefined;
+						if (response.status >= 400) {
+							return yield* new StreamReadError({
+								message: `HTTP ${response.status}: Failed to fetch keys`,
+							});
+						}
 
-          return httpClient
-            .requestStream(`/api/v1/search/stream`, {
-              method: "GET",
-              queryParams: {
-                q: query,
-                ...(options?.limit && { limit: String(options.limit) }),
-                ...(options?.offset && { offset: String(options.offset) }),
-                ...(options?.minRelevanceScore && {
-                  minRelevanceScore: String(options.minRelevanceScore),
-                }),
-                ...(options?.maxAgeHours && {
-                  maxAgeHours: String(options.maxAgeHours),
-                }),
-                ...(filtersJson && { filters: filtersJson }),
-              },
-            })
-            .pipe(
-              Effect.mapError(translateHttpError),
-              Effect.map((byteStream) => {
-                const decoded = ndjsonDecoder(
-                  byteStream as unknown as Stream.Stream<
-                    Uint8Array,
-                    StreamReadError
-                  >
-                );
-                return decoded.pipe(
-                  Stream.mapEffect((parsed) =>
-                    Effect.try({
-                      try: () => {
-                        if (
-                          typeof parsed === "object" &&
-                          parsed !== null &&
-                          "memory" in parsed &&
-                          typeof parsed.memory === "object" &&
-                          "relevanceScore" in parsed &&
-                          typeof parsed.relevanceScore === "number"
-                        ) {
-                          return {
-                            memory: parsed.memory,
-                            relevanceScore: parsed.relevanceScore,
-                          } as SearchResult;
-                        }
-                        throw new Error("Invalid stream item format.");
-                      },
-                      catch: (e) =>
-                        new StreamReadError({
-                          message: `Failed to parse SearchResult: ${String(e)}`,
-                          details: parsed,
-                        }),
-                    })
-                  ),
-                  Stream.mapError((error) =>
-                    error instanceof JsonParsingError
-                      ? new StreamReadError({
-                        message: error.message,
-                        cause: error.cause,
-                      })
-                      : error
-                  )
-                );
-              })
-            );
-        },
-      } satisfies MemoryStreamClient;
-    }),
-  }
+						// Handle response body as string that needs to be parsed as NDJSON
+						const responseBody = typeof response.body === "string"
+							? response.body
+							: JSON.stringify(response.body);
+
+						return Stream.fromIterable(responseBody.split("\n"))
+							.pipe(
+								Stream.filter((line) => line.trim().length > 0),
+								Stream.mapEffect((line) =>
+									Effect.try({
+										try: () => {
+											const parsed = JSON.parse(line) as { key: string };
+											return parsed.key;
+										},
+										catch: (error) =>
+											new StreamReadError({
+												message: `Failed to parse key: ${error instanceof Error ? error.message : String(error)
+													}`,
+												cause: error instanceof Error ? error : new Error(String(error)),
+											}),
+									})
+								)
+							);
+					});
+				},
+
+				streamSearch: (
+					query: string,
+					options?: SearchOptions
+				): Effect.Effect<
+					Stream.Stream<SearchResult, SearchError | StreamError>,
+					SearchError | StreamError
+				> => {
+					return Effect.gen(function* () {
+						const httpClient = yield* HttpClientImpl.pipe(
+							Effect.provide(httpClientLayer)
+						);
+						const searchPath = `/v1/search/${encodeURIComponent(namespace)}/stream`;
+
+						// Build query parameters
+						const params = new URLSearchParams();
+						params.set("q", query);
+
+						if (options?.limit) {
+							params.set("limit", options.limit.toString());
+						}
+
+						if (options?.filters) {
+							Object.entries(options.filters).forEach(([key, value]) => {
+								if (Array.isArray(value)) {
+									value.forEach((v) => params.append(key, v.toString()));
+								} else {
+									params.set(key, value.toString());
+								}
+							});
+						}
+
+						const fullPath = `${searchPath}?${params.toString()}`;
+
+						const requestOptions: HttpRequestOptions = {
+							method: "GET",
+							headers: {
+								"Content-Type": "application/json",
+								Accept: "application/x-ndjson",
+							},
+						};
+
+						const response = yield* httpClient.request<string>(fullPath, requestOptions)
+							.pipe(
+								Effect.mapError((error): SearchError | StreamError => {
+									if (error._tag === "HttpError") {
+										return new StreamReadError({
+											message: `HTTP ${error.status}: ${error.message}`,
+											cause: error,
+										});
+									}
+									if (error._tag === "NetworkError") {
+										return new StreamReadError({
+											message: `Network error: ${error.message}`,
+											cause: error,
+										});
+									}
+									return new StreamReadError({
+										message: `HTTP client error: ${error._tag}`,
+										cause: error,
+									});
+								})
+							);
+
+						if (response.status >= 400) {
+							return yield* new StreamReadError({
+								message: `HTTP ${response.status}: Search request failed`,
+							});
+						}
+
+						// Handle response body as string that needs to be parsed as NDJSON
+						const responseBody = typeof response.body === "string"
+							? response.body
+							: JSON.stringify(response.body);
+
+						return Stream.fromIterable(responseBody.split("\n"))
+							.pipe(
+								Stream.filter((line) => line.trim().length > 0),
+								Stream.mapEffect((line) =>
+									Effect.try({
+										try: () => {
+											return JSON.parse(line) as SearchResult;
+										},
+										catch: (error) =>
+											new StreamReadError({
+												message: `Failed to parse search result: ${error instanceof Error ? error.message : String(error)
+													}`,
+												cause: error instanceof Error ? error : new Error(String(error)),
+											}),
+									})
+								)
+							);
+					});
+				},
+			} satisfies MemoryStreamClient;
+		}),
+	}
 ) { }
-
-export const Default = (config: MemoryStreamClientConfigType) =>
-  MemoryStreamClientImpl.Default(config);
