@@ -5,8 +5,7 @@
  * Configuration layer for effect-supermemory.
  * Loads settings from environment variables with sensible defaults.
  */
-import { Context, Effect, Layer, Redacted, Schema as S } from "effect";
-import { createSimpleEnv, EnvService } from "effect-env";
+import { Config, Context, Effect, Layer, Option, Redacted } from "effect";
 
 /**
  * Configuration for the Supermemory client.
@@ -51,18 +50,26 @@ export type SupermemoryConfig = {
  * @category Context
  */
 export class SupermemoryConfigService extends Context.Tag(
-  "@effect-supermemory/Config"
+  "@effect-supermemory/Config",
 )<SupermemoryConfigService, SupermemoryConfig>() {}
 
 /**
  * Environment schema for Supermemory configuration.
  */
-const envSchema = S.Struct({
-  SUPERMEMORY_API_KEY: S.String,
-  SUPERMEMORY_WORKSPACE_ID: S.optional(S.String),
-  SUPERMEMORY_BASE_URL: S.optional(S.String),
-  SUPERMEMORY_DEFAULT_THRESHOLD: S.optional(S.String),
-  SUPERMEMORY_TIMEOUT_MS: S.optional(S.String),
+const supermemoryConfig = Config.all({
+  apiKey: Config.redacted("SUPERMEMORY_API_KEY"),
+  workspaceId: Config.string("SUPERMEMORY_WORKSPACE_ID").pipe(
+    Config.option,
+  ),
+  baseUrl: Config.string("SUPERMEMORY_BASE_URL").pipe(
+    Config.withDefault("https://api.supermemory.ai"),
+  ),
+  defaultThreshold: Config.number("SUPERMEMORY_DEFAULT_THRESHOLD").pipe(
+    Config.withDefault(0.7),
+  ),
+  timeoutMs: Config.number("SUPERMEMORY_TIMEOUT_MS").pipe(
+    Config.withDefault(30_000),
+  ),
 });
 
 /**
@@ -82,23 +89,11 @@ const envSchema = S.Struct({
  */
 export const SupermemoryConfigLive = Layer.effect(
   SupermemoryConfigService,
-  Effect.gen(function* () {
-    const env = yield* EnvService as any;
-    const apiKey = yield* env.get("SUPERMEMORY_API_KEY");
-    const workspaceId = yield* env.get("SUPERMEMORY_WORKSPACE_ID");
-    const baseUrl = yield* env.get("SUPERMEMORY_BASE_URL");
-    const defaultThresholdStr = yield* env.get("SUPERMEMORY_DEFAULT_THRESHOLD");
-    const timeoutMsStr = yield* env.get("SUPERMEMORY_TIMEOUT_MS");
-
-    return {
-      apiKey: Redacted.make(apiKey),
-      workspaceId,
-      baseUrl: baseUrl ?? "https://api.supermemory.ai",
-      defaultThreshold: defaultThresholdStr ? Number(defaultThresholdStr) : 0.7,
-      timeoutMs: timeoutMsStr ? Number(timeoutMsStr) : 30_000,
-    };
-  })
-).pipe(Layer.provide(createSimpleEnv(envSchema)));
+  Effect.map(supermemoryConfig, (config) => ({
+    ...config,
+    workspaceId: Option.getOrUndefined(config.workspaceId),
+  })),
+);
 
 /**
  * Create a config layer from explicit values.
@@ -108,7 +103,7 @@ export const SupermemoryConfigLive = Layer.effect(
  * @category Layers
  */
 export const SupermemoryConfigFromValues = (
-  config: Partial<SupermemoryConfig> & { apiKey: Redacted.Redacted<string> }
+  config: Partial<SupermemoryConfig> & { apiKey: Redacted.Redacted<string> },
 ): Layer.Layer<SupermemoryConfigService> =>
   Layer.succeed(SupermemoryConfigService, {
     apiKey: config.apiKey,

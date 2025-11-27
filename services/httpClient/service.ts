@@ -1,6 +1,14 @@
 import { Effect, Stream } from "effect";
+
 import type { HttpClient, HttpRequestOptions, HttpResponse } from "./api.js";
-import * as Errors from "./errors.js";
+import {
+  AuthorizationError,
+  HttpError,
+  HttpClientError,
+  NetworkError,
+  RequestError,
+  TooManyRequestsError,
+} from "./errors.js";
 import type { HttpClientConfigType } from "./types.js";
 
 // Use platform's global fetch by default, allow override for testing
@@ -9,7 +17,7 @@ const defaultFetch = globalThis.fetch;
 // Helper to stringify body
 const stringifyBody = (
   body: unknown
-): Effect.Effect<string | undefined, Errors.RequestError> => {
+): Effect.Effect<string | undefined, RequestError> => {
   if (body === undefined || body === null) {
     return Effect.succeed(undefined);
   }
@@ -19,7 +27,7 @@ const stringifyBody = (
   return Effect.try({
     try: () => JSON.stringify(body),
     catch: () =>
-      new Errors.RequestError({ cause: new Error("Failed to stringify body") }),
+      new RequestError({ cause: new Error("Failed to stringify body") }),
   });
 };
 
@@ -40,13 +48,13 @@ export class HttpClientImpl extends Effect.Service<HttpClientImpl>()(
         request: <T = unknown>(
           path: string,
           options: HttpRequestOptions
-        ): Effect.Effect<HttpResponse<T>, Errors.HttpClientError> =>
+        ): Effect.Effect<HttpResponse<T>, HttpClientError> =>
           Effect.gen(function* () {
             const url = new URL(path, baseUrl);
             if (options.queryParams) {
-              Object.entries(options.queryParams).forEach(([key, value]) => {
+              for (const [key, value] of Object.entries(options.queryParams)) {
                 url.searchParams.append(key, value);
-              });
+              }
             }
 
             const requestHeaders = { ...defaultHeaders, ...options.headers };
@@ -74,27 +82,27 @@ export class HttpClientImpl extends Effect.Service<HttpClientImpl>()(
               try: () => effectiveFetch(url.toString(), requestInit),
               catch: (error: unknown) => {
                 if (
-                  error instanceof Errors.HttpError ||
-                  error instanceof Errors.NetworkError ||
-                  error instanceof Errors.RequestError ||
-                  error instanceof Errors.AuthorizationError ||
-                  error instanceof Errors.TooManyRequestsError
+                  error instanceof HttpError ||
+                  error instanceof NetworkError ||
+                  error instanceof RequestError ||
+                  error instanceof AuthorizationError ||
+                  error instanceof TooManyRequestsError
                 ) {
                   return error;
                 }
                 if (error instanceof Error) {
                   if (error.name === "AbortError") {
-                    return new Errors.NetworkError({
+                    return new NetworkError({
                       cause: new Error("Request timed out or aborted"),
                       url: url.toString(),
                     });
                   }
-                  return new Errors.NetworkError({
+                  return new NetworkError({
                     cause: error,
                     url: url.toString(),
                   });
                 }
-                return new Errors.RequestError({
+                return new RequestError({
                   cause: new Error("Unknown request error"),
                   details: error,
                 });
@@ -122,7 +130,7 @@ export class HttpClientImpl extends Effect.Service<HttpClientImpl>()(
 
             if (!response.ok) {
               if (response.status === 401 || response.status === 403) {
-                throw new Errors.AuthorizationError({
+                throw new AuthorizationError({
                   reason: `Unauthorized: ${response.statusText}`,
                   url: url.toString(),
                 });
@@ -135,9 +143,9 @@ export class HttpClientImpl extends Effect.Service<HttpClientImpl>()(
                 if (retryAfter) {
                   errorObj.retryAfterSeconds = Number.parseInt(retryAfter, 10);
                 }
-                throw new Errors.TooManyRequestsError(errorObj);
+                throw new TooManyRequestsError(errorObj);
               }
-              throw new Errors.HttpError({
+              throw new HttpError({
                 status: response.status,
                 message: response.statusText,
                 url: url.toString(),
@@ -151,24 +159,22 @@ export class HttpClientImpl extends Effect.Service<HttpClientImpl>()(
               body: responseBody,
             };
           }).pipe(
-            Effect.catchAll((error) =>
-              Effect.fail(error as Errors.HttpClientError)
-            )
+            Effect.catchAll((error) => Effect.fail(error as HttpClientError))
           ),
 
         requestStream: (
           path: string,
           options: HttpRequestOptions
         ): Effect.Effect<
-          Stream.Stream<Uint8Array, Errors.HttpClientError>,
-          Errors.HttpClientError
+          Stream.Stream<Uint8Array, HttpClientError>,
+          HttpClientError
         > =>
           Effect.gen(function* () {
             const url = new URL(path, baseUrl);
             if (options.queryParams) {
-              Object.entries(options.queryParams).forEach(([key, value]) => {
+              for (const [key, value] of Object.entries(options.queryParams)) {
                 url.searchParams.append(key, value);
-              });
+              }
             }
 
             const requestHeaders = { ...defaultHeaders, ...options.headers };
@@ -184,14 +190,14 @@ export class HttpClientImpl extends Effect.Service<HttpClientImpl>()(
                     : requestHeaders,
                   ...(bodyContent ? { body: bodyContent } : {}),
                 }),
-              catch: (error: unknown): Errors.HttpClientError => {
+              catch: (error: unknown): HttpClientError => {
                 if (error instanceof Error && error.name === "AbortError") {
-                  return new Errors.NetworkError({
+                  return new NetworkError({
                     cause: new Error("Request timed out or aborted"),
                     url: url.toString(),
                   });
                 }
-                return new Errors.NetworkError({
+                return new NetworkError({
                   cause:
                     error instanceof Error ? error : new Error(String(error)),
                   url: url.toString(),
@@ -202,7 +208,7 @@ export class HttpClientImpl extends Effect.Service<HttpClientImpl>()(
             if (!response.ok) {
               if (response.status === 401 || response.status === 403) {
                 return yield* Effect.fail(
-                  new Errors.AuthorizationError({
+                  new AuthorizationError({
                     reason: `Unauthorized: ${response.statusText}`,
                     url: url.toString(),
                   })
@@ -214,7 +220,7 @@ export class HttpClientImpl extends Effect.Service<HttpClientImpl>()(
                   ? Number.parseInt(retryAfter, 10)
                   : undefined;
                 return yield* Effect.fail(
-                  new Errors.TooManyRequestsError({
+                  new TooManyRequestsError({
                     ...(retryAfterSeconds !== undefined
                       ? { retryAfterSeconds }
                       : {}),
@@ -223,7 +229,7 @@ export class HttpClientImpl extends Effect.Service<HttpClientImpl>()(
                 );
               }
               return yield* Effect.fail(
-                new Errors.HttpError({
+                new HttpError({
                   status: response.status,
                   message: response.statusText,
                   url: url.toString(),
@@ -232,15 +238,12 @@ export class HttpClientImpl extends Effect.Service<HttpClientImpl>()(
             }
 
             if (!response.body) {
-              return Stream.empty as Stream.Stream<
-                Uint8Array,
-                Errors.HttpClientError
-              >;
+              return Stream.empty as Stream.Stream<Uint8Array, HttpClientError>;
             }
 
             const reader = response.body.getReader();
 
-            return Stream.async<Uint8Array, Errors.HttpClientError>((emit) => {
+            return Stream.async<Uint8Array, HttpClientError>((emit) => {
               const read = async () => {
                 try {
                   const { value, done } = await reader.read();
@@ -254,7 +257,7 @@ export class HttpClientImpl extends Effect.Service<HttpClientImpl>()(
                   }
                 } catch (e) {
                   emit.fail(
-                    new Errors.NetworkError({
+                    new NetworkError({
                       cause: e instanceof Error ? e : new Error(String(e)),
                       url: url.toString(),
                     })
@@ -264,9 +267,7 @@ export class HttpClientImpl extends Effect.Service<HttpClientImpl>()(
               read();
             });
           }).pipe(
-            Effect.catchAll((error) =>
-              Effect.fail(error as Errors.HttpClientError)
-            )
+            Effect.catchAll((error) => Effect.fail(error as HttpClientError))
           ),
       } satisfies HttpClient;
     }),

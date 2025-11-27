@@ -41,7 +41,6 @@
   "dependencies": {
     "@effect/platform": "^0.93.4",
     "@effect/schema": "^0.75.5",
-    "effect-env": "/Users/paul/Projects/Published/effect-env",
     "effect-json": "^0.1.0"
   }
 }

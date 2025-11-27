@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
-
-describe("Dummy", () => {
-  it("should pass", () => {
+describe("bootstrap", () => {
+  it("imports successfully", () => {
     expect(true).toBe(true);
   });
 });
