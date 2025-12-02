@@ -3,3 +3,6 @@ dist
 .DS_Store
 coverage
 *.log
+.env
+.env.local
+.openapi-cache/

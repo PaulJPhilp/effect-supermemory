@@ -1,0 +1,473 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Supermemory API",
+    "version": "v4",
+    "description": "API specification discovered from effect-supermemory SDK implementation (code analysis only).",
+    "x-generated": "2025-12-02T00:36:40.841Z",
+    "x-generated-from": "services/supermemoryClient/"
+  },
+  "servers": [
+    {
+      "url": "https://api.supermemory.dev",
+      "description": "Production API"
+    },
+    {
+      "url": "https://api.supermemory.ai",
+      "description": "Alternative endpoint"
+    }
+  ],
+  "paths": {
+    "/api/v1/memories": {
+      "post": {
+        "operationId": "put",
+        "summary": "Store or update a memory",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "id",
+                  "value",
+                  "namespace"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "description": "Memory key identifier"
+                  },
+                  "value": {
+                    "type": "string",
+                    "description": "Memory value (Base64 encoded)"
+                  },
+                  "namespace": {
+                    "type": "string",
+                    "description": "Isolation namespace"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Memory stored successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupermemoryApiMemory"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "tags": [
+          "Memory Operations"
+        ]
+      },
+      "delete": {
+        "operationId": "clear",
+        "summary": "Clear all memories in a namespace",
+        "parameters": [
+          {
+            "name": "namespace",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Namespace to clear"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Namespace cleared successfully"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "tags": [
+          "Memory Operations"
+        ]
+      }
+    },
+    "/api/v1/memories/{id}": {
+      "get": {
+        "operationId": "get_or_exists",
+        "summary": "Retrieve a memory by ID",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Memory key identifier"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Memory found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupermemoryApiMemory"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Memory not found (returns undefined for get)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "tags": [
+          "Memory Operations"
+        ]
+      },
+      "delete": {
+        "operationId": "delete",
+        "summary": "Delete a memory by ID (idempotent)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Memory key identifier"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Memory deleted successfully"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Memory not found (returns true - idempotent)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "tags": [
+          "Memory Operations"
+        ]
+      }
+    },
+    "/api/v1/memories/batch": {
+      "post": {
+        "operationId": "putMany",
+        "summary": "Store multiple memories in a single request",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "value",
+                    "namespace"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "string",
+                      "description": "Base64 encoded"
+                    },
+                    "namespace": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Batch operation completed (may have partial failures)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupermemoryBatchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "tags": [
+          "Memory Operations"
+        ]
+      },
+      "delete": {
+        "operationId": "deleteMany",
+        "summary": "Delete multiple memories in a single request",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "namespace"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "namespace": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Batch delete completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupermemoryBatchResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "tags": [
+          "Memory Operations"
+        ]
+      }
+    },
+    "/api/v1/memories/batchGet": {
+      "post": {
+        "operationId": "getMany",
+        "summary": "Retrieve multiple memories in a single request",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "namespace"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "namespace": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Batch get completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupermemoryBatchResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "tags": [
+          "Memory Operations"
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SupermemoryApiMemory": {
+        "type": "object",
+        "required": [
+          "id",
+          "value",
+          "namespace",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique memory identifier"
+          },
+          "value": {
+            "type": "string",
+            "description": "Memory content (Base64 encoded)"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Isolation namespace"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Optional metadata",
+            "additionalProperties": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp"
+          }
+        }
+      },
+      "SupermemoryBatchResponseItem": {
+        "type": "object",
+        "required": [
+          "id",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Item identifier"
+          },
+          "status": {
+            "type": "integer",
+            "description": "HTTP status code for this item"
+          },
+          "value": {
+            "type": "string",
+            "description": "Response value (for batch get, Base64 encoded)"
+          },
+          "error": {
+            "type": "string",
+            "description": "Error message if status >= 400"
+          }
+        }
+      },
+      "SupermemoryBatchResponse": {
+        "type": "object",
+        "required": [
+          "results"
+        ],
+        "properties": {
+          "correlationId": {
+            "type": "string",
+            "description": "Optional correlation ID for tracing"
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SupermemoryBatchResponseItem"
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Supermemory API key (sk-...)"
+      }
+    }
+  }
+}

@@ -51,6 +51,55 @@ src/
 - `bun run format` – Check formatting
 - `bun run format:fix` – Fix formatting issues
 
+## API Synchronization & Type Generation
+
+This project uses automated type generation from OpenAPI specifications to keep the SDK in sync with the Supermemory API.
+
+### Obtaining OpenAPI Specifications
+
+The project uses official OpenAPI specifications from Supermemory to generate TypeScript types:
+
+1. **Contact Supermemory Support:**
+   - Email: support@supermemory.ai
+   - Discord: https://discord.gg/supermemory
+   - Request: "Official OpenAPI v4 specification"
+
+2. **Place the spec in:**
+   ```
+   specs/supermemory/openapi-v4.yaml
+   ```
+
+3. **For Phase 1 (v1/v3 support):**
+   - Additional specs can be added to `specs/supermemory/`
+   - Update scripts/codegen.ts to generate types for all versions
+
+### Generating Types
+
+Generate TypeScript types from OpenAPI specifications:
+
+```bash
+# Generate types for all configured versions
+bun run codegen
+
+# Or generate for a specific version (Phase 1)
+bun run codegen v4
+```
+
+This creates type definitions at `src/generated/types/{version}/index.ts`.
+
+**Generated types are read-only.** The build system uses:
+- **Layer 1 (Generated):** Plain TypeScript types from OpenAPI specs
+- **Layer 2 (Hand-written):** Effect.Schema wrappers in `services/*/schema.ts`
+
+### API Synchronization Strategy
+
+For comprehensive details on API synchronization, see the plan at: `/Users/paul/.claude/plans/stateless-strolling-bubble.md`
+
+**Current Status (Phase 0):**
+- ✅ v4 API type generation implemented
+- 🔄 v1/v3 specs and advanced automation (Phase 1)
+- 🔄 Continuous monitoring and breaking change detection (Phase 1+)
+
 ## API
 
 ### MemoryClient

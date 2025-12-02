@@ -4,29 +4,37 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Build, Test, and Development Commands
 
+All commands use **Bun** as the package manager.
+
 ```bash
 # Install dependencies
 bun install
 
-# Type checking
+# Type checking (strict mode)
 bun run typecheck
 
 # Build (emits to dist/)
 bun run build
 
 # Testing
-bun run test              # Run all tests
+bun run test              # Run all unit tests
 bun run test:watch        # Watch mode
+bun run test:integration  # Run integration tests only
+bun run test:integration:watch  # Watch mode for integration tests
 
-# Code formatting
-bun run format            # Check formatting
-bun run format:fix        # Fix formatting issues
+# Code quality (using Biome with Ultracite preset)
+bun run lint              # Check code with Biome
+bun run format            # Same as lint (checks formatting)
+bun run format:fix        # Fix formatting issues with Biome
+
+# Development utilities
+bun run mock:server       # Start mock Supermemory API server for testing
 ```
 
 ### Running Individual Tests
 
 ```bash
-# Run a single test file
+# Run a specific test file
 bun run vitest run services/memoryClient/__tests__/unit.test.ts
 
 # Run tests in watch mode for a specific file
@@ -35,7 +43,25 @@ bun run vitest services/httpClient/__tests__/unit.test.ts
 
 ## Architecture Overview
 
-effect-supermemory is an Effect-native client library for Supermemory's long-term memory API. The architecture follows strict Effect patterns with discriminated error types and service-based dependency injection.
+effect-supermemory is an Effect-native TypeScript client library for Supermemory's long-term memory API. The architecture is organized as a **modular, service-based library** with distinct layers:
+
+- **Service Layer** (`services/`): Core Effect.Service implementations
+  - `memoryClient/` - In-memory key-value store with namespace isolation
+  - `httpClient/` - Generic HTTP client for external API requests
+  - `supermemoryClient/` - HTTP-backed MemoryClient implementation for Supermemory API
+  - `memoryStreamClient/` - Streaming operations for large datasets (Effect.Stream)
+  - `searchClient/` - Search and reranking operations
+
+- **Domain Layer** (`src/`): High-level services and domain models
+  - `Client.ts` - Supermemory HTTP client with error mapping
+  - `Config.ts` - Configuration service
+  - `Domain.ts` - Domain schemas using Effect.Schema
+  - `Search.ts` - Search service with fluent filter API
+  - `Ingest.ts` - Document ingestion service
+  - `FilterBuilder.ts` - Fluent filter DSL for semantic filtering
+  - `Errors.ts` - Typed error hierarchy
+
+- **Root Exports** (`src/index.ts`): Re-exports all public APIs from services and domain layer
 
 ### Service Architecture Pattern (ADR-001)
 
@@ -147,59 +173,108 @@ Batch methods (`putMany`, `getMany`, `deleteMany`) handle multiple items in a si
 - Recommended max payload: 1-5 MB
 - Soft limit: ~1,000 items per batch
 
+## Code Quality & Standards
+
+This project uses **Ultracite**, a zero-config Biome preset that enforces strict code quality standards through automated formatting and linting.
+
+**Key principles enforced:**
+- **Type Safety**: Explicit types, use `unknown` instead of `any`, const assertions for immutable values
+- **Modern JavaScript**: Arrow functions, `for...of` loops, optional chaining (`?.`), nullish coalescing (`??`)
+- **Code Organization**: Functions focused and under reasonable complexity, early returns over nesting, named conditions
+- **Error Handling**: Throw `Error` objects with descriptive messages, meaningful try-catch blocks
+- **Imports**: Specific imports preferred (except for Effect namespace imports), no barrel files
+- **Performance**: Avoid spread in loops, top-level regex literals
+- **Security**: Proper input validation, no `dangerouslySetInnerHTML`, no `eval()`
+
+Biome provides extremely fast Rust-based linting and formatting with automatic fixes for most issues.
+
 ## Code Style and Conventions
 
 ### TypeScript Configuration
 - **Strict mode**: `strict: true`, `exactOptionalPropertyTypes: true`
-- **Module resolution**: NodeNext
+- **Module resolution**: Bundler
 - **Target**: ES2022
+- **Module**: ESNext
+- **Declaration maps**: Enabled for source debugging
 - **No unused locals**, strict null checks, no implicit any
 
 ### Import Conventions
 ```typescript
-// Effect imports - always namespace imports
+// Effect imports - always use namespace imports
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Context from "effect/Context";
+import * as Stream from "effect/Stream";
+import type { Effect as EffectType } from "effect";
+
+// Internal imports - use relative paths or path aliases
+import { MyService } from "./MyService.js"; // .js extension required for ESM
+import { MyService } from "~/services/MyService.js"; // Using path alias
 
 // Test imports
 import { describe, it, expect } from "vitest";
 ```
+
+Note: Path aliases `~/*` and `effect-supermemory/*` map to `src/*` and are defined in `tsconfig.json`.
 
 ### File Structure Convention
 Each service follows this structure:
 ```
 services/[serviceName]/
   ├── __tests__/
-  │   └── unit.test.ts
-  ├── api.ts          # Interface contract (type definitions)
-  ├── errors.ts       # Discriminated error types
-  ├── types.ts        # Data types and config
-  ├── service.ts      # Effect.Service implementation
-  ├── utils.ts        # (optional) Helper utilities
-  └── index.ts        # Public exports
+  │   └── unit.test.ts      # Vitest unit tests
+  ├── api.ts                # Interface contract (e.g., export type MemoryClient)
+  ├── errors.ts             # Discriminated error types (Data.TaggedError)
+  ├── types.ts              # Data types and config (e.g., HttpClientConfigType)
+  ├── service.ts            # Effect.Service class with Effect.fn() parameterization
+  ├── helpers.ts            # (optional) Helper utilities
+  └── index.ts              # Public exports (re-exports from other files)
 ```
+
+**Naming conventions:**
+- Service classes: PascalCase + "Impl" suffix (e.g., `MemoryClientImpl`, `HttpClientImpl`)
+- Error classes: PascalCase + "Error" suffix (e.g., `MemoryNotFoundError`)
+- Files: PascalCase for types/services, lowercase for utilities (e.g., `service.ts`, `helpers.ts`)
 
 ### Testing Patterns
 
-Tests use `vitest` with `@effect/vitest`:
+**Unit Tests** (`**/__tests__/*.test.ts` and `test/**/*.test.ts`):
+- Environment: Node.js
+- Use `vitest` with `@effect/vitest`
 
+**Integration Tests** (`test/integration.test.ts`):
+- Setup: `test-setup/integration-setup.ts`
+- Mock server: `test-setup/mock-server.ts`
+- Timeout: 10s (elevated)
+
+**Test pattern:**
 ```typescript
-describe("ServiceName", () => {
-  const testLayer = ServiceImpl.Default("test-namespace");
+import * as Effect from "effect/Effect";
+import { describe, it, expect } from "vitest";
+import { MemoryClientImpl } from "../service.js";
 
-  it("description", async () => {
+describe("MemoryClient", () => {
+  const testLayer = MemoryClientImpl.Default("test-namespace");
+
+  it("puts and gets a value", async () => {
     const program = Effect.gen(function* () {
-      const service = yield* ServiceImpl;
-      const result = yield* service.method("arg");
+      const client = yield* MemoryClientImpl;
+      yield* client.put("key", "value");
+      const result = yield* client.get("key");
       return result;
     }).pipe(Effect.provide(testLayer));
 
     const result = await Effect.runPromise(program);
-    expect(result).toBe(expected);
+    expect(result).toBe("value");
   });
 });
 ```
+
+**Key patterns:**
+- Create test layer with `ServiceImpl.Default(config)`
+- Use `Effect.gen()` for test logic, `yield*` to access services
+- Provide layer with `.pipe(Effect.provide(testLayer))`
+- Run with `Effect.runPromise()` in async tests
+- Assert on resolved values, not Effect objects
 
 ## Important Implementation Notes
 

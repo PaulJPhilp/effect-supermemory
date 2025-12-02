@@ -12,6 +12,7 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:integration:watch": "vitest --config vitest.integration.config.ts",
     "mock:server": "bun test-setup/mock-server.ts",
+    "codegen": "bun run scripts/codegen.ts",
     "lint": "biome check .",
     "format": "biome check .",
     "format:fix": "biome format --write ."
@@ -34,6 +35,7 @@
     "@effect/vitest": "^0.25.1",
     "@types/node": "^20.19.25",
     "effect": "^3.19.6",
+    "openapi-typescript": "^7.10.1",
     "typescript": "^5.9.3",
     "ultracite": "6.3.6",
     "vitest": "^4.0.14"
