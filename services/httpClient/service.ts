@@ -117,10 +117,17 @@ export class HttpClientImpl extends Effect.Service<HttpClientImpl>()(
             const responseBody: T = yield* Effect.tryPromise({
               try: async () => {
                 const contentType = response.headers.get("Content-Type");
-                if (contentType?.includes("application/json")) {
+                // Handle NDJSON as text (not JSON) since it's newline-delimited
+                if (
+                  contentType?.includes("application/json") &&
+                  !contentType?.includes("application/x-ndjson")
+                ) {
                   return (await response.json()) as T;
                 }
-                if (contentType?.includes("text/")) {
+                if (
+                  contentType?.includes("text/") ||
+                  contentType?.includes("application/x-ndjson")
+                ) {
                   return (await response.text()) as T;
                 }
                 return null as T;
@@ -130,27 +137,35 @@ export class HttpClientImpl extends Effect.Service<HttpClientImpl>()(
 
             if (!response.ok) {
               if (response.status === 401 || response.status === 403) {
-                throw new AuthorizationError({
-                  reason: `Unauthorized: ${response.statusText}`,
-                  url: url.toString(),
-                });
+                return yield* Effect.fail(
+                  new AuthorizationError({
+                    reason: `Unauthorized: ${response.statusText}`,
+                    url: url.toString(),
+                  })
+                );
               }
               if (response.status === 429) {
                 const retryAfter = response.headers.get("Retry-After");
-                const errorObj: { url: string; retryAfterSeconds?: number } = {
-                  url: url.toString(),
-                };
-                if (retryAfter) {
-                  errorObj.retryAfterSeconds = Number.parseInt(retryAfter, 10);
-                }
-                throw new TooManyRequestsError(errorObj);
+                const retryAfterSeconds = retryAfter
+                  ? Number.parseInt(retryAfter, 10)
+                  : undefined;
+                return yield* Effect.fail(
+                  new TooManyRequestsError({
+                    ...(retryAfterSeconds !== undefined
+                      ? { retryAfterSeconds }
+                      : {}),
+                    url: url.toString(),
+                  })
+                );
               }
-              throw new HttpError({
-                status: response.status,
-                message: response.statusText,
-                url: url.toString(),
-                body: responseBody,
-              });
+              return yield* Effect.fail(
+                new HttpError({
+                  status: response.status,
+                  message: response.statusText,
+                  url: url.toString(),
+                  body: responseBody,
+                })
+              );
             }
 
             return {
@@ -245,23 +260,39 @@ export class HttpClientImpl extends Effect.Service<HttpClientImpl>()(
 
             return Stream.async<Uint8Array, HttpClientError>((emit) => {
               const read = async () => {
-                try {
-                  const { value, done } = await reader.read();
-                  if (done) {
-                    emit.end();
-                  } else if (value && value.length > 0) {
-                    emit.single(value);
-                    read();
-                  } else {
-                    read();
-                  }
-                } catch (e) {
-                  emit.fail(
-                    new NetworkError({
-                      cause: e instanceof Error ? e : new Error(String(e)),
-                      url: url.toString(),
-                    })
-                  );
+                const readResult = await Effect.runPromise(
+                  Effect.tryPromise({
+                    try: () => reader.read(),
+                    catch: (e) =>
+                      new NetworkError({
+                        cause: e instanceof Error ? e : new Error(String(e)),
+                        url: url.toString(),
+                      }),
+                  })
+                ).catch((error) => {
+                  const networkError =
+                    error instanceof NetworkError
+                      ? error
+                      : new NetworkError({
+                          cause: error instanceof Error ? error : new Error(String(error)),
+                          url: url.toString(),
+                        });
+                  emit.fail(networkError);
+                  return null;
+                });
+
+                if (!readResult) {
+                  return; // Error already emitted via emit.fail
+                }
+
+                const { value, done } = readResult;
+                if (done) {
+                  emit.end();
+                } else if (value && value.length > 0) {
+                  emit.single(value);
+                  read();
+                } else {
+                  read();
                 }
               };
               read();

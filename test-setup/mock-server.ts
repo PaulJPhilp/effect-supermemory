@@ -29,10 +29,9 @@ const server = createServer((req, res) => {
 
   try {
     const namespace = req.headers["x-supermemory-namespace"] as string;
-    const key = url.searchParams.get("key");
 
     console.log(
-      `${req.method} ${url.pathname} - Namespace: ${namespace}, Key: ${key}`
+      `${req.method} ${url.pathname} - Namespace: ${namespace}`
     );
     console.log(`Full URL: ${url.toString()}`);
 
@@ -43,15 +42,40 @@ const server = createServer((req, res) => {
       : url.pathname;
     console.log(`Normalized path: ${normalizedPath}`);
 
-    if (normalizedPath === "/v1/memories" && req.method === "GET") {
-      // Get memory
-      if (!key) {
-        res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Missing key parameter" }));
-        return;
-      }
+    // POST /api/v1/memories - Create/update memory
+    if (normalizedPath === "/v1/memories" && req.method === "POST") {
+      let body = "";
+      req.on("data", (chunk) => (body += chunk));
+      req.on("end", () => {
+        try {
+          const { id, value, namespace: bodyNamespace } = JSON.parse(body);
+          const effectiveNamespace = namespace || bodyNamespace;
+          const fullKey = `${effectiveNamespace}:${id}`;
+          const now = new Date().toISOString();
+          mockStore.set(fullKey, value);
 
-      const fullKey = `${namespace}:${key}`;
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              id,
+              value,
+              namespace: effectiveNamespace,
+              createdAt: now,
+              updatedAt: now,
+            })
+          );
+        } catch (error) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Invalid JSON" }));
+        }
+      });
+      return;
+    }
+
+    // GET /api/v1/memories/{id} - Get memory by ID
+    if (normalizedPath.startsWith("/v1/memories/") && req.method === "GET") {
+      const id = normalizedPath.split("/v1/memories/")[1];
+      const fullKey = `${namespace}:${id}`;
       const value = mockStore.get(fullKey);
 
       if (!value) {
@@ -60,85 +84,127 @@ const server = createServer((req, res) => {
         return;
       }
 
+      const now = new Date().toISOString();
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ key, value }));
-    } else if (normalizedPath === "/v1/memories" && req.method === "PUT") {
-      // Put memory
-      if (!key) {
-        res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Missing key parameter" }));
-        return;
-      }
+      res.end(
+        JSON.stringify({
+          id,
+          value,
+          namespace,
+          createdAt: now,
+          updatedAt: now,
+        })
+      );
+      return;
+    }
 
-      let body = "";
-      req.on("data", (chunk) => (body += chunk));
-      req.on("end", () => {
-        try {
-          const { value } = JSON.parse(body);
-          const fullKey = `${namespace}:${key}`;
-          mockStore.set(fullKey, value);
-
-          res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ success: true }));
-        } catch (error) {
-          res.writeHead(400, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: "Invalid JSON" }));
-        }
-      });
-    } else if (normalizedPath === "/v1/memories" && req.method === "DELETE") {
-      // Delete memory
-      if (!key) {
-        res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Missing key parameter" }));
-        return;
-      }
-
-      const fullKey = `${namespace}:${key}`;
+    // DELETE /api/v1/memories/{id} - Delete memory by ID
+    if (normalizedPath.startsWith("/v1/memories/") && req.method === "DELETE") {
+      const id = normalizedPath.split("/v1/memories/")[1];
+      const fullKey = `${namespace}:${id}`;
       const existed = mockStore.has(fullKey);
       mockStore.delete(fullKey);
 
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ deleted: existed }));
-    } else if (normalizedPath.startsWith("/v1/keys/") && req.method === "GET") {
-      // List all keys for namespace
-      const namespaceFromPath = normalizedPath.split("/")[3];
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+
+    // DELETE /api/v1/memories?namespace=... - Clear all memories in namespace
+    if (normalizedPath === "/v1/memories" && req.method === "DELETE") {
+      const namespaceParam = url.searchParams.get("namespace") || namespace;
+      const keysToDelete = Array.from(mockStore.keys()).filter((k) =>
+        k.startsWith(`${namespaceParam}:`)
+      );
+      keysToDelete.forEach((key) => mockStore.delete(key));
+
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+
+    // GET /v1/keys/{namespace} - List all keys for namespace (streaming)
+    if (normalizedPath.startsWith("/v1/keys/") && req.method === "GET") {
+      const namespaceFromPath = decodeURIComponent(
+        normalizedPath.split("/v1/keys/")[1]
+      );
       const keys = Array.from(mockStore.keys())
         .filter((k) => k.startsWith(`${namespaceFromPath}:`))
         .map((k) => k.split(":").slice(1).join(":"));
 
+      // Build NDJSON response
+      const ndjsonLines = keys.map((key) => JSON.stringify({ key })).join("\n");
+      const responseBody = ndjsonLines + (ndjsonLines ? "\n" : "");
+
       // Return as NDJSON
-      res.writeHead(200, { "Content-Type": "application/x-ndjson" });
-      keys.forEach((key) => {
-        res.write(JSON.stringify({ key }) + "\n");
+      res.writeHead(200, {
+        "Content-Type": "application/x-ndjson",
       });
-      res.end();
-    } else if (
+      res.end(responseBody);
+      return;
+    }
+
+    // GET /v1/search/{namespace}/stream?q=... - Search memories (streaming)
+    if (
       normalizedPath.startsWith("/v1/search/") &&
+      normalizedPath.endsWith("/stream") &&
       req.method === "GET"
     ) {
-      // Search memories
-      const namespaceFromPath = normalizedPath.split("/")[3];
+      const pathParts = normalizedPath.split("/");
+      const namespaceFromPath = decodeURIComponent(pathParts[3]);
       const query = url.searchParams.get("q") || "";
+
+      // Helper to decode base64
+      const decodeBase64 = (b64: string): string => {
+        try {
+          return Buffer.from(b64, "base64").toString("utf8");
+        } catch {
+          return b64; // Return as-is if not valid base64
+        }
+      };
 
       const results = Array.from(mockStore.entries())
         .filter(([k]) => k.startsWith(`${namespaceFromPath}:`))
-        .filter(([_, v]) => v.toLowerCase().includes(query.toLowerCase()))
+        .filter(([_, v]) => {
+          // Decode base64 value before searching
+          const decodedValue = decodeBase64(v);
+          return decodedValue.toLowerCase().includes(query.toLowerCase());
+        })
         .map(([k, v]) => ({
-          key: k.split(":").slice(1).join(":"),
-          value: v,
-          score: 0.95,
+          memory: {
+            key: k.split(":").slice(1).join(":"),
+            value: v, // Keep base64 encoded value in response
+          },
+          relevanceScore: 0.95,
         }));
 
+      // Build NDJSON response
+      const ndjsonLines = results
+        .map((result) => JSON.stringify(result))
+        .join("\n");
+      const responseBody = ndjsonLines + (ndjsonLines ? "\n" : "");
+
       // Return as NDJSON
-      res.writeHead(200, { "Content-Type": "application/x-ndjson" });
-      results.forEach((result) => {
-        res.write(JSON.stringify(result) + "\n");
+      res.writeHead(200, {
+        "Content-Type": "application/x-ndjson",
       });
-      res.end();
-    } else {
-      res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Endpoint not found" }));
+      res.end(responseBody);
+      return;
     }
+
+    // Unknown endpoint - log for debugging
+    console.error(
+      `[MOCK SERVER] 404 - Unmatched route: ${req.method} ${normalizedPath} (original: ${url.pathname})`
+    );
+    res.writeHead(404, { "Content-Type": "application/json" });
+    res.end(
+      JSON.stringify({
+        error: "Endpoint not found",
+        method: req.method,
+        path: normalizedPath,
+        originalPath: url.pathname,
+      })
+    );
   } catch (error) {
     console.error("Server error:", error);
     res.writeHead(500, { "Content-Type": "application/json" });
@@ -149,6 +215,16 @@ const server = createServer((req, res) => {
 server.listen(PORT, () => {
   console.log(`🚀 Mock Supermemory API server running on ${BASE_URL}`);
   console.log(`📝 Mock store has ${mockStore.size} items`);
+});
+
+server.on("error", (error: NodeJS.ErrnoException) => {
+  if (error.code === "EADDRINUSE") {
+    console.error(`❌ Port ${PORT} is already in use. Please free the port or kill any existing mock server.`);
+    process.exit(1);
+  } else {
+    console.error("❌ Server error:", error);
+    process.exit(1);
+  }
 });
 
 // Graceful shutdown

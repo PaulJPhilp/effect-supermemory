@@ -75,13 +75,16 @@ export class MemoryStreamClientImpl extends Effect.Service<MemoryStreamClientImp
             }
 
             // Handle response body as string that needs to be parsed as NDJSON
-            const responseBody =
-              typeof response.body === "string"
-                ? response.body
-                : JSON.stringify(response.body);
+            if (typeof response.body !== "string") {
+              return yield* new StreamReadError({
+                message: `Expected string response body, got ${typeof response.body}: ${JSON.stringify(response.body)}`,
+              });
+            }
 
-            return Stream.fromIterable(responseBody.split("\n")).pipe(
-              Stream.filter((line) => line.trim().length > 0),
+            const responseBody = response.body;
+            const lines = responseBody.split("\n").filter((line) => line.trim().length > 0);
+
+            return Stream.fromIterable(lines).pipe(
               Stream.mapEffect((line) =>
                 Effect.try({
                   try: () => {
@@ -90,7 +93,7 @@ export class MemoryStreamClientImpl extends Effect.Service<MemoryStreamClientImp
                   },
                   catch: (error) =>
                     new StreamReadError({
-                      message: `Failed to parse key: ${
+                      message: `Failed to parse key from line "${line}": ${
                         error instanceof Error ? error.message : String(error)
                       }`,
                       cause:
@@ -175,13 +178,16 @@ export class MemoryStreamClientImpl extends Effect.Service<MemoryStreamClientImp
             }
 
             // Handle response body as string that needs to be parsed as NDJSON
-            const responseBody =
-              typeof response.body === "string"
-                ? response.body
-                : JSON.stringify(response.body);
+            if (typeof response.body !== "string") {
+              return yield* new StreamReadError({
+                message: `Expected string response body, got ${typeof response.body}`,
+              });
+            }
 
-            return Stream.fromIterable(responseBody.split("\n")).pipe(
-              Stream.filter((line) => line.trim().length > 0),
+            const responseBody = response.body;
+            const lines = responseBody.split("\n").filter((line) => line.trim().length > 0);
+
+            return Stream.fromIterable(lines).pipe(
               Stream.mapEffect((line) =>
                 Effect.try({
                   try: () => {
@@ -189,7 +195,7 @@ export class MemoryStreamClientImpl extends Effect.Service<MemoryStreamClientImp
                   },
                   catch: (error) =>
                     new StreamReadError({
-                      message: `Failed to parse search result: ${
+                      message: `Failed to parse search result from line "${line}": ${
                         error instanceof Error ? error.message : String(error)
                       }`,
                       cause:

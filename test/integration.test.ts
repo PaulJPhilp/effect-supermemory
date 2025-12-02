@@ -48,11 +48,9 @@ describe("Integration Tests", () => {
         expect(value).toBe("test-value");
       }).pipe(Effect.provide(SupermemoryTestLayer));
 
-      const result = await Effect.runPromiseExit(
-        program as Effect.Effect<void, never, never>
-      );
+      const result = await Effect.runPromiseExit(program);
       if (result._tag === "Failure") {
-        throw new Error(`Test failed: ${result.cause}`);
+        expect.fail(`Test failed: ${result.cause}`);
       }
     });
 
@@ -65,11 +63,9 @@ describe("Integration Tests", () => {
         expect(value).toBeUndefined();
       }).pipe(Effect.provide(SupermemoryTestLayer));
 
-      const result = await Effect.runPromiseExit(
-        program as Effect.Effect<void, never, never>
-      );
+      const result = await Effect.runPromiseExit(program);
       if (result._tag === "Failure") {
-        throw new Error(`Test failed: ${result.cause}`);
+        expect.fail(`Test failed: ${result.cause}`);
       }
     });
 
@@ -93,11 +89,9 @@ describe("Integration Tests", () => {
         expect(afterDelete).toBeUndefined();
       }).pipe(Effect.provide(SupermemoryTestLayer));
 
-      const result = await Effect.runPromiseExit(
-        program as Effect.Effect<void, never, never>
-      );
+      const result = await Effect.runPromiseExit(program);
       if (result._tag === "Failure") {
-        throw new Error(`Test failed: ${result.cause}`);
+        expect.fail(`Test failed: ${result.cause}`);
       }
     });
 
@@ -117,11 +111,9 @@ describe("Integration Tests", () => {
         expect(existsAfter).toBe(true);
       }).pipe(Effect.provide(SupermemoryTestLayer));
 
-      const result = await Effect.runPromiseExit(
-        program as Effect.Effect<void, never, never>
-      );
+      const result = await Effect.runPromiseExit(program);
       if (result._tag === "Failure") {
-        throw new Error(`Test failed: ${result.cause}`);
+        expect.fail(`Test failed: ${result.cause}`);
       }
     });
   });
@@ -138,7 +130,8 @@ describe("Integration Tests", () => {
         yield* memoryClient.put("stream-test-3", "value-3");
 
         // Stream all keys
-        const keys = yield* client.listAllKeys().pipe(Stream.runCollect);
+        const stream = yield* client.listAllKeys();
+        const keys = yield* Stream.runCollect(stream);
 
         // Type assertion for Chunk<string>
         const keysChunk = keys as unknown as Chunk.Chunk<string>;
@@ -148,11 +141,9 @@ describe("Integration Tests", () => {
         expect(keysArray).toContain("stream-test-3");
       }).pipe(Effect.provide(MemoryStreamTestLayer));
 
-      const result = await Effect.runPromiseExit(
-        program as Effect.Effect<void, never, never>
-      );
+      const result = await Effect.runPromiseExit(program);
       if (result._tag === "Failure") {
-        throw new Error(`Test failed: ${result.cause}`);
+        expect.fail(`Test failed: ${result.cause}`);
       }
     });
 
@@ -167,9 +158,8 @@ describe("Integration Tests", () => {
         yield* memoryClient.put("search-test-3", "apple orange grape");
 
         // Search for "apple"
-        const results = yield* client
-          .streamSearch("apple")
-          .pipe(Stream.runCollect);
+        const searchStream = yield* client.streamSearch("apple");
+        const results = yield* Stream.runCollect(searchStream);
 
         // Type assertion to help TypeScript understand this is a Chunk
         const resultsChunk = results as unknown as Chunk.Chunk<{
@@ -182,11 +172,9 @@ describe("Integration Tests", () => {
         expect(resultKeys).toContain("search-test-3");
       }).pipe(Effect.provide(MemoryStreamTestLayer));
 
-      const result = await Effect.runPromiseExit(
-        program as Effect.Effect<void, never, never>
-      );
+      const result = await Effect.runPromiseExit(program);
       if (result._tag === "Failure") {
-        throw new Error(`Test failed: ${result.cause}`);
+        expect.fail(`Test failed: ${result.cause}`);
       }
     });
   });
