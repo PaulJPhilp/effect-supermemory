@@ -1,45 +1,21 @@
-import * as Effect from "effect/Effect";
-import type { HttpRequestOptions } from "../httpClient/api.js";
+import { Effect } from "effect";
 import { HttpClientImpl } from "../httpClient/service.js";
+import type { HttpPath, HttpRequestOptions } from "../httpClient/types.js";
 import { MemoryValidationError } from "../memoryClient/errors.js";
 import type { SupermemoryClientConfigType } from "../supermemoryClient/types.js";
 import type { SearchClient } from "./api.js";
 import { type SearchError, SearchQueryError } from "./errors.js";
-import * as Utils from "./helpers.js";
+import { encodeFilters, fromBase64 } from "./helpers.js";
 import type {
   ID,
   MemoryValue,
   Metadata,
   Namespace,
-  QueryParams,
   RelevanceScore,
-  SearchFilters,
   SearchOptions,
   SearchResult,
   Timestamp,
 } from "./types.js";
-
-// Helper to encode filters
-function encodeFilters(filters?: SearchFilters): QueryParams {
-  if (!filters) {
-    return {};
-  }
-  const params: Record<string, string> = {};
-  for (const [key, value] of Object.entries(filters)) {
-    if (Array.isArray(value)) {
-      value.forEach((v) => {
-        if (params[`filter.${key}`]) {
-          params[`filter.${key}`] += `,${v.toString()}`;
-        } else {
-          params[`filter.${key}`] = v.toString();
-        }
-      });
-    } else {
-      params[`filter.${key}`] = value.toString();
-    }
-  }
-  return params as QueryParams;
-}
 
 export class SearchClientImpl extends Effect.Service<SearchClientImpl>()(
   "SearchClient",
@@ -48,7 +24,7 @@ export class SearchClientImpl extends Effect.Service<SearchClientImpl>()(
       const httpClient = yield* HttpClientImpl;
 
       const makeRequest = <T = unknown>(
-        path: string,
+        path: HttpPath,
         options: HttpRequestOptions
       ): Effect.Effect<T, SearchError> =>
         httpClient.request<T>(path, options).pipe(
@@ -111,7 +87,7 @@ export class SearchClientImpl extends Effect.Service<SearchClientImpl>()(
                 }): SearchResult => ({
                   memory: {
                     key: item.id,
-                    value: Utils.fromBase64(item.value),
+                    value: fromBase64(item.value),
                   },
                   relevanceScore: item.relevanceScore,
                 })

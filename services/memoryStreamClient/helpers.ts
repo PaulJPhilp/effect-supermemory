@@ -5,12 +5,16 @@
  * and data transformation operations used in memory streaming.
  */
 
-import { Effect, Schema, Stream } from "effect";
-import { ParseError, parse, ValidationError } from "effect-json";
+import { Effect, Exit, Stream } from "effect";
+import type { HttpRequestOptions } from "../httpClient/types.js";
+import type { SearchResult } from "../searchClient/types.js";
 import { StreamReadError } from "./errors.js";
 
 // Re-export error types for use in other modules
-export { ParseError, ValidationError };
+// Note: ParseError and ValidationError are now aliased to StreamReadError
+// for simplicity. If you need distinct error types, create custom error classes.
+export type ParseError = StreamReadError;
+export type ValidationError = StreamReadError;
 
 /**
  * A Stream decoder for NDJSON (Newline-Delimited JSON) / JSONL format.
@@ -37,7 +41,7 @@ export { ParseError, ValidationError };
  */
 export const ndjsonDecoder = (
   byteStream: Stream.Stream<Uint8Array, StreamReadError>
-): Stream.Stream<unknown, StreamReadError | ParseError | ValidationError> => {
+): Stream.Stream<unknown, StreamReadError> => {
   let buffer = ""; // Buffer to hold incomplete lines
 
   return byteStream.pipe(
@@ -54,8 +58,15 @@ export const ndjsonDecoder = (
     }),
     Stream.filter((line: string) => line.trim().length > 0),
     Stream.mapEffect((line: string) =>
-      // Use effect-json with unknown schema for maximum flexibility
-      parse(Schema.Unknown, line)
+      Effect.try({
+        try: () => JSON.parse(line) as unknown,
+        catch: (error) => {
+          const message = `Failed to parse JSON: ${
+            error instanceof Error ? error.message : String(error)
+          }`;
+          return new StreamReadError({ message });
+        },
+      })
     )
   );
 };
@@ -153,14 +164,24 @@ export const splitIntoLines = (
  */
 export const validateJson = (
   str: string
-): Effect.Effect<unknown, ParseError | ValidationError> =>
-  parse(Schema.Unknown, str);
+): Effect.Effect<unknown, StreamReadError> =>
+  Effect.try({
+    try: () => JSON.parse(str) as unknown,
+    catch: (error) => {
+      const message = `Invalid JSON: ${
+        error instanceof Error ? error.message : String(error)
+      }`;
+      return new StreamReadError({ message });
+    },
+  });
 
 /**
  * Checks if a string represents a complete JSON object (synchronous boolean version).
  *
  * This is a lightweight synchronous utility for quick checks. For full Effect-based
  * validation with proper error handling, use validateJson() instead.
+ *
+ * Uses Effect.trySync internally to avoid try/catch blocks.
  *
  * @param str - The string to check
  * @returns True if the string appears to be complete JSON
@@ -171,11 +192,160 @@ export const validateJson = (
  * console.log(isCompleteJson('{"key": "value')); // false
  * ```
  */
-export const isCompleteJson = (str: string): boolean => {
-  try {
-    JSON.parse(str);
-    return true;
-  } catch {
-    return false;
+export const isCompleteJson = (str: string): boolean =>
+  Exit.match(
+    Effect.runSyncExit(
+      Effect.try({
+        try: () => JSON.parse(str),
+        catch: () => new Error("Invalid JSON"),
+      })
+    ),
+    {
+      onFailure: () => false,
+      onSuccess: () => true,
+    }
+  );
+
+/**
+ * Builds request options for list keys requests.
+ */
+export const buildKeysRequestOptions = (): HttpRequestOptions => ({
+  method: "GET",
+  headers: {
+    "Content-Type": "application/json",
+    Accept: "application/x-ndjson",
+  },
+});
+
+/**
+ * Builds request options for search requests.
+ */
+export const buildSearchRequestOptions = (
+  query: string,
+  options?: {
+    limit?: number;
+    filters?: Record<string, string | number | boolean | readonly string[]>;
   }
+): HttpRequestOptions => ({
+  method: "GET",
+  headers: {
+    "Content-Type": "application/json",
+    Accept: "application/x-ndjson",
+  },
+  queryParams: buildSearchQueryParams(query, options),
+});
+
+/**
+ * Builds query parameters from search options.
+ */
+export const buildSearchQueryParams = (
+  query: string,
+  options?: {
+    limit?: number;
+    filters?: Record<string, string | number | boolean | readonly string[]>;
+  }
+): Record<string, string> => {
+  const params = new URLSearchParams();
+  params.set("q", query);
+
+  if (options?.limit) {
+    params.set("limit", options.limit.toString());
+  }
+  if (options?.filters) {
+    for (const [key, value] of Object.entries(options.filters)) {
+      if (Array.isArray(value)) {
+        for (const v of value) {
+          params.append(key, v.toString());
+        }
+      } else {
+        params.set(key, value.toString());
+      }
+    }
+  }
+
+  return Object.fromEntries(params.entries());
+};
+
+/**
+ * Translates HTTP client errors to stream errors.
+ */
+export const translateHttpClientError = (error: {
+  _tag: string;
+  status?: number;
+  message: string;
+  cause?: unknown;
+}): StreamReadError => {
+  if (error._tag === "HttpError") {
+    return new StreamReadError({
+      message: `HTTP ${error.status}: ${error.message}`,
+      cause: error as unknown,
+    });
+  }
+  if (error._tag === "NetworkError") {
+    return new StreamReadError({
+      message: `Network error: ${error.message}`,
+      cause: error as unknown,
+    });
+  }
+  return new StreamReadError({
+    message: `HTTP client error: ${error._tag}`,
+    cause: error as unknown,
+  });
+};
+
+/**
+ * Validates HTTP response status and body type.
+ */
+export const validateStreamResponse = (
+  response: { status: number; body: unknown },
+  expectedBodyType: string
+): Effect.Effect<string, StreamReadError> => {
+  if (response.status >= 400) {
+    return Effect.fail(
+      new StreamReadError({
+        message: `HTTP ${response.status}: ${expectedBodyType} request failed`,
+      })
+    );
+  }
+
+  if (typeof response.body !== "string") {
+    return Effect.fail(
+      new StreamReadError({
+        message: `Expected string response body, got ${typeof response.body}`,
+      })
+    );
+  }
+
+  return Effect.succeed(response.body);
+};
+
+/**
+ * Parses a single line as a SearchResult.
+ */
+export const parseSearchResultLine = (
+  line: string
+): Effect.Effect<SearchResult, StreamReadError> =>
+  Effect.try({
+    try: () => JSON.parse(line) as SearchResult,
+    catch: (error) =>
+      new StreamReadError({
+        message: `Failed to parse search result from line "${line}": ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        cause: error instanceof Error ? error : new Error(String(error)),
+      }),
+  });
+
+/**
+ * Parses NDJSON lines into a stream of parsed objects.
+ */
+export const parseNdjsonLines = <T>(
+  responseBody: string,
+  parseLine: (line: string) => Effect.Effect<T, StreamReadError>
+): Stream.Stream<T, StreamReadError> => {
+  const lines = responseBody
+    .split("\n")
+    .filter((line) => line.trim().length > 0);
+
+  return Stream.fromIterable(lines).pipe(Stream.mapEffect(parseLine));
 };

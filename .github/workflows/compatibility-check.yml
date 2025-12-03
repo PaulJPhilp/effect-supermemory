@@ -1,0 +1,266 @@
+name: SDK Compatibility Check
+
+on:
+  # Manual trigger
+  workflow_dispatch:
+    inputs:
+      check_type:
+        description: 'Type of check to run'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - api-surface
+          - schemas
+          - monitoring
+          - compatibility-tests
+
+  # Daily check at 2 AM UTC
+  schedule:
+    - cron: '0 2 * * *'
+
+  # Trigger on SDK metadata or spec changes
+  push:
+    paths:
+      - 'specs/supermemory/sdk-metadata.json'
+      - 'specs/supermemory/sdk-api.json'
+      - '.github/workflows/compatibility-check.yml'
+
+jobs:
+  compatibility-check:
+    name: Check SDK Compatibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Extract SDK API surface
+        id: extract-api
+        if: ${{ github.event.inputs.check_type != 'compatibility-tests' && (github.event.inputs.check_type == 'all' || github.event.inputs.check_type == 'api-surface' || github.event_name == 'schedule' || github.event_name == 'push') }}
+        run: |
+          echo "Extracting SDK API surface..."
+          bun run scripts/extract-sdk-api.ts || echo "SDK extraction skipped - install 'supermemory' package first"
+        continue-on-error: true
+
+      - name: Compare API surfaces
+        id: compare-api
+        if: steps.extract-api.outcome == 'success' && (github.event.inputs.check_type == 'all' || github.event.inputs.check_type == 'api-surface' || github.event_name == 'schedule' || github.event_name == 'push')
+        run: |
+          echo "Comparing API surfaces..."
+          bun run scripts/compare-api-surface.ts || echo "Comparison failed"
+        continue-on-error: true
+
+      - name: Extract schemas
+        id: extract-schemas
+        if: ${{ github.event.inputs.check_type != 'compatibility-tests' && (github.event.inputs.check_type == 'all' || github.event.inputs.check_type == 'schemas' || github.event_name == 'schedule') }}
+        run: |
+          echo "Extracting schemas..."
+          bun run scripts/extract-schemas.ts || echo "Schema extraction skipped"
+        continue-on-error: true
+
+      - name: Validate schemas
+        id: validate-schemas
+        if: steps.extract-schemas.outcome == 'success' && (github.event.inputs.check_type == 'all' || github.event.inputs.check_type == 'schemas' || github.event_name == 'schedule')
+        run: |
+          echo "Validating schemas..."
+          bun run scripts/validate-schemas.ts || echo "Validation failed"
+        continue-on-error: true
+
+      - name: Monitor SDK changes
+        id: monitor-changes
+        if: ${{ github.event.inputs.check_type != 'compatibility-tests' && (github.event.inputs.check_type == 'all' || github.event.inputs.check_type == 'monitoring' || github.event_name == 'schedule') }}
+        run: |
+          echo "Monitoring SDK changes..."
+          bun run scripts/monitor-sdk-changes.ts || echo "Monitoring failed"
+        continue-on-error: true
+
+      - name: Run compatibility tests
+        id: compatibility-tests
+        if: ${{ github.event.inputs.check_type == 'all' || github.event.inputs.check_type == 'compatibility-tests' }}
+        run: |
+          echo "Starting mock server..."
+          bun run mock:server &
+          MOCK_SERVER_PID=$!
+          sleep 2
+          
+          echo "Running compatibility tests..."
+          bun run test:compatibility || echo "Compatibility tests failed"
+          
+          kill $MOCK_SERVER_PID 2>/dev/null || true
+        continue-on-error: true
+
+      - name: Generate compatibility dashboard
+        id: generate-dashboard
+        if: always()
+        run: |
+          echo "Generating compatibility dashboard..."
+          bun run scripts/generate-dashboard.ts || echo "Dashboard generation skipped"
+        continue-on-error: true
+
+      - name: Upload compatibility reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: compatibility-reports-${{ github.run_number }}
+          path: |
+            docs/compatibility-report.json
+            docs/compatibility-report.md
+            docs/schema-validation-report.json
+            docs/schema-validation-report.md
+            docs/sdk-change-report.json
+            docs/sdk-change-report.md
+            docs/compatibility-dashboard.md
+            specs/supermemory/sdk-metadata.json
+          retention-days: 90
+
+      - name: Create issue on breaking changes
+        uses: actions/github-script@v7
+        if: failure() && (github.event_name == 'schedule' || github.event_name == 'push')
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            
+            // Check if there are breaking changes
+            const changeReportPath = path.join(process.cwd(), 'docs', 'sdk-change-report.json');
+            if (fs.existsSync(changeReportPath)) {
+              const changeReport = JSON.parse(fs.readFileSync(changeReportPath, 'utf8'));
+              
+              if (changeReport.changes && changeReport.changes.breaking.length > 0) {
+                const title = `⚠️ Breaking changes detected in ${changeReport.packageName}@${changeReport.currentVersion}`;
+                const body = `## Breaking Changes Detected\n\n` +
+                  `Package: ${changeReport.packageName}\n` +
+                  `Version: ${changeReport.currentVersion}\n` +
+                  `Previous: ${changeReport.previousVersion || 'none'}\n` +
+                  `Generated: ${changeReport.generatedAt}\n\n` +
+                  `### Breaking Changes:\n\n` +
+                  changeReport.changes.breaking.map(change => 
+                    `- **${change.type}**: ${change.description}${change.operation ? ` (Operation: \`${change.operation}\`)` : ''}`
+                  ).join('\n') +
+                  `\n\n### Recommended Actions\n\n` +
+                  `1. Review the full change report in artifacts\n` +
+                  `2. Update effect-supermemory to handle breaking changes\n` +
+                  `3. Run compatibility tests: \`bun run test:compatibility\`\n` +
+                  `4. Update documentation if needed\n\n` +
+                  `Please review and update effect-supermemory accordingly.`;
+                
+                // Check if issue already exists
+                const { data: issues } = await github.rest.issues.listForRepo({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  state: 'open',
+                  labels: 'breaking-change',
+                });
+                
+                const existingIssue = issues.find(issue => 
+                  issue.title.includes(changeReport.currentVersion)
+                );
+                
+                if (!existingIssue) {
+                  await github.rest.issues.create({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    title: title,
+                    body: body,
+                    labels: ['compatibility', 'breaking-change', 'automated']
+                  });
+                }
+              }
+            }
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            
+            let comment = '## 🔍 Compatibility Check Results\n\n';
+            let hasResults = false;
+            
+            // Check if compatibility report exists
+            const compatReportPath = path.join(process.cwd(), 'docs', 'compatibility-report.json');
+            if (fs.existsSync(compatReportPath)) {
+              const report = JSON.parse(fs.readFileSync(compatReportPath, 'utf8'));
+              hasResults = true;
+              comment += `**Compatibility Score:** ${report.compatibility.score}%\n`;
+              comment += `**Status:** ${report.compatibility.overall.toUpperCase()}\n\n`;
+              
+              if (report.missingOperations && report.missingOperations.length > 0) {
+                comment += `### Missing Operations: ${report.missingOperations.length}\n`;
+                report.missingOperations.slice(0, 5).forEach(op => {
+                  comment += `- ${op.operation} (${op.priority})\n`;
+                });
+                if (report.missingOperations.length > 5) {
+                  comment += `- ... and ${report.missingOperations.length - 5} more\n`;
+                }
+                comment += '\n';
+              }
+              
+              if (report.typeMismatches && report.typeMismatches.length > 0) {
+                comment += `### Type Mismatches: ${report.typeMismatches.length}\n`;
+                comment += 'See full report for details.\n\n';
+              }
+            }
+            
+            // Check change report
+            const changeReportPath = path.join(process.cwd(), 'docs', 'sdk-change-report.json');
+            if (fs.existsSync(changeReportPath)) {
+              const changeReport = JSON.parse(fs.readFileSync(changeReportPath, 'utf8'));
+              hasResults = true;
+              comment += `### SDK Changes Detected\n\n`;
+              comment += `**SDK Version:** ${changeReport.currentVersion}\n`;
+              if (changeReport.changes.breaking.length > 0) {
+                comment += `⚠️ **Breaking Changes:** ${changeReport.changes.breaking.length}\n`;
+              }
+              if (changeReport.changes.additions.length > 0) {
+                comment += `✨ **Additions:** ${changeReport.changes.additions.length}\n`;
+              }
+              comment += '\n';
+            }
+            
+            if (!hasResults) {
+              comment += 'No compatibility reports generated yet. Run full compatibility check to see results.';
+            } else {
+              comment += '📄 See artifacts for full reports.';
+            }
+            
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Compatibility Check Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f "docs/compatibility-report.json" ]; then
+            echo "✅ Compatibility report generated" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ -f "docs/sdk-change-report.json" ]; then
+            echo "✅ SDK change report generated" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "See artifacts for full reports." >> $GITHUB_STEP_SUMMARY

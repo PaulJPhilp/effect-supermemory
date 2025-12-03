@@ -4,6 +4,7 @@ import {
   HttpClientImpl,
   MemoryStreamClientImpl,
   SupermemoryClientImpl,
+  type HttpUrl,
 } from "../src/index.js";
 
 // Integration test configuration
@@ -16,11 +17,8 @@ const TEST_CONFIG = {
 
 // Create test layers
 const HttpClientTestLayer = HttpClientImpl.Default({
-  baseUrl: TEST_CONFIG.baseUrl,
-  headers: {
-    Authorization: `Bearer ${TEST_CONFIG.apiKey}`,
-    "X-Supermemory-Namespace": TEST_CONFIG.namespace,
-  },
+  baseUrl: TEST_CONFIG.baseUrl as HttpUrl,
+  // Headers should now be injected by SupermemoryClient
   timeoutMs: TEST_CONFIG.timeoutMs,
 });
 

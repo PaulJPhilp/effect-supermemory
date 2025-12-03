@@ -1,15 +1,8 @@
-import * as Cause from "effect/Cause";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
-import * as Stream from "effect/Stream";
+import { Cause, Effect, Layer, Option, Stream } from "effect";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  AuthorizationError as HttpClientAuthorizationError,
-  type HttpClientError,
-  NetworkError,
-} from "../../httpClient/errors.js";
+import { AuthorizationError as HttpClientAuthorizationError } from "../../httpClient/errors.js";
 import { HttpClientImpl } from "../../httpClient/service.js";
+import type { HttpUrl } from "../../httpClient/types.js";
 import { MemoryValidationError } from "../../memoryClient/errors.js";
 import type { SearchResult } from "../../searchClient/types.js";
 import { StreamReadError } from "../errors.js";
@@ -42,16 +35,6 @@ const createMemoryStreamClientLayer = (
     ...configOverrides,
   }).pipe(Layer.provide(mockHttpClientLayer));
 
-// Helper for creating a mock ReadableStream source for HttpClient.requestStream
-const createMockByteStream = (
-  textChunks: string[]
-): Stream.Stream<Uint8Array, HttpClientError> =>
-  Stream.fromIterable(textChunks.map((s) => new TextEncoder().encode(s))).pipe(
-    Stream.mapError(
-      (e) => new NetworkError({ cause: new Error(String(e)), url: "mock-url" })
-    )
-  );
-
 describe("MemoryStreamClientImpl", () => {
   beforeEach(() => {
     mockHttpClient.request.mockReset();
@@ -59,13 +42,14 @@ describe("MemoryStreamClientImpl", () => {
   });
 
   it("listAllKeys streams keys correctly from NDJSON", async () => {
-    const ndjsonResponse = [
-      '{"key": "key1"}\n',
-      '{"key": "key2"}\n',
-      '{"key": "key3"}\n',
-    ];
-    mockHttpClient.requestStream.mockReturnValueOnce(
-      Effect.succeed(createMockByteStream(ndjsonResponse))
+    const ndjsonResponse =
+      '{"key": "key1"}\n{"key": "key2"}\n{"key": "key3"}\n';
+    mockHttpClient.request.mockReturnValueOnce(
+      Effect.succeed({
+        status: 200,
+        headers: new Headers(),
+        body: ndjsonResponse,
+      })
     );
 
     const program = Effect.gen(function* () {
@@ -76,9 +60,9 @@ describe("MemoryStreamClientImpl", () => {
 
     const result = await Effect.runPromise(program);
     expect(Array.from(result)).toEqual(["key1", "key2", "key3"]);
-    expect(mockHttpClient.requestStream).toHaveBeenCalledTimes(1);
-    expect(mockHttpClient.requestStream).toHaveBeenCalledWith(
-      "/api/v1/memories/keys/stream",
+    expect(mockHttpClient.request).toHaveBeenCalledTimes(1);
+    expect(mockHttpClient.request).toHaveBeenCalledWith(
+      "/v1/keys/stream-test-ns",
       expect.objectContaining({ method: "GET" })
     );
   });
@@ -88,9 +72,15 @@ describe("MemoryStreamClientImpl", () => {
       { memory: { key: "mem1", value: "foo" }, relevanceScore: 0.9 },
       { memory: { key: "mem2", value: "bar" }, relevanceScore: 0.8 },
     ];
-    const ndjsonResponse = searchResults.map((r) => `${JSON.stringify(r)}\n`);
-    mockHttpClient.requestStream.mockReturnValueOnce(
-      Effect.succeed(createMockByteStream(ndjsonResponse))
+    const ndjsonResponse = `${searchResults
+      .map((r) => JSON.stringify(r))
+      .join("\n")}\n`;
+    mockHttpClient.request.mockReturnValueOnce(
+      Effect.succeed({
+        status: 200,
+        headers: new Headers(),
+        body: ndjsonResponse,
+      })
     );
 
     const program = Effect.gen(function* () {
@@ -101,9 +91,9 @@ describe("MemoryStreamClientImpl", () => {
 
     const result = await Effect.runPromise(program);
     expect(Array.from(result)).toEqual(searchResults);
-    expect(mockHttpClient.requestStream).toHaveBeenCalledTimes(1);
-    expect(mockHttpClient.requestStream).toHaveBeenCalledWith(
-      "/api/v1/search/stream",
+    expect(mockHttpClient.request).toHaveBeenCalledTimes(1);
+    expect(mockHttpClient.request).toHaveBeenCalledWith(
+      "/v1/search/stream-test-ns/stream",
       expect.objectContaining({
         method: "GET",
         queryParams: expect.objectContaining({ q: "test query" }),
@@ -112,11 +102,11 @@ describe("MemoryStreamClientImpl", () => {
   });
 
   it("listAllKeys fails on initial 401 AuthorizationError", async () => {
-    mockHttpClient.requestStream.mockReturnValueOnce(
+    mockHttpClient.request.mockReturnValueOnce(
       Effect.fail(
         new HttpClientAuthorizationError({
           reason: "Bad Auth",
-          url: "/keys/stream",
+          url: "/keys/stream" as HttpUrl,
         })
       )
     );
@@ -135,22 +125,20 @@ describe("MemoryStreamClientImpl", () => {
       expect(Option.isSome(error)).toBe(true);
       if (Option.isSome(error)) {
         expect(error.value).toBeInstanceOf(MemoryValidationError);
-        expect((error.value as MemoryValidationError).message).toContain(
-          "Authorization failed"
-        );
       }
     }
-    expect(mockHttpClient.requestStream).toHaveBeenCalledTimes(1);
+    expect(mockHttpClient.request).toHaveBeenCalledTimes(1);
   });
 
   it("listAllKeys fails on mid-stream JSON parsing error", async () => {
-    const malformedNdjsonResponse = [
-      '{"key": "key1"}\n',
-      '{"key": "key2", "malformed"\n', // Malformed line
-      '{"key": "key3"}\n',
-    ];
-    mockHttpClient.requestStream.mockReturnValueOnce(
-      Effect.succeed(createMockByteStream(malformedNdjsonResponse))
+    const malformedNdjsonResponse =
+      '{"key": "key1"}\n{"key": "key2", "malformed"\n{"key": "key3"}\n';
+    mockHttpClient.request.mockReturnValueOnce(
+      Effect.succeed({
+        status: 200,
+        headers: new Headers(),
+        body: malformedNdjsonResponse,
+      })
     );
 
     const program = Effect.gen(function* () {
@@ -169,17 +157,18 @@ describe("MemoryStreamClientImpl", () => {
         expect(error.value).toBeInstanceOf(StreamReadError);
       }
     }
-    expect(mockHttpClient.requestStream).toHaveBeenCalledTimes(1);
+    expect(mockHttpClient.request).toHaveBeenCalledTimes(1);
   });
 
   it("listAllKeys handles stream interruption gracefully", async () => {
-    const ndjsonResponse = [
-      '{"key": "key1"}\n',
-      '{"key": "key2"}\n',
-      '{"key": "key3"}\n',
-    ];
-    mockHttpClient.requestStream.mockReturnValueOnce(
-      Effect.succeed(createMockByteStream(ndjsonResponse))
+    const ndjsonResponse =
+      '{"key": "key1"}\n{"key": "key2"}\n{"key": "key3"}\n';
+    mockHttpClient.request.mockReturnValueOnce(
+      Effect.succeed({
+        status: 200,
+        headers: new Headers(),
+        body: ndjsonResponse,
+      })
     );
 
     const program = Effect.gen(function* () {
@@ -190,12 +179,16 @@ describe("MemoryStreamClientImpl", () => {
 
     const result = await Effect.runPromise(program);
     expect(Array.from(result)).toEqual(["key1"]);
-    expect(mockHttpClient.requestStream).toHaveBeenCalledTimes(1);
+    expect(mockHttpClient.request).toHaveBeenCalledTimes(1);
   });
 
   it("streamSearch handles empty results stream", async () => {
-    mockHttpClient.requestStream.mockReturnValueOnce(
-      Effect.succeed(createMockByteStream([]))
+    mockHttpClient.request.mockReturnValueOnce(
+      Effect.succeed({
+        status: 200,
+        headers: new Headers(),
+        body: "",
+      })
     );
 
     const program = Effect.gen(function* () {

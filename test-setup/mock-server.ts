@@ -30,9 +30,7 @@ const server = createServer((req, res) => {
   try {
     const namespace = req.headers["x-supermemory-namespace"] as string;
 
-    console.log(
-      `${req.method} ${url.pathname} - Namespace: ${namespace}`
-    );
+    console.log(`${req.method} ${url.pathname} - Namespace: ${namespace}`);
     console.log(`Full URL: ${url.toString()}`);
 
     // Handle different endpoints
@@ -219,7 +217,9 @@ server.listen(PORT, () => {
 
 server.on("error", (error: NodeJS.ErrnoException) => {
   if (error.code === "EADDRINUSE") {
-    console.error(`❌ Port ${PORT} is already in use. Please free the port or kill any existing mock server.`);
+    console.error(
+      `❌ Port ${PORT} is already in use. Please free the port or kill any existing mock server.`
+    );
     process.exit(1);
   } else {
     console.error("❌ Server error:", error);

@@ -100,6 +100,55 @@ For comprehensive details on API synchronization, see the plan at: `/Users/paul/
 - 🔄 v1/v3 specs and advanced automation (Phase 1)
 - 🔄 Continuous monitoring and breaking change detection (Phase 1+)
 
+## SDK Compatibility
+
+This library is designed to be functionally compatible with the official Supermemory TypeScript SDK. We maintain automated compatibility checking to ensure all operations work equivalently.
+
+### Compatibility Guarantees
+
+- **Functional Equivalence:** All operations in effect-supermemory produce equivalent results to the official SDK
+- **Type Compatibility:** Request/response types are compatible (though wrapped in Effect types)
+- **Error Handling:** Errors are semantically equivalent, though expressed through Effect's error channel
+
+### Checking Compatibility
+
+Check the current compatibility status:
+
+```bash
+# Quick compatibility check
+bun run compat:check
+
+# View full compatibility report
+bun run compat:report
+
+# Extract and compare API surfaces
+bun run compat:extract
+bun run compat:compare
+```
+
+### Compatibility Reports
+
+Compatibility reports are automatically generated and updated:
+- **Compatibility Report:** `docs/compatibility-report.md` - Shows overall compatibility status
+- **Schema Validation:** `docs/schema-validation-report.md` - Validates request/response schemas
+- **SDK Changes:** `docs/sdk-change-report.md` - Tracks changes in the official SDK
+
+### Automated Monitoring
+
+A GitHub Actions workflow automatically:
+- Monitors the official SDK for new versions
+- Compares API surfaces and detects breaking changes
+- Runs compatibility tests
+- Creates issues when breaking changes are detected
+
+### Known Differences
+
+- **Error Handling:** Official SDK may throw errors; effect-supermemory uses Effect's error channel
+- **Async Model:** Official SDK uses Promises; effect-supermemory uses Effect
+- **Type System:** effect-supermemory wraps types in Effect types for type safety
+
+These differences are intentional and preserve Effect's sound error handling model.
+
 ## API
 
 ### MemoryClient

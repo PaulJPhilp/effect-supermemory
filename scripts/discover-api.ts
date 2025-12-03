@@ -410,9 +410,7 @@ async function main() {
   const showDiff = args.includes("--diff");
 
   const spec = generateOpenAPISpec();
-  const specPath = path.resolve(
-    "specs/supermemory/openapi-v4.json"
-  );
+  const specPath = path.resolve("specs/supermemory/openapi-v4.json");
   const specDir = path.dirname(specPath);
 
   // Ensure directory exists
@@ -444,7 +442,9 @@ async function main() {
   console.log(`\n✅ OpenAPI spec generated:`);
   console.log(`   File: ${specPath}`);
   console.log(`   Status: ${changed ? "CHANGED ✨" : "unchanged"}`);
-  console.log(`   Endpoints discovered: ${Object.keys(discoveredEndpoints).length}`);
+  console.log(
+    `   Endpoints discovered: ${Object.keys(discoveredEndpoints).length}`
+  );
   console.log(`   Generated at: ${spec.info["x-generated"]}`);
 
   // Summary

@@ -1,14 +1,11 @@
-import * as Cause from "effect/Cause";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
+import { Cause, Effect, Layer, Option } from "effect";
 import { describe, expect, it } from "vitest";
-import type { HttpResponse } from "../../httpClient/api.js";
 import { type HttpClientError, HttpError } from "../../httpClient/errors.js";
 import { HttpClientImpl } from "../../httpClient/service.js";
+import type { HttpResponse, HttpUrl } from "../../httpClient/types.js";
 import { MemoryValidationError } from "../../memoryClient/errors.js";
 import { type SearchError, SearchQueryError } from "../errors.js";
-import * as Utils from "../helpers.js";
+import { toBase64 } from "../helpers.js";
 import { SearchClientImpl } from "../service.js";
 import type { SearchResult, SupermemoryClientConfigType } from "../types.js";
 
@@ -47,7 +44,7 @@ const createTestHttpClientLayer = (
   };
 
   return HttpClientImpl.Default({
-    baseUrl: "https://api.supermemory.dev",
+    baseUrl: "https://api.supermemory.dev" as HttpUrl,
     fetch: mockFetch as any,
   });
 };
@@ -82,7 +79,7 @@ describe("SearchClientImpl", () => {
             results: [
               {
                 id: "test-key",
-                value: Utils.toBase64("test-value"),
+                value: toBase64("test-value"),
                 relevanceScore: 0.9,
                 namespace: "test-ns",
               },
@@ -197,13 +194,13 @@ describe("SearchClientImpl", () => {
             results: [
               {
                 id: "key1",
-                value: Utils.toBase64("value1"),
+                value: toBase64("value1"),
                 relevanceScore: 0.95,
                 namespace: "test-ns",
               },
               {
                 id: "key2",
-                value: Utils.toBase64("value2"),
+                value: toBase64("value2"),
                 relevanceScore: 0.87,
                 namespace: "test-ns",
               },
@@ -266,7 +263,7 @@ describe("SearchClientImpl", () => {
         new HttpError({
           status: 400,
           message: "Bad Request",
-          url: "/api/v1/search",
+          url: "/api/v1/search" as HttpUrl,
         }),
       ],
     ]);
@@ -297,7 +294,7 @@ describe("SearchClientImpl", () => {
         new HttpError({
           status: 500,
           message: "Internal Server Error",
-          url: "/api/v1/search",
+          url: "/api/v1/search" as HttpUrl,
         }),
       ],
     ]);
@@ -368,7 +365,7 @@ describe("SearchClientImpl", () => {
     await Effect.runPromise(program);
   });
 
-  it("includes timeout in HttpClient config when provided", async () => {
+  it("includes timeout in HttpClient config when provided", () => {
     const layer = SearchClientImpl.Default({ ...baseConfig, timeoutMs: 5000 });
 
     // Since we can't easily inspect the internal HttpClient config,

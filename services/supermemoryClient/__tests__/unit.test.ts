@@ -1,4 +1,5 @@
 import { Cause, Effect, Layer, Option } from "effect";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   AuthorizationError as HttpClientAuthorizationError,
   HttpError,
@@ -6,12 +7,13 @@ import {
   TooManyRequestsError,
 } from "../../httpClient/errors.js";
 import { HttpClientImpl } from "../../httpClient/service.js"; // Dependency to mock
+import type { HttpUrl } from "../../httpClient/types.js";
 import {
   MemoryBatchPartialFailure,
   MemoryNotFoundError,
   MemoryValidationError,
 } from "../../memoryClient/errors.js"; // Expected error types
-import * as Utils from "../helpers.js";
+import { fromBase64, toBase64 } from "../helpers.js";
 import { SupermemoryClientImpl } from "../service.js";
 import type { SupermemoryClientConfigType } from "../types.js";
 
@@ -59,24 +61,26 @@ const createSupermemoryClientLayer = (
               method: "POST",
               body: {
                 id: key,
-                value: Utils.toBase64(value),
+                value: toBase64(value),
                 namespace: config.namespace,
               },
             });
             // For testing, we'll simulate the mock behavior
             return mockCall;
           }).pipe(
-            Effect.flatMap((response) =>
-              response instanceof Error || response._tag === "Failure"
-                ? Effect.fail(response)
-                : response.status !== 201
-                  ? Effect.fail(
-                      new MemoryValidationError({
-                        message: `Failed to put memory: HTTP ${response.status}`,
-                      })
-                    )
-                  : Effect.void
-            )
+            Effect.flatMap((response) => {
+              if (response instanceof Error || response._tag === "Failure") {
+                return Effect.fail(response);
+              }
+              if (response.status !== 201) {
+                return Effect.fail(
+                  new MemoryValidationError({
+                    message: `Failed to put memory: HTTP ${response.status}`,
+                  })
+                );
+              }
+              return Effect.void;
+            })
           ),
         get: (key: string) =>
           Effect.sync(() =>
@@ -85,21 +89,22 @@ const createSupermemoryClientLayer = (
               queryParams: { id: key, namespace: config.namespace },
             })
           ).pipe(
-            Effect.flatMap((response) =>
-              response instanceof Error || response._tag === "Failure"
-                ? Effect.fail(response)
-                : response.status === 404
-                  ? Effect.succeed(undefined)
-                  : response.status !== 200
-                    ? Effect.fail(
-                        new MemoryValidationError({
-                          message: `Failed to get memory: HTTP ${response.status}`,
-                        })
-                      )
-                    : Effect.succeed(
-                        Utils.fromBase64((response.body as any).value)
-                      )
-            )
+            Effect.flatMap((response) => {
+              if (response instanceof Error || response._tag === "Failure") {
+                return Effect.fail(response);
+              }
+              if (response.status === 404) {
+                return Effect.succeed(undefined);
+              }
+              if (response.status !== 200) {
+                return Effect.fail(
+                  new MemoryValidationError({
+                    message: `Failed to get memory: HTTP ${response.status}`,
+                  })
+                );
+              }
+              return Effect.succeed(fromBase64((response.body as any).value));
+            })
           ),
         delete: (key: string) =>
           Effect.sync(() =>
@@ -148,22 +153,24 @@ const createSupermemoryClientLayer = (
               method: "POST",
               body: items.map((item) => ({
                 id: item.key,
-                value: Utils.toBase64(item.value),
+                value: toBase64(item.value),
                 namespace: config.namespace,
               })),
             })
           ).pipe(
-            Effect.flatMap((response) =>
-              response instanceof Error || response._tag === "Failure"
-                ? Effect.fail(response)
-                : response.status !== 200
-                  ? Effect.fail(
-                      new MemoryValidationError({
-                        message: `Failed to put many memories: HTTP ${response.status}`,
-                      })
-                    )
-                  : Effect.void
-            )
+            Effect.flatMap((response) => {
+              if (response instanceof Error || response._tag === "Failure") {
+                return Effect.fail(response);
+              }
+              if (response.status !== 200) {
+                return Effect.fail(
+                  new MemoryValidationError({
+                    message: `Failed to put many memories: HTTP ${response.status}`,
+                  })
+                );
+              }
+              return Effect.void;
+            })
           ),
         deleteMany: (keys: readonly string[]) =>
           Effect.sync(() =>
@@ -175,17 +182,19 @@ const createSupermemoryClientLayer = (
               })),
             })
           ).pipe(
-            Effect.flatMap((response) =>
-              response instanceof Error || response._tag === "Failure"
-                ? Effect.fail(response)
-                : response.status !== 200
-                  ? Effect.fail(
-                      new MemoryValidationError({
-                        message: `Failed to delete many memories: HTTP ${response.status}`,
-                      })
-                    )
-                  : Effect.void
-            )
+            Effect.flatMap((response) => {
+              if (response instanceof Error || response._tag === "Failure") {
+                return Effect.fail(response);
+              }
+              if (response.status !== 200) {
+                return Effect.fail(
+                  new MemoryValidationError({
+                    message: `Failed to delete many memories: HTTP ${response.status}`,
+                  })
+                );
+              }
+              return Effect.void;
+            })
           ),
         getMany: (keys: readonly string[]) =>
           Effect.sync(() =>
@@ -197,32 +206,31 @@ const createSupermemoryClientLayer = (
               })),
             })
           ).pipe(
-            Effect.flatMap((response) =>
-              response instanceof Error || response._tag === "Failure"
-                ? Effect.fail(response)
-                : response.status !== 200
-                  ? Effect.fail(
-                      new MemoryValidationError({
-                        message: `Failed to get many memories: HTTP ${response.status}`,
-                      })
-                    )
-                  : Effect.succeed(() => {
-                      const resultMap = new Map<string, string | undefined>();
-                      if ((response.body as any).results) {
-                        for (const result of (response.body as any).results) {
-                          if (result.status === 200 && result.value) {
-                            resultMap.set(
-                              result.id,
-                              Utils.fromBase64(result.value)
-                            );
-                          } else {
-                            resultMap.set(result.id, undefined);
-                          }
-                        }
-                      }
-                      return resultMap;
-                    })
-            )
+            Effect.flatMap((response) => {
+              if (response instanceof Error || response._tag === "Failure") {
+                return Effect.fail(response);
+              }
+              if (response.status !== 200) {
+                return Effect.fail(
+                  new MemoryValidationError({
+                    message: `Failed to get many memories: HTTP ${response.status}`,
+                  })
+                );
+              }
+              return Effect.succeed(() => {
+                const resultMap = new Map<string, string | undefined>();
+                if ((response.body as any).results) {
+                  for (const result of (response.body as any).results) {
+                    if (result.status === 200 && result.value) {
+                      resultMap.set(result.id, fromBase64(result.value));
+                    } else {
+                      resultMap.set(result.id, undefined);
+                    }
+                  }
+                }
+                return resultMap;
+              });
+            })
           ),
       } as any)
     )
@@ -247,7 +255,7 @@ describe("SupermemoryClientImpl", () => {
         headers: new Headers(),
         body: {
           id: "test-key",
-          value: Utils.toBase64("test-value"),
+          value: toBase64("test-value"),
           namespace: "test-ns",
         },
       })
@@ -269,7 +277,7 @@ describe("SupermemoryClientImpl", () => {
         method: "POST",
         body: {
           id: "test-key",
-          value: Utils.toBase64("test-value"),
+          value: toBase64("test-value"),
           namespace: "test-ns",
         },
       })
@@ -283,7 +291,7 @@ describe("SupermemoryClientImpl", () => {
         headers: new Headers(),
         body: {
           id: "test-key",
-          value: Utils.toBase64("decoded-value"),
+          value: toBase64("decoded-value"),
           namespace: "test-ns",
         },
       })
@@ -306,7 +314,7 @@ describe("SupermemoryClientImpl", () => {
         new HttpError({
           status: 404,
           message: "Not Found",
-          url: "/api/v1/memories/nonexistent",
+          url: "/api/v1/memories/nonexistent" as HttpUrl,
         })
       )
     );
@@ -344,7 +352,7 @@ describe("SupermemoryClientImpl", () => {
         new HttpError({
           status: 404,
           message: "Not Found",
-          url: "/api/v1/memories/nonexistent",
+          url: "/api/v1/memories/nonexistent" as HttpUrl,
         })
       )
     );
@@ -384,7 +392,7 @@ describe("SupermemoryClientImpl", () => {
         new HttpError({
           status: 404,
           message: "Not Found",
-          url: "/api/v1/memories/nonexistent",
+          url: "/api/v1/memories/nonexistent" as HttpUrl,
         })
       )
     );
@@ -424,7 +432,7 @@ describe("SupermemoryClientImpl", () => {
       Effect.fail(
         new HttpClientAuthorizationError({
           reason: "Invalid API key",
-          url: "/api/v1/memories",
+          url: "/api/v1/memories" as HttpUrl,
         })
       )
     );
@@ -455,7 +463,7 @@ describe("SupermemoryClientImpl", () => {
         new HttpError({
           status: 500,
           message: "Internal Server Error",
-          url: "/api/v1/memories",
+          url: "/api/v1/memories" as HttpUrl,
         })
       )
     );
@@ -488,7 +496,7 @@ describe("SupermemoryClientImpl", () => {
         Effect.fail(
           new NetworkError({
             cause: new Error("Connection failed"),
-            url: "/memories",
+            url: "/memories" as HttpUrl,
           })
         )
       )
@@ -498,7 +506,7 @@ describe("SupermemoryClientImpl", () => {
           headers: new Headers(),
           body: {
             id: "foo",
-            value: Utils.toBase64("bar"),
+            value: toBase64("bar"),
             namespace: "test-ns",
           },
         })
@@ -528,7 +536,7 @@ describe("SupermemoryClientImpl", () => {
         new HttpError({
           status: 500,
           message: "Server Error",
-          url: "/memories",
+          url: "/memories" as HttpUrl,
         })
       )
     );
@@ -565,7 +573,11 @@ describe("SupermemoryClientImpl", () => {
   it("does not retry on 404 (get), returns undefined immediately", async () => {
     mockHttpClient.request.mockReturnValueOnce(
       Effect.fail(
-        new HttpError({ status: 404, message: "Not Found", url: "/memories" })
+        new HttpError({
+          status: 404,
+          message: "Not Found",
+          url: "/memories" as HttpUrl,
+        })
       )
     );
 
@@ -589,7 +601,7 @@ describe("SupermemoryClientImpl", () => {
       Effect.fail(
         new HttpClientAuthorizationError({
           reason: "Unauthorized",
-          url: "/memories",
+          url: "/memories" as HttpUrl,
         })
       )
     );
@@ -624,7 +636,10 @@ describe("SupermemoryClientImpl", () => {
     mockHttpClient.request
       .mockReturnValueOnce(
         Effect.fail(
-          new TooManyRequestsError({ retryAfterSeconds: 1, url: "/memories" })
+          new TooManyRequestsError({
+            retryAfterSeconds: 1,
+            url: "/memories" as HttpUrl,
+          })
         )
       )
       .mockReturnValueOnce(
@@ -633,7 +648,7 @@ describe("SupermemoryClientImpl", () => {
           headers: new Headers(),
           body: {
             id: "foo",
-            value: Utils.toBase64("bar"),
+            value: toBase64("bar"),
             namespace: "test-ns",
           },
         })
@@ -662,7 +677,7 @@ describe("SupermemoryClientImpl", () => {
       Effect.fail(
         new NetworkError({
           cause: new Error("Connection failed"),
-          url: "/memories",
+          url: "/memories" as HttpUrl,
         })
       )
     );
@@ -722,7 +737,7 @@ describe("SupermemoryClientImpl", () => {
         method: "POST",
         body: items.map((item) => ({
           id: item.key,
-          value: Utils.toBase64(item.value),
+          value: toBase64(item.value),
           namespace: baseConfig.namespace,
         })),
       })
@@ -782,21 +797,6 @@ describe("SupermemoryClientImpl", () => {
       }
     }
   });
-});
-
-it("deleteMany sends a DELETE request with multiple keys and succeeds", async () => {
-  mockHttpClient.request.mockReturnValueOnce(
-    Effect.succeed({
-      status: 200,
-      headers: new Headers(),
-      body: {
-        results: [
-          { id: "key1", status: 204 },
-          { id: "key2", status: 204 },
-        ],
-      },
-    })
-  );
 
   it("deleteMany sends a DELETE request with multiple keys and succeeds", async () => {
     mockHttpClient.request.mockReturnValueOnce(
@@ -836,9 +836,9 @@ it("deleteMany sends a DELETE request with multiple keys and succeeds", async ()
         headers: new Headers(),
         body: {
           results: [
-            { id: "key1", status: 200, value: Utils.toBase64("val1") },
+            { id: "key1", status: 200, value: toBase64("val1") },
             { id: "key2", status: 404 }, // Not found
-            { id: "key3", status: 200, value: Utils.toBase64("val3") },
+            { id: "key3", status: 200, value: toBase64("val3") },
           ],
         },
       })

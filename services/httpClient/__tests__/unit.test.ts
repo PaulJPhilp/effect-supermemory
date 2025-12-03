@@ -1,14 +1,9 @@
-import { Cause, Chunk, Effect, Option, Schema, Stream } from "effect";
-import { stringify } from "effect-json";
+import { Cause, Chunk, Effect, Option, Stream } from "effect";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AuthorizationError, HttpError, NetworkError } from "../errors.js";
 import { HttpClientImpl } from "../service.js";
-import type { HttpClientConfigType } from "../types.js";
-
-// Schema for unknown JSON values
-const UnknownSchema = Schema.Unknown;
-const stringifyUnknown = stringify(UnknownSchema);
+import type { HttpClientConfigType, HttpUrl } from "../types.js";
 
 // Mock the global fetch
 const mockFetch = vi.fn();
@@ -20,7 +15,7 @@ const createTestHttpClientLayer = (
   configOverrides?: Partial<HttpClientConfigType>
 ) => {
   const defaultConfig: HttpClientConfigType = {
-    baseUrl: "https://api.supermemory.dev",
+    baseUrl: "https://api.supermemory.dev" as HttpUrl,
     fetch: mockFetch as typeof globalThis.fetch, // Inject mock fetch
   };
   return HttpClientImpl.Default({ ...defaultConfig, ...configOverrides });
@@ -87,9 +82,7 @@ describe("HttpClientImpl", () => {
 
     const response = await Effect.runPromise(program);
 
-    const expectedBody = await Effect.runPromise(
-      stringifyUnknown({ content: "new memory" })
-    );
+    const expectedBody = JSON.stringify({ content: "new memory" });
     expect(mockFetch).toHaveBeenCalledWith(
       "https://api.supermemory.dev/memories",
       expect.objectContaining({

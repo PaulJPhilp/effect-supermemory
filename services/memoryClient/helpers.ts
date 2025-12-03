@@ -25,16 +25,20 @@ import type { MemoryItem, MemoryKey, MemoryValue, Namespace } from "./types.js";
 export const validateKey = (
   key: MemoryKey
 ): Effect.Effect<MemoryKey, MemoryValidationError> =>
-  Effect.sync(() => {
+  Effect.gen(function* () {
     if (!key || typeof key !== "string") {
-      throw new MemoryValidationError({
-        message: "Key must be a non-empty string",
-      });
+      return yield* Effect.fail(
+        new MemoryValidationError({
+          message: "Key must be a non-empty string",
+        })
+      );
     }
     if (key.length > 255) {
-      throw new MemoryValidationError({
-        message: "Key must be 255 characters or less",
-      });
+      return yield* Effect.fail(
+        new MemoryValidationError({
+          message: "Key must be 255 characters or less",
+        })
+      );
     }
     return key;
   });
@@ -55,13 +59,17 @@ export const validateKey = (
 export const validateValue = (
   value: MemoryValue
 ): Effect.Effect<MemoryValue, MemoryValidationError> =>
-  Effect.sync(() => {
+  Effect.gen(function* () {
     if (typeof value !== "string") {
-      throw new MemoryValidationError({ message: "Value must be a string" });
+      return yield* Effect.fail(
+        new MemoryValidationError({ message: "Value must be a string" })
+      );
     }
     if (value.length > 1024 * 1024) {
       // 1MB limit
-      throw new MemoryValidationError({ message: "Value must be 1MB or less" });
+      return yield* Effect.fail(
+        new MemoryValidationError({ message: "Value must be 1MB or less" })
+      );
     }
     return value;
   });
@@ -82,22 +90,28 @@ export const validateValue = (
 export const validateNamespace = (
   namespace: Namespace
 ): Effect.Effect<Namespace, MemoryValidationError> =>
-  Effect.sync(() => {
+  Effect.gen(function* () {
     if (!namespace || typeof namespace !== "string") {
-      throw new MemoryValidationError({
-        message: "Namespace must be a non-empty string",
-      });
+      return yield* Effect.fail(
+        new MemoryValidationError({
+          message: "Namespace must be a non-empty string",
+        })
+      );
     }
     if (!/^[a-zA-Z0-9_-]+$/.test(namespace)) {
-      throw new MemoryValidationError({
-        message:
-          "Namespace can only contain letters, numbers, underscores, and hyphens",
-      });
+      return yield* Effect.fail(
+        new MemoryValidationError({
+          message:
+            "Namespace can only contain letters, numbers, underscores, and hyphens",
+        })
+      );
     }
     if (namespace.length > 64) {
-      throw new MemoryValidationError({
-        message: "Namespace must be 64 characters or less",
-      });
+      return yield* Effect.fail(
+        new MemoryValidationError({
+          message: "Namespace must be 64 characters or less",
+        })
+      );
     }
     return namespace;
   });

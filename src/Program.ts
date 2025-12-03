@@ -1,5 +1,6 @@
 import { Effect, Layer, Redacted } from "effect";
 import { HttpClientImpl } from "../services/httpClient/service.js";
+import type { HttpUrl } from "../services/httpClient/types.js";
 import { SupermemoryClientImpl } from "../services/supermemoryClient/service.js";
 import { SupermemoryConfigFromValues } from "./Config.js";
 
@@ -8,7 +9,7 @@ const supermemoryConfigLayer = SupermemoryConfigFromValues({
 });
 
 const httpClientLayer = HttpClientImpl.Default({
-  baseUrl: "https://api.supermemory.ai",
+  baseUrl: "https://api.supermemory.ai" as HttpUrl,
   headers: {},
   timeoutMs: 5000,
 });

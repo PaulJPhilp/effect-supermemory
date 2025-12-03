@@ -1,15 +1,22 @@
 import { Effect, Stream } from "effect";
 
-import type { HttpClient, HttpRequestOptions, HttpResponse } from "./api.js";
+import type { HttpClient } from "./api.js";
+import { type HttpClientError, NetworkError, RequestError } from "./errors.js";
 import {
-  AuthorizationError,
-  HttpError,
-  HttpClientError,
-  NetworkError,
-  RequestError,
-  TooManyRequestsError,
-} from "./errors.js";
-import type { HttpClientConfigType } from "./types.js";
+  buildUrlWithQuery,
+  createRequestHeaders,
+  createStreamReader,
+  handleErrorResponse,
+  handleFetchError,
+  parseResponseBody,
+} from "./helpers.js";
+import type {
+  HttpClientConfigType,
+  HttpPath,
+  HttpRequestOptions,
+  HttpResponse,
+  HttpUrl,
+} from "./types.js";
 
 // Use platform's global fetch by default, allow override for testing
 const defaultFetch = globalThis.fetch;
@@ -46,66 +53,42 @@ export class HttpClientImpl extends Effect.Service<HttpClientImpl>()(
 
       return {
         request: <T = unknown>(
-          path: string,
+          path: HttpPath,
           options: HttpRequestOptions
         ): Effect.Effect<HttpResponse<T>, HttpClientError> =>
           Effect.gen(function* () {
-            const url = new URL(path, baseUrl);
-            if (options.queryParams) {
-              for (const [key, value] of Object.entries(options.queryParams)) {
-                url.searchParams.append(key, value);
-              }
-            }
+            const url = buildUrlWithQuery(baseUrl, path, options.queryParams);
 
-            const requestHeaders = { ...defaultHeaders, ...options.headers };
+            const bodyContent = yield* stringifyBody(options.body);
+            const requestHeaders = createRequestHeaders(
+              defaultHeaders,
+              options.headers,
+              !!bodyContent
+            );
 
             const controller = new AbortController();
             const timeoutId = timeoutMs
               ? setTimeout(() => controller.abort(), timeoutMs)
               : undefined;
 
-            const bodyContent = yield* stringifyBody(options.body);
-
             const requestInit: RequestInit = {
               method: options.method,
-              headers: bodyContent
-                ? { "Content-Type": "application/json", ...requestHeaders }
-                : requestHeaders,
+              headers: requestHeaders,
               signal: controller.signal,
+              ...(bodyContent ? { body: bodyContent } : {}),
             };
-
-            if (bodyContent) {
-              requestInit.body = bodyContent;
-            }
 
             const response = yield* Effect.tryPromise({
               try: () => effectiveFetch(url.toString(), requestInit),
               catch: (error: unknown) => {
-                if (
-                  error instanceof HttpError ||
-                  error instanceof NetworkError ||
-                  error instanceof RequestError ||
-                  error instanceof AuthorizationError ||
-                  error instanceof TooManyRequestsError
-                ) {
-                  return error;
+                const httpError = handleFetchError(
+                  error,
+                  url.toString() as HttpUrl
+                );
+                if (httpError instanceof RequestError) {
+                  return httpError;
                 }
-                if (error instanceof Error) {
-                  if (error.name === "AbortError") {
-                    return new NetworkError({
-                      cause: new Error("Request timed out or aborted"),
-                      url: url.toString(),
-                    });
-                  }
-                  return new NetworkError({
-                    cause: error,
-                    url: url.toString(),
-                  });
-                }
-                return new RequestError({
-                  cause: new Error("Unknown request error"),
-                  details: error,
-                });
+                return httpError;
               },
             });
 
@@ -115,56 +98,15 @@ export class HttpClientImpl extends Effect.Service<HttpClientImpl>()(
 
             // Parse response body using Effect.try
             const responseBody: T = yield* Effect.tryPromise({
-              try: async () => {
-                const contentType = response.headers.get("Content-Type");
-                // Handle NDJSON as text (not JSON) since it's newline-delimited
-                if (
-                  contentType?.includes("application/json") &&
-                  !contentType?.includes("application/x-ndjson")
-                ) {
-                  return (await response.json()) as T;
-                }
-                if (
-                  contentType?.includes("text/") ||
-                  contentType?.includes("application/x-ndjson")
-                ) {
-                  return (await response.text()) as T;
-                }
-                return null as T;
-              },
+              try: async () => parseResponseBody<T>(response),
               catch: () => null as T,
             });
 
             if (!response.ok) {
-              if (response.status === 401 || response.status === 403) {
-                return yield* Effect.fail(
-                  new AuthorizationError({
-                    reason: `Unauthorized: ${response.statusText}`,
-                    url: url.toString(),
-                  })
-                );
-              }
-              if (response.status === 429) {
-                const retryAfter = response.headers.get("Retry-After");
-                const retryAfterSeconds = retryAfter
-                  ? Number.parseInt(retryAfter, 10)
-                  : undefined;
-                return yield* Effect.fail(
-                  new TooManyRequestsError({
-                    ...(retryAfterSeconds !== undefined
-                      ? { retryAfterSeconds }
-                      : {}),
-                    url: url.toString(),
-                  })
-                );
-              }
-              return yield* Effect.fail(
-                new HttpError({
-                  status: response.status,
-                  message: response.statusText,
-                  url: url.toString(),
-                  body: responseBody,
-                })
+              return yield* handleErrorResponse(
+                response,
+                url.toString() as HttpUrl,
+                responseBody
               );
             }
 
@@ -178,77 +120,48 @@ export class HttpClientImpl extends Effect.Service<HttpClientImpl>()(
           ),
 
         requestStream: (
-          path: string,
+          path: HttpPath,
           options: HttpRequestOptions
         ): Effect.Effect<
           Stream.Stream<Uint8Array, HttpClientError>,
           HttpClientError
         > =>
           Effect.gen(function* () {
-            const url = new URL(path, baseUrl);
-            if (options.queryParams) {
-              for (const [key, value] of Object.entries(options.queryParams)) {
-                url.searchParams.append(key, value);
-              }
-            }
-
-            const requestHeaders = { ...defaultHeaders, ...options.headers };
+            const url = buildUrlWithQuery(baseUrl, path, options.queryParams);
 
             const bodyContent = yield* stringifyBody(options.body);
+            const requestHeaders = createRequestHeaders(
+              defaultHeaders,
+              options.headers,
+              !!bodyContent
+            );
 
             const response = yield* Effect.tryPromise({
               try: () =>
                 effectiveFetch(url.toString(), {
                   method: options.method,
-                  headers: bodyContent
-                    ? { "Content-Type": "application/json", ...requestHeaders }
-                    : requestHeaders,
+                  headers: requestHeaders,
                   ...(bodyContent ? { body: bodyContent } : {}),
                 }),
               catch: (error: unknown): HttpClientError => {
                 if (error instanceof Error && error.name === "AbortError") {
                   return new NetworkError({
                     cause: new Error("Request timed out or aborted"),
-                    url: url.toString(),
+                    url: url.toString() as HttpUrl,
                   });
                 }
                 return new NetworkError({
                   cause:
                     error instanceof Error ? error : new Error(String(error)),
-                  url: url.toString(),
+                  url: url.toString() as HttpUrl,
                 });
               },
             });
 
             if (!response.ok) {
-              if (response.status === 401 || response.status === 403) {
-                return yield* Effect.fail(
-                  new AuthorizationError({
-                    reason: `Unauthorized: ${response.statusText}`,
-                    url: url.toString(),
-                  })
-                );
-              }
-              if (response.status === 429) {
-                const retryAfter = response.headers.get("Retry-After");
-                const retryAfterSeconds = retryAfter
-                  ? Number.parseInt(retryAfter, 10)
-                  : undefined;
-                return yield* Effect.fail(
-                  new TooManyRequestsError({
-                    ...(retryAfterSeconds !== undefined
-                      ? { retryAfterSeconds }
-                      : {}),
-                    url: url.toString(),
-                  })
-                );
-              }
-              return yield* Effect.fail(
-                new HttpError({
-                  status: response.status,
-                  message: response.statusText,
-                  url: url.toString(),
-                })
+              return yield* handleErrorResponse(
+                response,
+                url.toString() as HttpUrl
               );
             }
 
@@ -257,44 +170,10 @@ export class HttpClientImpl extends Effect.Service<HttpClientImpl>()(
             }
 
             const reader = response.body.getReader();
+            const streamUrl = url.toString() as HttpUrl;
 
             return Stream.async<Uint8Array, HttpClientError>((emit) => {
-              const read = async () => {
-                const readResult = await Effect.runPromise(
-                  Effect.tryPromise({
-                    try: () => reader.read(),
-                    catch: (e) =>
-                      new NetworkError({
-                        cause: e instanceof Error ? e : new Error(String(e)),
-                        url: url.toString(),
-                      }),
-                  })
-                ).catch((error) => {
-                  const networkError =
-                    error instanceof NetworkError
-                      ? error
-                      : new NetworkError({
-                          cause: error instanceof Error ? error : new Error(String(error)),
-                          url: url.toString(),
-                        });
-                  emit.fail(networkError);
-                  return null;
-                });
-
-                if (!readResult) {
-                  return; // Error already emitted via emit.fail
-                }
-
-                const { value, done } = readResult;
-                if (done) {
-                  emit.end();
-                } else if (value && value.length > 0) {
-                  emit.single(value);
-                  read();
-                } else {
-                  read();
-                }
-              };
+              const read = createStreamReader(reader, streamUrl, emit);
               read();
             });
           }).pipe(
@@ -304,6 +183,3 @@ export class HttpClientImpl extends Effect.Service<HttpClientImpl>()(
     }),
   }
 ) {}
-
-// Layer for HttpClient, requires configuration
-// Consumers will call HttpClientImpl.Default({ baseUrl: "...", ... })

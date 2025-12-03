@@ -1,3 +1,5 @@
+import type { QueryParams, SearchFilters } from "./types.js";
+
 /**
  * Helper functions for the search client service.
  *
@@ -34,3 +36,36 @@ export const toBase64 = (str: string): string =>
  */
 export const fromBase64 = (b64: string): string =>
   Buffer.from(b64, "base64").toString("utf8");
+
+/**
+ * Encodes search filters into query parameters.
+ *
+ * @param filters - Optional search filters to encode
+ * @returns Query parameters object with filter keys prefixed with "filter."
+ *
+ * @example
+ * ```typescript
+ * const params = encodeFilters({ category: "books", tags: ["fiction", "sci-fi"] });
+ * // Returns: { "filter.category": "books", "filter.tags": "fiction,sci-fi" }
+ * ```
+ */
+export function encodeFilters(filters?: SearchFilters): QueryParams {
+  if (!filters) {
+    return {};
+  }
+  const params: Record<string, string> = {};
+  for (const [key, value] of Object.entries(filters)) {
+    if (Array.isArray(value)) {
+      for (const v of value) {
+        if (params[`filter.${key}`]) {
+          params[`filter.${key}`] += `,${v.toString()}`;
+        } else {
+          params[`filter.${key}`] = v.toString();
+        }
+      }
+    } else {
+      params[`filter.${key}`] = value.toString();
+    }
+  }
+  return params as QueryParams;
+}

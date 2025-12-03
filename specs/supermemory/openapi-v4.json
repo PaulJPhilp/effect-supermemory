@@ -28,11 +28,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "id",
-                  "value",
-                  "namespace"
-                ],
+                "required": ["id", "value", "namespace"],
                 "properties": {
                   "id": {
                     "type": "string",
@@ -77,9 +73,7 @@
             "BearerAuth": []
           }
         ],
-        "tags": [
-          "Memory Operations"
-        ]
+        "tags": ["Memory Operations"]
       },
       "delete": {
         "operationId": "clear",
@@ -111,9 +105,7 @@
             "BearerAuth": []
           }
         ],
-        "tags": [
-          "Memory Operations"
-        ]
+        "tags": ["Memory Operations"]
       }
     },
     "/api/v1/memories/{id}": {
@@ -157,9 +149,7 @@
             "BearerAuth": []
           }
         ],
-        "tags": [
-          "Memory Operations"
-        ]
+        "tags": ["Memory Operations"]
       },
       "delete": {
         "operationId": "delete",
@@ -194,9 +184,7 @@
             "BearerAuth": []
           }
         ],
-        "tags": [
-          "Memory Operations"
-        ]
+        "tags": ["Memory Operations"]
       }
     },
     "/api/v1/memories/batch": {
@@ -211,11 +199,7 @@
                 "type": "array",
                 "items": {
                   "type": "object",
-                  "required": [
-                    "id",
-                    "value",
-                    "namespace"
-                  ],
+                  "required": ["id", "value", "namespace"],
                   "properties": {
                     "id": {
                       "type": "string"
@@ -259,9 +243,7 @@
             "BearerAuth": []
           }
         ],
-        "tags": [
-          "Memory Operations"
-        ]
+        "tags": ["Memory Operations"]
       },
       "delete": {
         "operationId": "deleteMany",
@@ -274,10 +256,7 @@
                 "type": "array",
                 "items": {
                   "type": "object",
-                  "required": [
-                    "id",
-                    "namespace"
-                  ],
+                  "required": ["id", "namespace"],
                   "properties": {
                     "id": {
                       "type": "string"
@@ -314,9 +293,7 @@
             "BearerAuth": []
           }
         ],
-        "tags": [
-          "Memory Operations"
-        ]
+        "tags": ["Memory Operations"]
       }
     },
     "/api/v1/memories/batchGet": {
@@ -331,10 +308,7 @@
                 "type": "array",
                 "items": {
                   "type": "object",
-                  "required": [
-                    "id",
-                    "namespace"
-                  ],
+                  "required": ["id", "namespace"],
                   "properties": {
                     "id": {
                       "type": "string"
@@ -371,9 +345,7 @@
             "BearerAuth": []
           }
         ],
-        "tags": [
-          "Memory Operations"
-        ]
+        "tags": ["Memory Operations"]
       }
     }
   },
@@ -381,13 +353,7 @@
     "schemas": {
       "SupermemoryApiMemory": {
         "type": "object",
-        "required": [
-          "id",
-          "value",
-          "namespace",
-          "createdAt",
-          "updatedAt"
-        ],
+        "required": ["id", "value", "namespace", "createdAt", "updatedAt"],
         "properties": {
           "id": {
             "type": "string",
@@ -420,10 +386,7 @@
       },
       "SupermemoryBatchResponseItem": {
         "type": "object",
-        "required": [
-          "id",
-          "status"
-        ],
+        "required": ["id", "status"],
         "properties": {
           "id": {
             "type": "string",
@@ -445,9 +408,7 @@
       },
       "SupermemoryBatchResponse": {
         "type": "object",
-        "required": [
-          "results"
-        ],
+        "required": ["results"],
         "properties": {
           "correlationId": {
             "type": "string",

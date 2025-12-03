@@ -1,9 +1,15 @@
 {
   "name": "effect-supermemory",
   "version": "0.1.0",
+  "description": "Effect-native client abstractions for Supermemory long-term memory API",
   "private": false,
   "type": "module",
   "packageManager": "bun@latest",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PaulJPhilp/effect-supermemory.git"
+  },
+  "license": "MIT",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -11,8 +17,17 @@
     "test:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:integration:watch": "vitest --config vitest.integration.config.ts",
+    "test:compatibility": "vitest run test/compatibility",
     "mock:server": "bun test-setup/mock-server.ts",
     "codegen": "bun run scripts/codegen.ts",
+    "compat:extract": "bun run scripts/extract-sdk-api.ts",
+    "compat:compare": "bun run scripts/compare-api-surface.ts",
+    "compat:schemas": "bun run scripts/extract-schemas.ts",
+    "compat:validate": "bun run scripts/validate-schemas.ts",
+    "compat:monitor": "bun run scripts/monitor-sdk-changes.ts",
+    "compat:check": "bun run scripts/compatibility-cli.ts check",
+    "compat:report": "bun run scripts/compatibility-cli.ts report",
+    "compat:dashboard": "bun run scripts/generate-dashboard.ts",
     "lint": "biome check .",
     "format": "biome check .",
     "format:fix": "biome format --write ."
@@ -31,17 +46,17 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.7",
-    "@effect/language-service": "^0.57.0",
+    "@effect/language-service": "^0.57.1",
     "@effect/vitest": "^0.25.1",
     "@types/node": "^20.19.25",
-    "effect": "^3.19.6",
+    "effect": "^3.19.8",
     "openapi-typescript": "^7.10.1",
     "typescript": "^5.9.3",
     "ultracite": "6.3.6",
-    "vitest": "^4.0.14"
+    "vitest": "^4.0.15"
   },
   "dependencies": {
-    "@effect/platform": "^0.93.4",
+    "@effect/platform": "^0.93.6",
     "@effect/schema": "^0.75.5",
     "effect-json": "^0.1.0"
   }

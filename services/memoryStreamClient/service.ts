@@ -1,15 +1,23 @@
 import { Effect, Stream } from "effect";
-import type { HttpRequestOptions } from "../httpClient/api.js";
 import { HttpClientImpl } from "../httpClient/service.js";
+import type { HttpPath, HttpUrl } from "../httpClient/types.js";
 import {
-  MemoryValidationError,
   type MemoryError,
+  MemoryValidationError,
 } from "../memoryClient/errors.js";
 import type { SearchError } from "../searchClient/errors.js";
-import { SearchOptions, SearchResult } from "../searchClient/types.js";
-import { MemoryStreamClient } from "./api.js";
-import { StreamReadError, type StreamError } from "./errors.js";
-import { MemoryStreamClientConfigType } from "./types.js";
+import type { SearchOptions, SearchResult } from "../searchClient/types.js";
+import type { MemoryStreamClient } from "./api.js";
+import { type StreamError, StreamReadError } from "./errors.js";
+import {
+  buildKeysRequestOptions,
+  buildSearchRequestOptions,
+  parseNdjsonLines,
+  parseSearchResultLine,
+  translateHttpClientError,
+  validateStreamResponse,
+} from "./helpers.js";
+import type { MemoryStreamClientConfigType } from "./types.js";
 
 export class MemoryStreamClientImpl extends Effect.Service<MemoryStreamClientImpl>()(
   "MemoryStreamClient",
@@ -17,15 +25,19 @@ export class MemoryStreamClientImpl extends Effect.Service<MemoryStreamClientImp
     effect: Effect.fn(function* (config: MemoryStreamClientConfigType) {
       const { namespace, baseUrl, apiKey, timeoutMs } = config;
 
-      const httpClientLayer = HttpClientImpl.Default({
-        baseUrl,
+      const httpClientConfigBase = {
+        baseUrl: baseUrl as HttpUrl,
         headers: {
           Authorization: `Bearer ${apiKey}`,
           "X-Supermemory-Namespace": namespace,
           "Content-Type": "application/json",
         },
-        ...(timeoutMs !== undefined ? { timeoutMs } : {}),
-      });
+      };
+      const httpClientConfig =
+        timeoutMs !== undefined
+          ? { ...httpClientConfigBase, timeoutMs }
+          : httpClientConfigBase;
+      const httpClientLayer = HttpClientImpl.Default(httpClientConfig);
 
       return {
         listAllKeys: (): Effect.Effect<
@@ -36,18 +48,12 @@ export class MemoryStreamClientImpl extends Effect.Service<MemoryStreamClientImp
             const httpClient = yield* HttpClientImpl.pipe(
               Effect.provide(httpClientLayer)
             );
-            const keysPath = `/v1/keys/${encodeURIComponent(namespace)}`;
-
-            const options: HttpRequestOptions = {
-              method: "GET",
-              headers: {
-                "Content-Type": "application/json",
-                Accept: "application/x-ndjson",
-              },
-            };
+            const keysPath = `/v1/keys/${encodeURIComponent(
+              namespace
+            )}` as HttpPath;
 
             const response = yield* httpClient
-              .request<string>(keysPath, options)
+              .request<string>(keysPath, buildKeysRequestOptions())
               .pipe(
                 Effect.mapError((error): MemoryError | StreamError => {
                   if (error._tag === "HttpError") {
@@ -77,12 +83,16 @@ export class MemoryStreamClientImpl extends Effect.Service<MemoryStreamClientImp
             // Handle response body as string that needs to be parsed as NDJSON
             if (typeof response.body !== "string") {
               return yield* new StreamReadError({
-                message: `Expected string response body, got ${typeof response.body}: ${JSON.stringify(response.body)}`,
+                message: `Expected string response body, got ${typeof response.body}: ${JSON.stringify(
+                  response.body
+                )}`,
               });
             }
 
             const responseBody = response.body;
-            const lines = responseBody.split("\n").filter((line) => line.trim().length > 0);
+            const lines = responseBody
+              .split("\n")
+              .filter((line) => line.trim().length > 0);
 
             return Stream.fromIterable(lines).pipe(
               Stream.mapEffect((line) =>
@@ -113,101 +123,33 @@ export class MemoryStreamClientImpl extends Effect.Service<MemoryStreamClientImp
         ): Effect.Effect<
           Stream.Stream<SearchResult, SearchError | StreamError>,
           SearchError | StreamError
-        > => {
-          return Effect.gen(function* () {
+        > =>
+          Effect.gen(function* () {
             const httpClient = yield* HttpClientImpl.pipe(
               Effect.provide(httpClientLayer)
             );
-            const searchPath = `/v1/search/${encodeURIComponent(namespace)}/stream`;
-
-            // Build query parameters
-            const params = new URLSearchParams();
-            params.set("q", query);
-
-            if (options?.limit) {
-              params.set("limit", options.limit.toString());
-            }
-
-            if (options?.filters) {
-              Object.entries(options.filters).forEach(([key, value]) => {
-                if (Array.isArray(value)) {
-                  value.forEach((v) => params.append(key, v.toString()));
-                } else {
-                  params.set(key, value.toString());
-                }
-              });
-            }
-
-            const fullPath = `${searchPath}?${params.toString()}`;
-
-            const requestOptions: HttpRequestOptions = {
-              method: "GET",
-              headers: {
-                "Content-Type": "application/json",
-                Accept: "application/x-ndjson",
-              },
-            };
+            const searchPath = `/v1/search/${encodeURIComponent(
+              namespace
+            )}/stream` as HttpPath;
 
             const response = yield* httpClient
-              .request<string>(fullPath, requestOptions)
+              .request<string>(
+                searchPath,
+                buildSearchRequestOptions(query, options)
+              )
               .pipe(
-                Effect.mapError((error): SearchError | StreamError => {
-                  if (error._tag === "HttpError") {
-                    return new StreamReadError({
-                      message: `HTTP ${error.status}: ${error.message}`,
-                      cause: error,
-                    });
-                  }
-                  if (error._tag === "NetworkError") {
-                    return new StreamReadError({
-                      message: `Network error: ${error.message}`,
-                      cause: error,
-                    });
-                  }
-                  return new StreamReadError({
-                    message: `HTTP client error: ${error._tag}`,
-                    cause: error,
-                  });
-                })
+                Effect.mapError((error): SearchError | StreamError =>
+                  translateHttpClientError(error)
+                )
               );
 
-            if (response.status >= 400) {
-              return yield* new StreamReadError({
-                message: `HTTP ${response.status}: Search request failed`,
-              });
-            }
-
-            // Handle response body as string that needs to be parsed as NDJSON
-            if (typeof response.body !== "string") {
-              return yield* new StreamReadError({
-                message: `Expected string response body, got ${typeof response.body}`,
-              });
-            }
-
-            const responseBody = response.body;
-            const lines = responseBody.split("\n").filter((line) => line.trim().length > 0);
-
-            return Stream.fromIterable(lines).pipe(
-              Stream.mapEffect((line) =>
-                Effect.try({
-                  try: () => {
-                    return JSON.parse(line) as SearchResult;
-                  },
-                  catch: (error) =>
-                    new StreamReadError({
-                      message: `Failed to parse search result from line "${line}": ${
-                        error instanceof Error ? error.message : String(error)
-                      }`,
-                      cause:
-                        error instanceof Error
-                          ? error
-                          : new Error(String(error)),
-                    }),
-                })
-              )
+            const responseBody = yield* validateStreamResponse(
+              response,
+              "Search"
             );
-          });
-        },
+
+            return parseNdjsonLines(responseBody, parseSearchResultLine);
+          }),
       } satisfies MemoryStreamClient;
     }),
   }

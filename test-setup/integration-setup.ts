@@ -34,7 +34,7 @@ afterAll(async () => {
     mockServerProcess.kill("SIGINT");
     // Wait for graceful shutdown
     await new Promise((resolve) => setTimeout(resolve, 500));
-    
+
     // Force kill if still running
     if (!mockServerProcess.killed) {
       mockServerProcess.kill("SIGKILL");

@@ -26,12 +26,15 @@ export const translateHttpClientError = (
     return new MemoryNotFoundError({ key });
   }
   // Generic mapping for other HttpClient errors to MemoryValidationError
-  return new MemoryValidationError({
-    message: `API request failed: ${error._tag} - ${
-      "message" in error
+  const errorMessage =
+    "message" in error && typeof error.message === "string"
+      ? error.message
+      : error instanceof Error
         ? error.message
-        : (error as any).cause?.message || String(error)
-    }`,
+        : String(error);
+
+  return new MemoryValidationError({
+    message: `API request failed: ${error._tag} - ${errorMessage}`,
   });
 };
 

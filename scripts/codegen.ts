@@ -11,14 +11,14 @@
  */
 
 import { spawn } from "node:child_process";
-import * as path from "node:path";
-import * as fs from "node:fs";
+import { join, dirname } from "node:path";
+import { existsSync, mkdirSync } from "node:fs";
 
-interface ApiVersion {
+type ApiVersion = {
   version: string;
   specFile: string;
   outputDir: string;
-}
+};
 
 // Configuration for API versions to generate
 const apiVersions: ApiVersion[] = [
@@ -54,7 +54,9 @@ async function main() {
 
   if (targetVersion && versions.length === 0) {
     console.error(`❌ Version "${targetVersion}" not found in configuration`);
-    console.error(`Available versions: ${apiVersions.map((v) => v.version).join(", ")}`);
+    console.error(
+      `Available versions: ${apiVersions.map((v) => v.version).join(", ")}`
+    );
     process.exit(1);
   }
 
@@ -64,22 +66,22 @@ async function main() {
   for (const apiVersion of versions) {
     try {
       await generateTypes(apiVersion);
-      successCount++;
+      successCount += 1;
     } catch (error) {
       console.error(`\n❌ Failed to generate types for ${apiVersion.version}`);
       console.error(error instanceof Error ? error.message : String(error));
-      failureCount++;
+      failureCount += 1;
     }
   }
 
   // Summary
-  console.log("\n" + "=".repeat(60));
+  console.log(`\n${"=".repeat(60)}`);
   console.log(`✅ Generated: ${successCount} version(s)`);
   if (failureCount > 0) {
     console.log(`❌ Failed: ${failureCount} version(s)`);
     process.exit(1);
   }
-  console.log("=".repeat(60) + "\n");
+  console.log(`${"=".repeat(60)}\n`);
 }
 
 /**
@@ -87,11 +89,11 @@ async function main() {
  */
 async function generateTypes(apiVersion: ApiVersion): Promise<void> {
   const specPath = apiVersion.specFile;
-  const outputDir = path.resolve(apiVersion.outputDir);
-  const outputFile = path.join(outputDir, "index.ts");
+  const outputDir = apiVersion.outputDir;
+  const outputFile = join(outputDir, "index.ts");
 
   // Check if spec file exists
-  if (!fs.existsSync(specPath)) {
+  if (!existsSync(specPath)) {
     throw new Error(`Spec file not found: ${specPath}`);
   }
 
@@ -100,7 +102,7 @@ async function generateTypes(apiVersion: ApiVersion): Promise<void> {
   console.log(`   Output: ${outputFile}`);
 
   // Ensure output directory exists
-  fs.mkdirSync(outputDir, { recursive: true });
+  mkdirSync(outputDir, { recursive: true });
 
   return new Promise((resolve, reject) => {
     // Use openapi-typescript CLI via bunx
@@ -128,16 +130,12 @@ async function generateTypes(apiVersion: ApiVersion): Promise<void> {
         console.log(`   File: ${outputFile}`);
         resolve();
       } else {
-        reject(
-          new Error(`Failed to generate types: ${stderr || stdout}`)
-        );
+        reject(new Error(`Failed to generate types: ${stderr || stdout}`));
       }
     });
 
     proc.on("error", (error) => {
-      reject(
-        new Error(`Failed to spawn openapi-typescript: ${error.message}`)
-      );
+      reject(new Error(`Failed to spawn openapi-typescript: ${error.message}`));
     });
   });
 }

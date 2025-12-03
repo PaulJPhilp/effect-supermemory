@@ -5,7 +5,7 @@
  * used in supermemory operations and API communications.
  */
 
-import * as Effect from "effect/Effect";
+import { Effect, Exit } from "effect";
 
 /**
  * Converts a string to base64 encoding.
@@ -67,6 +67,8 @@ export const validateBase64 = (str: string): Effect.Effect<void, Error> =>
 /**
  * Validates that a string is valid base64 (synchronous boolean version).
  *
+ * Uses Effect.trySync internally to avoid try/catch blocks.
+ *
  * @param str - The string to validate
  * @returns True if the string is valid base64, false otherwise
  *
@@ -76,14 +78,19 @@ export const validateBase64 = (str: string): Effect.Effect<void, Error> =>
  * console.log(isValidBase64("invalid-base64")); // false
  * ```
  */
-export const isValidBase64 = (str: string): boolean => {
-  try {
-    Buffer.from(str, "base64").toString("utf8");
-    return true;
-  } catch {
-    return false;
-  }
-};
+export const isValidBase64 = (str: string): boolean =>
+  Exit.match(
+    Effect.runSyncExit(
+      Effect.try({
+        try: () => Buffer.from(str, "base64").toString("utf8"),
+        catch: () => new Error("Invalid base64"),
+      })
+    ),
+    {
+      onFailure: () => false,
+      onSuccess: () => true,
+    }
+  );
 
 /**
  * Encodes authentication credentials for HTTP Basic Auth.
@@ -119,7 +126,9 @@ export const safeToBase64 = (str: string): Effect.Effect<string, Error> =>
     try: () => toBase64(str),
     catch: (e) =>
       new Error(
-        `Failed to encode to base64: ${e instanceof Error ? e.message : String(e)}`
+        `Failed to encode to base64: ${
+          e instanceof Error ? e.message : String(e)
+        }`
       ),
   });
 
@@ -141,6 +150,8 @@ export const safeFromBase64 = (b64: string): Effect.Effect<string, Error> =>
     try: () => fromBase64(b64),
     catch: (e) =>
       new Error(
-        `Failed to decode from base64: ${e instanceof Error ? e.message : String(e)}`
+        `Failed to decode from base64: ${
+          e instanceof Error ? e.message : String(e)
+        }`
       ),
   });

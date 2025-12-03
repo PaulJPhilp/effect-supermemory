@@ -1,4 +1,5 @@
 import { Brand } from "effect";
+import type { HttpStatusCode } from "../httpClient/types.js";
 
 export type SupermemoryId = string & Brand.Brand<"SupermemoryId">;
 export const SupermemoryId = Brand.nominal<SupermemoryId>();
@@ -30,7 +31,7 @@ export type SupermemoryApiMemory = {
 // Batch response types
 export type SupermemoryBatchResponseItem = {
   readonly id: string;
-  readonly status: number;
+  readonly status: HttpStatusCode;
   readonly value?: string;
   readonly error?: string;
 };

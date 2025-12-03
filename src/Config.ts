@@ -50,7 +50,7 @@ export type SupermemoryConfig = {
  * @category Context
  */
 export class SupermemoryConfigService extends Context.Tag(
-  "@effect-supermemory/Config",
+  "@effect-supermemory/Config"
 )<SupermemoryConfigService, SupermemoryConfig>() {}
 
 /**
@@ -58,17 +58,15 @@ export class SupermemoryConfigService extends Context.Tag(
  */
 const supermemoryConfig = Config.all({
   apiKey: Config.redacted("SUPERMEMORY_API_KEY"),
-  workspaceId: Config.string("SUPERMEMORY_WORKSPACE_ID").pipe(
-    Config.option,
-  ),
+  workspaceId: Config.string("SUPERMEMORY_WORKSPACE_ID").pipe(Config.option),
   baseUrl: Config.string("SUPERMEMORY_BASE_URL").pipe(
-    Config.withDefault("https://api.supermemory.ai"),
+    Config.withDefault("https://api.supermemory.ai")
   ),
   defaultThreshold: Config.number("SUPERMEMORY_DEFAULT_THRESHOLD").pipe(
-    Config.withDefault(0.7),
+    Config.withDefault(0.7)
   ),
   timeoutMs: Config.number("SUPERMEMORY_TIMEOUT_MS").pipe(
-    Config.withDefault(30_000),
+    Config.withDefault(30_000)
   ),
 });
 
@@ -92,7 +90,7 @@ export const SupermemoryConfigLive = Layer.effect(
   Effect.map(supermemoryConfig, (config) => ({
     ...config,
     workspaceId: Option.getOrUndefined(config.workspaceId),
-  })),
+  }))
 );
 
 /**
@@ -103,7 +101,7 @@ export const SupermemoryConfigLive = Layer.effect(
  * @category Layers
  */
 export const SupermemoryConfigFromValues = (
-  config: Partial<SupermemoryConfig> & { apiKey: Redacted.Redacted<string> },
+  config: Partial<SupermemoryConfig> & { apiKey: Redacted.Redacted<string> }
 ): Layer.Layer<SupermemoryConfigService> =>
   Layer.succeed(SupermemoryConfigService, {
     apiKey: config.apiKey,
