@@ -1,13 +1,22 @@
-import { Effect, Stream } from "effect";
-import { isHttpError, isNetworkError } from "../httpClient/helpers.js";
-import { HttpClient } from "../httpClient/service.js";
-import type { HttpPath, HttpUrl } from "../httpClient/types.js";
+import { isHttpError, isNetworkError } from "@services/httpClient/helpers.js";
+import { HttpClient } from "@services/httpClient/service.js";
+import type { HttpPath, HttpUrl } from "@services/httpClient/types.js";
 import {
   type MemoryError,
   MemoryValidationError,
-} from "../inMemoryClient/errors.js";
-import type { SearchError } from "../searchClient/errors.js";
-import type { SearchOptions, SearchResult } from "../searchClient/types.js";
+} from "@services/inMemoryClient/errors.js";
+import type { SearchError } from "@services/searchClient/errors.js";
+import type {
+  SearchOptions,
+  SearchResult,
+} from "@services/searchClient/types.js";
+import { Effect, Stream } from "effect";
+import {
+  API_ENDPOINTS,
+  HTTP_HEADERS,
+  HTTP_STATUS,
+  HTTP_VALUES,
+} from "@/Constants.js";
 import type { MemoryStreamClientApi } from "./api.js";
 import { type StreamError, StreamReadError } from "./errors.js";
 import {
@@ -29,9 +38,9 @@ export class MemoryStreamClient extends Effect.Service<MemoryStreamClient>()(
       const httpClientConfigBase = {
         baseUrl: baseUrl as HttpUrl,
         headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "X-Supermemory-Namespace": namespace,
-          "Content-Type": "application/json",
+          [HTTP_HEADERS.AUTHORIZATION]: `${HTTP_VALUES.BEARER_PREFIX}${apiKey}`,
+          [HTTP_HEADERS.SUPERMEMORY_NAMESPACE]: namespace,
+          [HTTP_HEADERS.CONTENT_TYPE]: HTTP_VALUES.APPLICATION_JSON,
         },
       };
       const httpClientConfig =
@@ -49,9 +58,7 @@ export class MemoryStreamClient extends Effect.Service<MemoryStreamClient>()(
             const httpClient = yield* HttpClient.pipe(
               Effect.provide(httpClientLayer)
             );
-            const keysPath = `/v1/keys/${encodeURIComponent(
-              namespace
-            )}` as HttpPath;
+            const keysPath = API_ENDPOINTS.STREAM.KEYS(namespace) as HttpPath;
 
             const response = yield* httpClient
               .request<string>(keysPath, buildKeysRequestOptions())
@@ -75,7 +82,7 @@ export class MemoryStreamClient extends Effect.Service<MemoryStreamClient>()(
                 })
               );
 
-            if (response.status >= 400) {
+            if (response.status >= HTTP_STATUS.BAD_REQUEST) {
               return yield* new StreamReadError({
                 message: `HTTP ${response.status}: Failed to fetch keys`,
               });
@@ -129,9 +136,9 @@ export class MemoryStreamClient extends Effect.Service<MemoryStreamClient>()(
             const httpClient = yield* HttpClient.pipe(
               Effect.provide(httpClientLayer)
             );
-            const searchPath = `/v1/search/${encodeURIComponent(
+            const searchPath = API_ENDPOINTS.STREAM.SEARCH(
               namespace
-            )}/stream` as HttpPath;
+            ) as HttpPath;
 
             const response = yield* httpClient
               .request<string>(

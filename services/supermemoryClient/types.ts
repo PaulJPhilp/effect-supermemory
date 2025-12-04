@@ -1,5 +1,5 @@
+import type { HttpStatusCode } from "@services/httpClient/types.js";
 import { Brand } from "effect";
-import type { HttpStatusCode } from "../httpClient/types.js";
 
 export type SupermemoryId = string & Brand.Brand<"SupermemoryId">;
 export const SupermemoryId = Brand.nominal<SupermemoryId>();

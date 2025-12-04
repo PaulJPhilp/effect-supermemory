@@ -13,7 +13,10 @@
     "baseUrl": "./",
     "paths": {
       "~/*": ["src/*"],
-      "effect-supermemory/*": ["./src/*"]
+      "effect-supermemory/*": ["./src/*"],
+      "@/*": ["./src/*"],
+      "@services/*": ["./services/*"],
+      "@test/*": ["./test/*"]
     },
     "strictNullChecks": true,
     "esModuleInterop": true,

@@ -1,9 +1,12 @@
+import {
+  type HttpClientError,
+  HttpError,
+} from "@services/httpClient/errors.js";
+import { HttpClient } from "@services/httpClient/service.js";
+import type { HttpResponse, HttpUrl } from "@services/httpClient/types.js";
+import { MemoryValidationError } from "@services/inMemoryClient/errors.js";
 import { Cause, Effect, Layer, Option } from "effect";
 import { describe, expect, it } from "vitest";
-import { type HttpClientError, HttpError } from "../../httpClient/errors.js";
-import { HttpClient } from "../../httpClient/service.js";
-import type { HttpResponse, HttpUrl } from "../../httpClient/types.js";
-import { MemoryValidationError } from "../../inMemoryClient/errors.js";
 import { type SearchError, SearchQueryError } from "../errors.js";
 import { toBase64 } from "../helpers.js";
 import { SearchClient } from "../service.js";

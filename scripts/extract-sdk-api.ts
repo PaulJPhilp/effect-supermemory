@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+
 /**
  * SDK API Extraction Script
  *
@@ -11,9 +12,9 @@
  *   bun run scripts/extract-sdk-api.ts --output ./output   # Custom output directory
  */
 
+import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { spawn } from "node:child_process";
 
 const SDK_PACKAGE_NAME = "supermemory";
 const TEMP_DIR = path.join(process.cwd(), ".sdk-extract");
@@ -537,7 +538,7 @@ function extractConfiguration(
     }
   }
 
-  return undefined;
+  return;
 }
 
 /**
@@ -626,7 +627,7 @@ async function extractApiSurface(
   // Extract configuration
   surface.configuration = extractConfiguration(uniqueClasses);
 
-  console.log(`\n✅ Extracted:`);
+  console.log("\n✅ Extracted:");
   console.log(`   Classes: ${uniqueClasses.length}`);
   console.log(`   Functions: ${uniqueFunctions.length}`);
   console.log(`   Types: ${uniqueTypes.length}`);
@@ -688,7 +689,7 @@ async function main() {
 
     // Write output
     fs.writeFileSync(outputPath, JSON.stringify(apiSurface, null, 2));
-    console.log(`\n✅ API surface extracted:`);
+    console.log("\n✅ API surface extracted:");
     console.log(`   File: ${outputPath}`);
 
     // Cleanup

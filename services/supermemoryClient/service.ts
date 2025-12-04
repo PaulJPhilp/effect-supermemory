@@ -1,21 +1,28 @@
 import type { HttpBody } from "@effect/platform/HttpBody";
-import { Duration, Effect, Schedule } from "effect";
-import type { HttpClientError } from "../httpClient/errors.js";
+import type { HttpClientError } from "@services/httpClient/errors.js";
 import {
   isHttpError,
   isNetworkError,
   isRetryableErrorType,
   isTooManyRequestsError,
-} from "../httpClient/helpers.js";
-import { HttpClient } from "../httpClient/service.js";
-import type { HttpPath, HttpRequestOptions } from "../httpClient/types.js";
+} from "@services/httpClient/helpers.js";
+import { HttpClient } from "@services/httpClient/service.js";
+import type {
+  HttpPath,
+  HttpRequestOptions,
+} from "@services/httpClient/types.js";
 import {
   MemoryBatchPartialFailure,
   type MemoryError,
   MemoryNotFoundError,
   MemoryValidationError,
-} from "../inMemoryClient/errors.js";
-import type { MemoryKey, MemoryValueMap } from "../inMemoryClient/types.js";
+} from "@services/inMemoryClient/errors.js";
+import type {
+  MemoryKey,
+  MemoryValueMap,
+} from "@services/inMemoryClient/types.js";
+import { Duration, Effect, Schedule } from "effect";
+import { API_ENDPOINTS, HTTP_HEADERS, HTTP_STATUS } from "@/Constants.js";
 import type { SupermemoryClientApi } from "./api.js";
 import { translateHttpClientError } from "./errors.js";
 import { fromBase64, toBase64 } from "./helpers.js";
@@ -31,7 +38,11 @@ const shouldRetryHttpClientError = (error: HttpClientError): boolean => {
   if (isNetworkError(error)) {
     return true;
   }
-  if (isHttpError(error) && error.status >= 500 && error.status <= 599) {
+  if (
+    isHttpError(error) &&
+    error.status >= HTTP_STATUS.SERVER_ERROR_MIN &&
+    error.status <= HTTP_STATUS.SERVER_ERROR_MAX
+  ) {
     return true;
   }
   if (isTooManyRequestsError(error)) {
@@ -66,8 +77,8 @@ export class SupermemoryClient extends Effect.Service<SupermemoryClient>()(
         const requestOptions: HttpRequestOptions = {
           ...options,
           headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "X-Supermemory-Namespace": namespace,
+            [HTTP_HEADERS.AUTHORIZATION]: `Bearer ${apiKey}`,
+            [HTTP_HEADERS.SUPERMEMORY_NAMESPACE]: namespace,
           },
         };
 
@@ -146,7 +157,7 @@ export class SupermemoryClient extends Effect.Service<SupermemoryClient>()(
           let successes = 0;
 
           for (const item of items) {
-            if (item.status >= 400 || item.error) {
+            if (item.status >= HTTP_STATUS.BAD_REQUEST || item.error) {
               errorMap.set(item.id, item);
             } else {
               successes += 1;
@@ -211,17 +222,20 @@ export class SupermemoryClient extends Effect.Service<SupermemoryClient>()(
           id: string,
           item: SupermemoryBatchResponseItem
         ): MemoryError => {
-          if (item.status === 404) {
+          if (item.status === HTTP_STATUS.NOT_FOUND) {
             return new MemoryNotFoundError({ key: id });
           }
-          if (item.status === 401 || item.status === 403) {
+          if (
+            item.status === HTTP_STATUS.UNAUTHORIZED ||
+            item.status === HTTP_STATUS.FORBIDDEN
+          ) {
             return new MemoryValidationError({
               message: `Authorization failed for item ${id}: ${
                 item.error || "Unknown"
               }`,
             });
           }
-          if (item.status === 400) {
+          if (item.status === HTTP_STATUS.BAD_REQUEST) {
             return new MemoryValidationError({
               message: `Bad request for item ${id}: ${item.error || "Unknown"}`,
             });
@@ -259,18 +273,21 @@ export class SupermemoryClient extends Effect.Service<SupermemoryClient>()(
 
       return {
         put: (key, value) =>
-          makeRequestWithRetries<SupermemoryApiMemory>("/api/v1/memories", {
-            method: "POST",
-            body: {
-              id: key,
-              value: toBase64(value),
-              namespace,
-            } as unknown as HttpBody,
-          }).pipe(Effect.asVoid) as Effect.Effect<void, MemoryError>,
+          makeRequestWithRetries<SupermemoryApiMemory>(
+            API_ENDPOINTS.V1.MEMORIES,
+            {
+              method: "POST",
+              body: {
+                id: key,
+                value: toBase64(value),
+                namespace,
+              } as unknown as HttpBody,
+            }
+          ).pipe(Effect.asVoid) as Effect.Effect<void, MemoryError>,
 
         get: (key) =>
           makeRequestWithRetries<SupermemoryApiMemory>(
-            `/api/v1/memories/${key}`,
+            `${API_ENDPOINTS.V1.MEMORIES}/${key}`,
             { method: "GET" },
             key
           ).pipe(
@@ -282,7 +299,7 @@ export class SupermemoryClient extends Effect.Service<SupermemoryClient>()(
           ) as Effect.Effect<string | undefined, MemoryError>,
 
         delete: (key) =>
-          makeRequestWithRetries<void>(`/api/v1/memories/${key}`, {
+          makeRequestWithRetries<void>(`${API_ENDPOINTS.V1.MEMORIES}/${key}`, {
             method: "DELETE",
           }).pipe(
             Effect.map(() => true),
@@ -294,7 +311,7 @@ export class SupermemoryClient extends Effect.Service<SupermemoryClient>()(
 
         exists: (key) =>
           makeRequestWithRetries<SupermemoryApiMemory>(
-            `/api/v1/memories/${key}`,
+            `${API_ENDPOINTS.V1.MEMORIES}/${key}`,
             { method: "GET" },
             key
           ).pipe(
@@ -306,7 +323,7 @@ export class SupermemoryClient extends Effect.Service<SupermemoryClient>()(
           ) as Effect.Effect<boolean, MemoryError>,
 
         clear: () =>
-          makeRequestWithRetries<void>("/api/v1/memories", {
+          makeRequestWithRetries<void>(API_ENDPOINTS.V1.MEMORIES, {
             method: "DELETE",
             queryParams: { namespace },
           }).pipe(Effect.asVoid) as Effect.Effect<void, MemoryError>,
@@ -314,7 +331,7 @@ export class SupermemoryClient extends Effect.Service<SupermemoryClient>()(
         // New Batch Operations
         putMany: (items) =>
           makeRequestWithRetries<SupermemoryBatchResponse>(
-            "/api/v1/memories/batch",
+            API_ENDPOINTS.V1.MEMORIES_BATCH,
             {
               method: "POST",
               body: {
@@ -336,7 +353,7 @@ export class SupermemoryClient extends Effect.Service<SupermemoryClient>()(
 
         deleteMany: (keys) =>
           makeRequestWithRetries<SupermemoryBatchResponse>(
-            "/api/v1/memories/batch",
+            API_ENDPOINTS.V1.MEMORIES_BATCH,
             {
               method: "DELETE",
               body: {
@@ -352,7 +369,7 @@ export class SupermemoryClient extends Effect.Service<SupermemoryClient>()(
 
         getMany: (keys) =>
           makeRequestWithRetries<SupermemoryBatchResponse>(
-            "/api/v1/memories/batchGet",
+            API_ENDPOINTS.V1.MEMORIES_BATCH_GET,
             {
               method: "POST", // Often GET with body isn't well supported, so POST is common for batchGet
               body: {
@@ -368,13 +385,13 @@ export class SupermemoryClient extends Effect.Service<SupermemoryClient>()(
               for (const item of response.body.results) {
                 const itemKey = item.id as MemoryKey;
                 switch (item.status) {
-                  case 200:
+                  case HTTP_STATUS.OK:
                     if (item.value !== undefined) {
                       resultMap.set(item.id, fromBase64(item.value));
                       originalKeysSet.delete(itemKey); // Mark as processed
                     }
                     break;
-                  case 404:
+                  case HTTP_STATUS.NOT_FOUND:
                     resultMap.set(item.id, undefined); // Explicitly undefined for 404
                     originalKeysSet.delete(itemKey); // Mark as processed
                     break;

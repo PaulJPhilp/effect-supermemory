@@ -363,7 +363,7 @@ function mapOperations(
         ) {
           effectOp = op;
           confidence = "low";
-          notes = `Possible match based on name similarity`;
+          notes = "Possible match based on name similarity";
           break;
         }
       }
@@ -468,37 +468,37 @@ function extractSdkOperations(sdkApi: unknown): Operation[] {
     for (const cls of sdkApiTyped.exports.classes) {
       // Look for main client class (Supermemory or Client)
       if (
-        cls.name === "Supermemory" ||
-        cls.name.includes("Client") ||
-        cls.name.includes("SDK")
+        (cls.name === "Supermemory" ||
+          cls.name.includes("Client") ||
+          cls.name.includes("SDK")) &&
+        cls.methods
       ) {
-        if (cls.methods) {
-          for (const method of cls.methods) {
-            // Check if it's a nested property (like memories.create)
-            // For now, treat all methods as potential operations
-            operations.push({
-              name: method.name,
-              service: cls.name,
-              parameters: method.parameters || [],
-              returnType: method.returnType || "unknown",
-            });
-          }
+        for (const method of cls.methods) {
+          // Check if it's a nested property (like memories.create)
+          // For now, treat all methods as potential operations
+          operations.push({
+            name: method.name,
+            service: cls.name,
+            parameters: method.parameters || [],
+            returnType: method.returnType || "unknown",
+          });
         }
       }
     }
 
     // Also check for nested classes (like MemoriesClient)
     for (const cls of sdkApiTyped.exports.classes) {
-      if (cls.name.includes("Memory") || cls.name.includes("Search")) {
-        if (cls.methods) {
-          for (const method of cls.methods) {
-            operations.push({
-              name: method.name,
-              service: cls.name,
-              parameters: method.parameters || [],
-              returnType: method.returnType || "unknown",
-            });
-          }
+      if (
+        (cls.name.includes("Memory") || cls.name.includes("Search")) &&
+        cls.methods
+      ) {
+        for (const method of cls.methods) {
+          operations.push({
+            name: method.name,
+            service: cls.name,
+            parameters: method.parameters || [],
+            returnType: method.returnType || "unknown",
+          });
         }
       }
     }
@@ -809,7 +809,7 @@ function generateMarkdownReport(report: ComparisonReport): string {
       lines.push(`### ${diff.operation}`);
       lines.push(`**Severity:** ${diff.severity}`);
       if (diff.missingParams.length > 0) {
-        lines.push(`- **Missing parameters:**`);
+        lines.push("- **Missing parameters:**");
         for (const param of diff.missingParams) {
           lines.push(
             `  - \`${param.name}: ${param.type}\` ${param.optional ? "(optional)" : "(required)"}`
@@ -817,7 +817,7 @@ function generateMarkdownReport(report: ComparisonReport): string {
         }
       }
       if (diff.extraParams.length > 0) {
-        lines.push(`- **Extra parameters:**`);
+        lines.push("- **Extra parameters:**");
         for (const param of diff.extraParams) {
           lines.push(`  - \`${param.name}: ${param.type}\``);
         }
@@ -902,7 +902,7 @@ async function main() {
 
     // Write JSON report
     fs.writeFileSync(outputPath, JSON.stringify(report, null, 2));
-    console.log(`\n✅ Comparison report generated:`);
+    console.log("\n✅ Comparison report generated:");
     console.log(`   JSON: ${outputPath}`);
 
     // Generate and write markdown report

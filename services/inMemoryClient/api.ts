@@ -1,5 +1,5 @@
+import type { HttpClient } from "@services/httpClient/service.js"; // For R type
 import type { Effect } from "effect";
-import type { HttpClient } from "../httpClient/service.js"; // For R type
 import type { MemoryBatchError, MemoryError } from "./errors.js"; // Import batch error
 import type { MemoryValueMap } from "./types.js";
 

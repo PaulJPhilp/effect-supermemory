@@ -358,7 +358,7 @@ async function main() {
 
     // Write JSON report
     fs.writeFileSync(outputPath, JSON.stringify(report, null, 2));
-    console.log(`\n✅ Validation report generated:`);
+    console.log("\n✅ Validation report generated:");
     console.log(`   JSON: ${outputPath}`);
 
     // Generate and write markdown report

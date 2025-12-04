@@ -6,6 +6,7 @@
  * All types are defined using @effect/schema for runtime validation.
  */
 import { Schema } from "effect";
+import { LIMITS } from "./Constants.js";
 
 // =============================================================================
 // Core Entity Schemas
@@ -62,8 +63,9 @@ export const SupermemoryMemory = Schema.Struct({
   id: Schema.String,
   content: Schema.String,
   score: Schema.Number.pipe(
-    Schema.filter((n) => n >= 0 && n <= 1, {
-      message: () => "Score must be between 0 and 1",
+    Schema.filter((n) => n >= LIMITS.SCORE_MIN && n <= LIMITS.SCORE_MAX, {
+      message: () =>
+        `Score must be between ${LIMITS.SCORE_MIN} and ${LIMITS.SCORE_MAX}`,
     })
   ),
   relations: Schema.optional(Schema.Array(Schema.String)),
@@ -121,8 +123,9 @@ export type IngestOptions = Schema.Schema.Type<typeof IngestOptions>;
  * @category Schemas
  */
 export const Threshold = Schema.Number.pipe(
-  Schema.filter((n) => n >= 0 && n <= 1, {
-    message: () => "Threshold must be between 0.0 and 1.0",
+  Schema.filter((n) => n >= LIMITS.SCORE_MIN && n <= LIMITS.SCORE_MAX, {
+    message: () =>
+      `Threshold must be between ${LIMITS.SCORE_MIN} and ${LIMITS.SCORE_MAX}`,
   })
 );
 export type Threshold = Schema.Schema.Type<typeof Threshold>;
@@ -141,8 +144,9 @@ export const SearchOptions = Schema.Struct({
   topK: Schema.optional(
     Schema.Number.pipe(
       Schema.int(),
-      Schema.filter((n) => n > 0 && n <= 100, {
-        message: () => "topK must be between 1 and 100",
+      Schema.filter((n) => n >= LIMITS.TOP_K_MIN && n <= LIMITS.TOP_K_MAX, {
+        message: () =>
+          `topK must be between ${LIMITS.TOP_K_MIN} and ${LIMITS.TOP_K_MAX}`,
       })
     )
   ),

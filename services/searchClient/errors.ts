@@ -1,5 +1,5 @@
+import type { MemoryError } from "@services/inMemoryClient/errors.js";
 import { Data } from "effect";
-import type { MemoryError } from "../inMemoryClient/errors.js";
 
 export class SearchQueryError extends Data.TaggedError("SearchQueryError")<{
   readonly message: string;

@@ -11,8 +11,8 @@
  */
 
 import { spawn } from "node:child_process";
-import { join, dirname } from "node:path";
 import { existsSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
 
 type ApiVersion = {
   version: string;

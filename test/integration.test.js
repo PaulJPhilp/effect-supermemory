@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Chunk, Effect, Layer, Stream } from "effect";
 import { MemoryStreamClientImpl, SupermemoryClientImpl } from "../src/index.js";
+
 // Integration test configuration
 const TEST_CONFIG = {
   namespace: "test-integration",

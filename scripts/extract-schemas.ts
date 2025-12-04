@@ -226,7 +226,7 @@ async function main() {
 
     // Write output
     fs.writeFileSync(outputPath, JSON.stringify(collection, null, 2));
-    console.log(`\n✅ Schemas extracted:`);
+    console.log("\n✅ Schemas extracted:");
     console.log(`   File: ${outputPath}`);
     console.log(`   Total: ${allSchemas.length}`);
 

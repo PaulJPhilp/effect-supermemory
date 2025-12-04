@@ -1,9 +1,13 @@
+import { isHttpErrorWithStatus } from "@services/httpClient/helpers.js";
+import { HttpClient } from "@services/httpClient/service.js";
+import type {
+  HttpPath,
+  HttpRequestOptions,
+} from "@services/httpClient/types.js";
+import { MemoryValidationError } from "@services/inMemoryClient/errors.js";
+import type { SupermemoryClientConfigType } from "@services/supermemoryClient/types.js";
 import { Effect } from "effect";
-import { isHttpErrorWithStatus } from "../httpClient/helpers.js";
-import { HttpClient } from "../httpClient/service.js";
-import type { HttpPath, HttpRequestOptions } from "../httpClient/types.js";
-import { MemoryValidationError } from "../inMemoryClient/errors.js";
-import type { SupermemoryClientConfigType } from "../supermemoryClient/types.js";
+import { API_ENDPOINTS, HTTP_STATUS } from "@/Constants.js";
 import type { SearchClientApi } from "./api.js";
 import { type SearchError, SearchQueryError } from "./errors.js";
 import { encodeFilters, fromBase64 } from "./helpers.js";
@@ -31,7 +35,7 @@ export class SearchClient extends Effect.Service<SearchClient>()(
         httpClient.request<T>(path, options).pipe(
           Effect.map((response) => response.body),
           Effect.mapError((error) => {
-            if (isHttpErrorWithStatus(error, 400)) {
+            if (isHttpErrorWithStatus(error, HTTP_STATUS.BAD_REQUEST)) {
               return new SearchQueryError({
                 message: `Search query error: ${error.message}`,
                 details: error.body,
@@ -56,7 +60,7 @@ export class SearchClient extends Effect.Service<SearchClient>()(
               updatedAt: Timestamp;
             }>;
             total: number;
-          }>("/api/v1/search", {
+          }>(API_ENDPOINTS.V1.SEARCH, {
             method: "GET",
             queryParams: {
               q: query,

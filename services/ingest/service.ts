@@ -1,70 +1,15 @@
+/** @effect-diagnostics classSelfMismatch:skip-file */
 /**
  * @since 1.0.0
  * @module Ingest
- *
- * Ingest service for adding content to Supermemory.
- * Handles text, URLs, and file uploads with schema validation.
  */
-import { Context, Effect, Layer, Schema } from "effect";
-import { SupermemoryHttpClientService } from "./Client.js";
-import type { IngestOptions, IngestResponse } from "./Domain.js";
-import type { SupermemoryError } from "./Errors.js";
 
-/**
- * Ingest service interface.
- *
- * @since 1.0.0
- * @category Services
- */
-export type IngestService = {
-  /**
-   * Add text content to Supermemory.
-   *
-   * @param content - The text content to ingest.
-   * @param options - Optional ingestion options (tags, customId, metadata).
-   * @returns Effect that resolves to the ingestion response.
-   *
-   * @example
-   * const result = yield* ingest.addText(
-   *   "The sky is blue",
-   *   { tags: ["weather"], customId: "weather-001" }
-   * );
-   */
-  readonly addText: (
-    content: string,
-    options?: IngestOptions
-  ) => Effect.Effect<IngestResponse, SupermemoryError>;
-
-  /**
-   * Add content from a URL to Supermemory.
-   * Triggers Supermemory's scraper to fetch and process the content.
-   *
-   * @param url - The URL to scrape and ingest.
-   * @param options - Optional ingestion options.
-   * @returns Effect that resolves to the ingestion response.
-   *
-   * @example
-   * const result = yield* ingest.addUrl(
-   *   "https://example.com/article",
-   *   { tags: ["web-content"] }
-   * );
-   */
-  readonly addUrl: (
-    url: string,
-    options?: IngestOptions
-  ) => Effect.Effect<IngestResponse, SupermemoryError>;
-};
-
-/**
- * Context tag for IngestService.
- *
- * @since 1.0.0
- * @category Context
- */
-export class IngestServiceTag extends Context.Tag("@effect-supermemory/Ingest")<
-  IngestServiceTag,
-  IngestService
->() {}
+import { SupermemoryHttpClientService } from "@services/client/service.js";
+import { Effect, Schema } from "effect";
+import { API_ENDPOINTS, SPANS, TELEMETRY_ATTRIBUTES } from "@/Constants.js";
+import type { SupermemoryError } from "@/Errors.js";
+import type { IngestServiceOps } from "./api.js";
+import type { IngestOptions, IngestResponse } from "./types.js";
 
 /**
  * Create the ingest service implementation.
@@ -105,17 +50,17 @@ const makeIngestService = Effect.gen(function* () {
       // Make request to v3 documents endpoint
       return yield* httpClient.requestV3<IngestResponse, unknown, never>(
         "POST",
-        "/documents",
+        API_ENDPOINTS.V3.DOCUMENTS,
         {
           body,
         }
       );
     }).pipe(
-      Effect.withSpan("supermemory.ingest.addText", {
+      Effect.withSpan(SPANS.INGEST_ADD_TEXT, {
         attributes: {
-          "supermemory.content_length": content.length,
-          "supermemory.has_tags": options?.tags !== undefined,
-          "supermemory.has_custom_id": options?.customId !== undefined,
+          [TELEMETRY_ATTRIBUTES.CONTENT_LENGTH]: content.length,
+          [TELEMETRY_ATTRIBUTES.HAS_TAGS]: options?.tags !== undefined,
+          [TELEMETRY_ATTRIBUTES.HAS_CUSTOM_ID]: options?.customId !== undefined,
         },
       })
     );
@@ -162,17 +107,17 @@ const makeIngestService = Effect.gen(function* () {
       // Make request to v3 documents endpoint
       return yield* httpClient.requestV3<IngestResponse, unknown, never>(
         "POST",
-        "/documents",
+        API_ENDPOINTS.V3.DOCUMENTS,
         {
           body,
         }
       );
     }).pipe(
-      Effect.withSpan("supermemory.ingest.addUrl", {
+      Effect.withSpan(SPANS.INGEST_ADD_URL, {
         attributes: {
-          "supermemory.url": url,
-          "supermemory.has_tags": options?.tags !== undefined,
-          "supermemory.has_custom_id": options?.customId !== undefined,
+          [TELEMETRY_ATTRIBUTES.URL]: url,
+          [TELEMETRY_ATTRIBUTES.HAS_TAGS]: options?.tags !== undefined,
+          [TELEMETRY_ATTRIBUTES.HAS_CUSTOM_ID]: options?.customId !== undefined,
         },
       })
     );
@@ -180,18 +125,27 @@ const makeIngestService = Effect.gen(function* () {
   return {
     addText,
     addUrl,
-  } satisfies IngestService;
+  } satisfies IngestServiceOps;
 });
 
 /**
+ * Context tag and Service for IngestService.
+ *
+ * @since 1.0.0
+ * @category Context
+ */
+export class IngestService extends Effect.Service<IngestServiceOps>()(
+  "@effect-supermemory/Ingest",
+  {
+    accessors: true,
+    effect: makeIngestService,
+  }
+) {}
+
+/**
  * Live layer for IngestService.
- * Requires SupermemoryHttpClientService.
  *
  * @since 1.0.0
  * @category Layers
  */
-export const IngestServiceLive: Layer.Layer<
-  IngestServiceTag,
-  never,
-  SupermemoryHttpClientService
-> = Layer.effect(IngestServiceTag, makeIngestService);
+export const IngestServiceLive = IngestService.Default;

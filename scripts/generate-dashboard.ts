@@ -330,7 +330,7 @@ async function main() {
 
     // Write dashboard
     fs.writeFileSync(DASHBOARD_PATH, dashboard);
-    console.log(`\n✅ Dashboard generated:`);
+    console.log("\n✅ Dashboard generated:");
     console.log(`   File: ${DASHBOARD_PATH}`);
 
     console.log("\n" + "=".repeat(60) + "\n");

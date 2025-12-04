@@ -4,21 +4,18 @@
   "description": "Effect-native client abstractions for Supermemory long-term memory API",
   "private": false,
   "type": "module",
-  "packageManager": "bun@latest",
+  "packageManager": "bun@1.1.33",
   "repository": {
     "type": "git",
     "url": "https://github.com/PaulJPhilp/effect-supermemory.git"
   },
   "license": "MIT",
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:integration": "vitest run --config vitest.integration.config.ts",
-    "test:integration:watch": "vitest --config vitest.integration.config.ts",
     "test:compatibility": "vitest run test/compatibility",
-    "mock:server": "bun test-setup/mock-server.ts",
     "codegen": "bun run scripts/codegen.ts",
     "compat:extract": "bun run scripts/extract-sdk-api.ts",
     "compat:compare": "bun run scripts/compare-api-surface.ts",
@@ -51,6 +48,7 @@
     "@types/node": "^20.19.25",
     "effect": "^3.19.8",
     "openapi-typescript": "^7.10.1",
+    "tsc-alias": "^1.8.16",
     "typescript": "^5.9.3",
     "ultracite": "6.3.6",
     "vitest": "^4.0.15"

@@ -213,15 +213,15 @@ import * as Layer from "effect/Layer";
 import * as Stream from "effect/Stream";
 import type { Effect as EffectType } from "effect";
 
-// Internal imports - use relative paths or path aliases
-import { MyService } from "./MyService.js"; // .js extension required for ESM
-import { MyService } from "~/services/MyService.js"; // Using path alias
+// Internal imports - use absolute path aliases
+import { MyService } from "@services/MyService/service.js"; // .js extension required for ESM
+import { MyModel } from "@/Domain.js"; // Using path alias
 
 // Test imports
 import { describe, it, expect } from "vitest";
 ```
 
-Note: Path aliases `~/*` and `effect-supermemory/*` map to `src/*` and are defined in `tsconfig.json`.
+Note: Path aliases `@/*` map to `src/*` and `@services/*` map to `services/*`, defined in `tsconfig.json`.
 
 ### File Structure Convention
 Each service follows this structure:

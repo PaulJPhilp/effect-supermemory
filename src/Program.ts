@@ -1,8 +1,8 @@
+import { SupermemoryConfigFromValues } from "@services/config/service.js";
+import { HttpClient } from "@services/httpClient/service.js";
+import type { HttpUrl } from "@services/httpClient/types.js";
+import { SupermemoryClient } from "@services/supermemoryClient/service.js";
 import { Effect, Layer, Redacted } from "effect";
-import { HttpClient } from "../services/httpClient/service.js";
-import type { HttpUrl } from "../services/httpClient/types.js";
-import { SupermemoryClient } from "../services/supermemoryClient/service.js";
-import { SupermemoryConfigFromValues } from "./Config.js";
 
 const supermemoryConfigLayer = SupermemoryConfigFromValues({
   apiKey: Redacted.make("test-api-key"),

@@ -5,11 +5,12 @@
  * and data transformation operations used in memory streaming.
  */
 
+import type { HttpClientError } from "@services/httpClient/errors.js";
+import { isHttpError, isNetworkError } from "@services/httpClient/helpers.js";
+import type { HttpRequestOptions } from "@services/httpClient/types.js";
+import type { SearchResult } from "@services/searchClient/types.js";
 import { Effect, Exit, Stream } from "effect";
-import type { HttpClientError } from "../httpClient/errors.js";
-import { isHttpError, isNetworkError } from "../httpClient/helpers.js";
-import type { HttpRequestOptions } from "../httpClient/types.js";
-import type { SearchResult } from "../searchClient/types.js";
+import { HTTP_HEADERS, HTTP_STATUS, HTTP_VALUES } from "@/Constants.js";
 import { StreamReadError } from "./errors.js";
 
 // Re-export error types for use in other modules
@@ -214,8 +215,8 @@ export const isCompleteJson = (str: string): boolean =>
 export const buildKeysRequestOptions = (): HttpRequestOptions => ({
   method: "GET",
   headers: {
-    "Content-Type": "application/json",
-    Accept: "application/x-ndjson",
+    [HTTP_HEADERS.CONTENT_TYPE]: HTTP_VALUES.APPLICATION_JSON,
+    [HTTP_HEADERS.ACCEPT]: HTTP_VALUES.APPLICATION_NDJSON,
   },
 });
 
@@ -231,8 +232,8 @@ export const buildSearchRequestOptions = (
 ): HttpRequestOptions => ({
   method: "GET",
   headers: {
-    "Content-Type": "application/json",
-    Accept: "application/x-ndjson",
+    [HTTP_HEADERS.CONTENT_TYPE]: HTTP_VALUES.APPLICATION_JSON,
+    [HTTP_HEADERS.ACCEPT]: HTTP_VALUES.APPLICATION_NDJSON,
   },
   queryParams: buildSearchQueryParams(query, options),
 });
@@ -299,7 +300,7 @@ export const validateStreamResponse = (
   response: { status: number; body: unknown },
   expectedBodyType: string
 ): Effect.Effect<string, StreamReadError> => {
-  if (response.status >= 400) {
+  if (response.status >= HTTP_STATUS.BAD_REQUEST) {
     return Effect.fail(
       new StreamReadError({
         message: `HTTP ${response.status}: ${expectedBodyType} request failed`,

@@ -1,9 +1,9 @@
-import type { Effect } from "effect";
 import type {
   MemoryKey,
   MemoryValue,
   MemoryValueMap,
-} from "../inMemoryClient/types.js";
+} from "@services/inMemoryClient/types.js";
+import type { Effect } from "effect";
 import type { MemoryError } from "./errors.js";
 
 /**

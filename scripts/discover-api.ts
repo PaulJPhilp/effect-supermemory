@@ -439,7 +439,7 @@ async function main() {
   // Write spec
   fs.writeFileSync(specPath, json);
 
-  console.log(`\n✅ OpenAPI spec generated:`);
+  console.log("\n✅ OpenAPI spec generated:");
   console.log(`   File: ${specPath}`);
   console.log(`   Status: ${changed ? "CHANGED ✨" : "unchanged"}`);
   console.log(

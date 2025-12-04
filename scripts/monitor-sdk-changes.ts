@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+
 /**
  * SDK Change Monitoring Script
  *
@@ -11,10 +12,9 @@
  *   bun run scripts/monitor-sdk-changes.ts --force  # Force re-analysis
  */
 
+import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { spawn } from "node:child_process";
-import { promisify } from "node:util";
 
 const SDK_PACKAGE_NAME = "supermemory";
 const METADATA_FILE = path.join(
@@ -152,7 +152,7 @@ function compareApiSurfaceFiles(
   oldApiPath: string,
   newApiPath: string
 ): ChangeReport["changes"] {
-  if (!fs.existsSync(oldApiPath) || !fs.existsSync(newApiPath)) {
+  if (!(fs.existsSync(oldApiPath) && fs.existsSync(newApiPath))) {
     return {
       breaking: [],
       additions: [],
@@ -282,7 +282,7 @@ async function runCompatibilityCheck(): Promise<
     // Comparison failed - return undefined
   }
 
-  return undefined;
+  return;
 }
 
 /**
@@ -582,7 +582,7 @@ async function main() {
 
     // Write JSON report
     fs.writeFileSync(outputPath, JSON.stringify(report, null, 2));
-    console.log(`\n✅ Change report generated:`);
+    console.log("\n✅ Change report generated:");
     console.log(`   JSON: ${outputPath}`);
 
     // Generate and write markdown report
@@ -599,7 +599,7 @@ async function main() {
     console.log(`   Modifications: ${report.changes.modifications.length}`);
 
     if (report.compatibilityImpact) {
-      console.log(`\n📊 Compatibility Impact:`);
+      console.log("\n📊 Compatibility Impact:");
       console.log(`   Score: ${report.compatibilityImpact.score}%`);
       console.log(
         `   Missing Operations: ${report.compatibilityImpact.missingOperations}`

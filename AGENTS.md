@@ -15,9 +15,31 @@
 - Builds to both ESM (`build/esm`) and CJS (`build/cjs`)
 - Project references: src and test in separate tsconfigs
 
-## Code Style
+## Code Style and Conventions
+
+### Anti-Mocking Policy
+**FORBIDDEN**: All forms of mocking, mocking frameworks, and mock servers are strictly prohibited.
+
+- **No Mock Servers**: Do not create mock HTTP servers or API endpoints
+- **No Mock Frameworks**: Do not use mocking libraries like vi.mock, jest.mock, or similar
+- **No Test Doubles**: Do not create fake implementations of services for testing
+- **No Mock Data**: Do not use hardcoded mock responses or fixtures
+
+**Rationale**: 
+- Mocks create artificial test environments that don't match real-world behavior
+- Mocks require constant maintenance and diverge from actual API implementations
+- Mocks hide integration issues and network-related problems
+- Real testing should validate actual behavior and error handling
+
+**Alternatives**:
+- Write integration tests against real services
+- Use test environments with actual API endpoints
+- Focus on unit testing pure functions and business logic
+- Test error conditions by triggering actual error states
+
+### TypeScript Configuration
 - Strict TypeScript: `strict: true`, `exactOptionalPropertyTypes: true`
-- Effect imports: `import * as Effect from "effect/Effect"`
+- Effect imports: `import { Effect } from "effect"`
 - Functional programming with Effect framework
 - Test imports: `import { describe, expect, it } from "@effect/vitest"`
 - Module resolution: NodeNext, target ES2022

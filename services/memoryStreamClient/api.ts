@@ -1,7 +1,10 @@
+import type { MemoryError } from "@services/inMemoryClient/errors.js";
+import type { SearchError } from "@services/searchClient/errors.js";
+import type {
+  SearchOptions,
+  SearchResult,
+} from "@services/searchClient/types.js";
 import type { Effect, Stream } from "effect";
-import type { MemoryError } from "../inMemoryClient/errors.js";
-import type { SearchError } from "../searchClient/errors.js";
-import type { SearchOptions, SearchResult } from "../searchClient/types.js";
 import type { StreamError } from "./errors.js";
 
 export type MemoryStreamClientApi = {

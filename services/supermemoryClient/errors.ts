@@ -1,14 +1,14 @@
 /** biome-ignore-all lint/performance/noBarrelFile: we want to export the functions directly */
-import type { HttpClientError } from "../../services/httpClient/errors.js";
+import type { HttpClientError } from "@services/httpClient/errors.js";
 import {
   isAuthorizationError,
   isHttpErrorWithStatus,
-} from "../../services/httpClient/helpers.js";
-import type { MemoryError } from "../../services/inMemoryClient/errors.js";
+} from "@services/httpClient/helpers.js";
+import type { MemoryError } from "@services/inMemoryClient/errors.js";
 import {
   MemoryNotFoundError,
   MemoryValidationError,
-} from "../../services/inMemoryClient/errors.js"; // Import existing MemoryErrors
+} from "@services/inMemoryClient/errors.js"; // Import existing MemoryErrors
 
 // SupermemoryClient-specific errors, if any, could be defined here.
 // For now, we mainly translate HttpClientError to existing MemoryError.
@@ -45,9 +45,9 @@ export const translateHttpClientError = (
   });
 };
 
-export type { MemoryError } from "../../services/inMemoryClient/errors.js";
+export type { MemoryError } from "@services/inMemoryClient/errors.js";
 // Re-export MemoryError types for convenience
 export {
   MemoryNotFoundError,
   MemoryValidationError,
-} from "../../services/inMemoryClient/errors.js";
+} from "@services/inMemoryClient/errors.js";

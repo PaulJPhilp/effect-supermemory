@@ -5,12 +5,12 @@
  * to the official Supermemory SDK.
  */
 
-import { describe, it, expect, beforeAll, beforeEach, afterEach } from "vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { SupermemoryClient } from "../../services/supermemoryClient/index.js";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { HttpClient } from "../../services/httpClient/index.js";
 import type { HttpUrl } from "../../services/httpClient/types.js";
+import { SupermemoryClient } from "../../services/supermemoryClient/index.js";
 import type { CompatibilityAdapter } from "./helpers.js";
 import {
   createEffectSupermemoryAdapter,
@@ -118,9 +118,9 @@ describe("HTTP Request Compatibility Tests", () => {
       timeoutMs: TEST_CONFIG.timeoutMs,
     });
 
-    const SupermemoryTestLayer = SupermemoryClient.Default(
-      TEST_CONFIG
-    ).pipe(Layer.provide(HttpClientTestLayer));
+    const SupermemoryTestLayer = SupermemoryClient.Default(TEST_CONFIG).pipe(
+      Layer.provide(HttpClientTestLayer)
+    );
 
     const program = Effect.gen(function* () {
       const client = yield* SupermemoryClient;

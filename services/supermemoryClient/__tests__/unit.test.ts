@@ -1,17 +1,17 @@
+import { HttpClient } from "@services/httpClient/service.js";
+import type { HttpUrl } from "@services/httpClient/types.js";
+import type { MemoryKey, MemoryValue } from "@services/inMemoryClient/types.js";
 import { Cause, Effect, Layer, Option } from "effect";
 import { afterEach, describe, expect, it } from "vitest";
-import { HttpClient } from "../../httpClient/service.js";
-import type { HttpUrl } from "../../httpClient/types.js";
-import type { MemoryKey, MemoryValue } from "../../inMemoryClient/types.js";
 import { SupermemoryClient } from "../service.js";
 import type { SupermemoryClientConfigType } from "../types.js";
 
 // Integration test configuration
 const TEST_CONFIG: SupermemoryClientConfigType = {
   namespace: "test-supermemory-client",
-  baseUrl: "http://localhost:3001",
-  apiKey: "test-api-key",
-  timeoutMs: 5000,
+  baseUrl: "https://api.supermemory.ai",
+  apiKey: process.env.SUPERMEMORY_API_KEY || "test-api-key",
+  timeoutMs: 10000,
 };
 
 // Create test layers
@@ -31,7 +31,12 @@ const asKey = (s: string): MemoryKey => s as MemoryKey;
 const asValue = (s: string): MemoryValue => s as MemoryValue;
 
 describe("SupermemoryClient", () => {
+  // Skip network-dependent tests if no real API key is provided
+  const hasRealApiKey = process.env.SUPERMEMORY_API_KEY && process.env.SUPERMEMORY_API_KEY !== "test-api-key";
+
   afterEach(async () => {
+    if (!hasRealApiKey) return;
+
     // Clean up: clear all test data after each test
     const program = Effect.gen(function* () {
       const client = yield* SupermemoryClient;
@@ -41,7 +46,7 @@ describe("SupermemoryClient", () => {
     await Effect.runPromiseExit(program);
   });
 
-  it("put stores a memory and encodes value to base64", async () => {
+  it.skipIf(!hasRealApiKey)("put stores a memory and encodes value to base64", async () => {
     const program = Effect.gen(function* () {
       const client = yield* SupermemoryClient;
       yield* client.put(asKey("test-key"), asValue("test-value"));
@@ -55,7 +60,7 @@ describe("SupermemoryClient", () => {
     }
   });
 
-  it("get retrieves a memory and decodes value from base64", async () => {
+  it.skipIf(!hasRealApiKey)("get retrieves a memory and decodes value from base64", async () => {
     const program = Effect.gen(function* () {
       const client = yield* SupermemoryClient;
       yield* client.put(asKey("get-test-key"), asValue("decoded-value"));
@@ -69,7 +74,7 @@ describe("SupermemoryClient", () => {
     }
   });
 
-  it("get returns undefined for 404 Not Found", async () => {
+  it.skipIf(!hasRealApiKey)("get returns undefined for 404 Not Found", async () => {
     const program = Effect.gen(function* () {
       const client = yield* SupermemoryClient;
       const value = yield* client.get(asKey("nonexistent-key"));
@@ -82,7 +87,7 @@ describe("SupermemoryClient", () => {
     }
   });
 
-  it("delete removes a memory and returns true for success", async () => {
+  it.skipIf(!hasRealApiKey)("delete removes a memory and returns true for success", async () => {
     const program = Effect.gen(function* () {
       const client = yield* SupermemoryClient;
       yield* client.put(asKey("delete-test-key"), asValue("delete-test-value"));
@@ -98,7 +103,7 @@ describe("SupermemoryClient", () => {
     }
   });
 
-  it("delete returns true for 404 Not Found (idempotent)", async () => {
+  it.skipIf(!hasRealApiKey)("delete returns true for 404 Not Found (idempotent)", async () => {
     const program = Effect.gen(function* () {
       const client = yield* SupermemoryClient;
       const deleted = yield* client.delete(asKey("nonexistent-key"));
@@ -111,7 +116,7 @@ describe("SupermemoryClient", () => {
     }
   });
 
-  it("exists returns true for existing key", async () => {
+  it.skipIf(!hasRealApiKey)("exists returns true for existing key", async () => {
     const program = Effect.gen(function* () {
       const client = yield* SupermemoryClient;
       yield* client.put(asKey("exists-test-key"), asValue("exists-test-value"));
@@ -125,7 +130,7 @@ describe("SupermemoryClient", () => {
     }
   });
 
-  it("exists returns false for 404 Not Found", async () => {
+  it.skipIf(!hasRealApiKey)("exists returns false for 404 Not Found", async () => {
     const program = Effect.gen(function* () {
       const client = yield* SupermemoryClient;
       const exists = yield* client.exists(asKey("nonexistent-key"));
@@ -138,7 +143,7 @@ describe("SupermemoryClient", () => {
     }
   });
 
-  it("clear removes all memories in namespace", async () => {
+  it.skipIf(!hasRealApiKey)("clear removes all memories in namespace", async () => {
     const program = Effect.gen(function* () {
       const client = yield* SupermemoryClient;
       yield* client.put(asKey("clear-key-1"), asValue("value1"));
@@ -156,7 +161,7 @@ describe("SupermemoryClient", () => {
     }
   });
 
-  it("putMany stores multiple memories and encodes values to base64", async () => {
+  it.skipIf(!hasRealApiKey)("putMany stores multiple memories and encodes values to base64", async () => {
     const items = [
       { key: asKey("batch-key-1"), value: asValue("batch-value-1") },
       { key: asKey("batch-key-2"), value: asValue("batch-value-2") },
@@ -176,7 +181,7 @@ describe("SupermemoryClient", () => {
     }
   });
 
-  it("deleteMany deletes multiple memories", async () => {
+  it.skipIf(!hasRealApiKey)("deleteMany deletes multiple memories", async () => {
     const program = Effect.gen(function* () {
       const client = yield* SupermemoryClient;
       yield* client.put(asKey("delete-many-1"), asValue("value1"));
@@ -195,7 +200,7 @@ describe("SupermemoryClient", () => {
     }
   });
 
-  it("getMany retrieves multiple memories and decodes values from base64", async () => {
+  it.skipIf(!hasRealApiKey)("getMany retrieves multiple memories and decodes values from base64", async () => {
     const program = Effect.gen(function* () {
       const client = yield* SupermemoryClient;
       yield* client.put(asKey("get-many-1"), asValue("val1"));
@@ -220,7 +225,7 @@ describe("SupermemoryClient", () => {
     }
   });
 
-  it("handles special characters in keys and values", async () => {
+  it.skipIf(!hasRealApiKey)("handles special characters in keys and values", async () => {
     const program = Effect.gen(function* () {
       const client = yield* SupermemoryClient;
       const specialKey = asKey("key-with-special-chars-!@#$%^&*()");
@@ -236,7 +241,7 @@ describe("SupermemoryClient", () => {
     }
   });
 
-  it("handles empty values", async () => {
+  it.skipIf(!hasRealApiKey)("handles empty values", async () => {
     const program = Effect.gen(function* () {
       const client = yield* SupermemoryClient;
       yield* client.put(asKey("empty-value-key"), asValue(""));
@@ -250,7 +255,7 @@ describe("SupermemoryClient", () => {
     }
   });
 
-  it("handles large values", async () => {
+  it.skipIf(!hasRealApiKey)("handles large values", async () => {
     const largeValue = "x".repeat(10_000);
     const program = Effect.gen(function* () {
       const client = yield* SupermemoryClient;
@@ -265,7 +270,7 @@ describe("SupermemoryClient", () => {
     }
   });
 
-  it("handles empty arrays for batch operations", async () => {
+  it.skipIf(!hasRealApiKey)("handles empty arrays for batch operations", async () => {
     const program = Effect.gen(function* () {
       const client = yield* SupermemoryClient;
       // Empty arrays should succeed without errors
@@ -288,7 +293,7 @@ describe("SupermemoryClient", () => {
     }
   });
 
-  it("retries on transient errors with retry configuration", async () => {
+  it.skipIf(!hasRealApiKey)("retries on transient errors with retry configuration", async () => {
     const configWithRetries: SupermemoryClientConfigType = {
       ...TEST_CONFIG,
       retries: { attempts: 3, delayMs: 100 },
@@ -311,7 +316,7 @@ describe("SupermemoryClient", () => {
     }
   });
 
-  it("does not retry on 404 errors", async () => {
+  it.skipIf(!hasRealApiKey)("does not retry on 404 errors", async () => {
     const configWithRetries: SupermemoryClientConfigType = {
       ...TEST_CONFIG,
       retries: { attempts: 3, delayMs: 100 },
@@ -333,7 +338,7 @@ describe("SupermemoryClient", () => {
     }
   });
 
-  it("handles batch operations with many items", async () => {
+  it.skipIf(!hasRealApiKey)("handles batch operations with many items", async () => {
     const items = Array.from({ length: 50 }, (_, i) => ({
       key: asKey(`batch-large-${i}`),
       value: asValue(`batch-value-${i}`),

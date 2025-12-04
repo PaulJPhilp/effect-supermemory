@@ -3,7 +3,7 @@
 /** biome-ignore-all lint/performance/noBarrelFile: we want to re-export all the things */
 
 // HTTP Client exports
-export type { HttpClientApi } from "../services/httpClient/api.js";
+export type { HttpClientApi } from "@services/httpClient/api.js";
 export {
   AuthorizationError,
   HttpError,
@@ -11,8 +11,8 @@ export {
   RequestError,
   TooManyRequestsError,
   type HttpClientError,
-} from "../services/httpClient/errors.js";
-export { HttpClient } from "../services/httpClient/service.js";
+} from "@services/httpClient/errors.js";
+export { HttpClient } from "@services/httpClient/service.js";
 export type {
   HttpClientConfigType,
   HttpHeaders,
@@ -23,10 +23,10 @@ export type {
   HttpResponse,
   HttpStatusCode,
   HttpUrl,
-} from "../services/httpClient/types.js";
+} from "@services/httpClient/types.js";
 
 // In-Memory Client exports
-export type { InMemoryClientApi } from "../services/inMemoryClient/api.js";
+export type { InMemoryClientApi } from "@services/inMemoryClient/api.js";
 export {
   MemoryBatchPartialFailure,
   MemoryNotFoundError,
@@ -34,16 +34,16 @@ export {
   type MemoryBatchError,
   type MemoryError,
   type MemoryFailureError,
-} from "../services/inMemoryClient/errors.js";
-export { getOption as inMemoryGetOption } from "../services/inMemoryClient/helpers.js";
-export { InMemoryClient } from "../services/inMemoryClient/service.js";
+} from "@services/inMemoryClient/errors.js";
+export { getOption as inMemoryGetOption } from "@services/inMemoryClient/helpers.js";
+export { InMemoryClient } from "@services/inMemoryClient/service.js";
 
 // Memory Stream Client exports
-export type { MemoryStreamClientApi } from "../services/memoryStreamClient/api.js";
+export type { MemoryStreamClientApi } from "@services/memoryStreamClient/api.js";
 export {
   StreamReadError,
   type StreamError,
-} from "../services/memoryStreamClient/errors.js";
+} from "@services/memoryStreamClient/errors.js";
 export {
   decodeUint8Array,
   isCompleteJson,
@@ -53,18 +53,18 @@ export {
   validateUtf8Chunk,
   type ParseError,
   type ValidationError,
-} from "../services/memoryStreamClient/helpers.js";
-export { MemoryStreamClient } from "../services/memoryStreamClient/service.js";
-export type { MemoryStreamClientConfigType } from "../services/memoryStreamClient/types.js";
-export type { SupermemoryClientApi } from "../services/supermemoryClient/api.js";
-export { getOption as supermemoryGetOption } from "../services/supermemoryClient/helpers.js";
+} from "@services/memoryStreamClient/helpers.js";
+export { MemoryStreamClient } from "@services/memoryStreamClient/service.js";
+export type { MemoryStreamClientConfigType } from "@services/memoryStreamClient/types.js";
+export type { SupermemoryClientApi } from "@services/supermemoryClient/api.js";
+export { getOption as supermemoryGetOption } from "@services/supermemoryClient/helpers.js";
 // Supermemory Client exports
 export {
   MemoryNotFoundError as SupermemoryMemoryNotFoundError,
   MemoryValidationError as SupermemoryMemoryValidationError,
   translateHttpClientError,
   type MemoryError as SupermemoryMemoryError,
-} from "../services/supermemoryClient/errors.js";
+} from "@services/supermemoryClient/errors.js";
 export {
   encodeBasicAuth,
   fromBase64,
@@ -73,8 +73,8 @@ export {
   safeToBase64,
   toBase64,
   validateBase64,
-} from "../services/supermemoryClient/helpers.js";
-export { SupermemoryClient } from "../services/supermemoryClient/service.js";
+} from "@services/supermemoryClient/helpers.js";
+export { SupermemoryClient } from "@services/supermemoryClient/service.js";
 export {
   SupermemoryId,
   type RetryScheduleConfig,
@@ -82,21 +82,25 @@ export {
   type SupermemoryBatchResponse,
   type SupermemoryBatchResponseItem,
   type SupermemoryClientConfigType,
-} from "../services/supermemoryClient/types.js";
+} from "@services/supermemoryClient/types.js";
 // Re-export HTTP client
+export { mapHttpError } from "@services/client/helpers.js";
 export {
-  ApiVersions,
-  mapHttpError,
   SupermemoryHttpClientLive,
   SupermemoryHttpClientService,
+} from "@services/client/service.js";
+export {
+  ApiVersions,
   type SupermemoryHttpClient,
-} from "./Client.js";
+} from "@services/client/types.js";
+
 export {
   SupermemoryConfigFromValues,
   SupermemoryConfigLive,
   SupermemoryConfigService,
-  type SupermemoryConfig,
-} from "./Config.js";
+} from "@services/config/service.js";
+export type { SupermemoryConfig } from "@services/config/types.js";
+
 // Re-export domain models
 export {
   DeleteResponse,
@@ -119,18 +123,22 @@ export {
   SupermemoryValidationError,
   type SupermemoryError,
 } from "./Errors.js";
+
 // Re-export Ingest service
+export type { IngestServiceOps } from "@services/ingest/api.js";
 export {
+  IngestService,
   IngestServiceLive,
-  IngestServiceTag,
-  type IngestService,
-} from "./Ingest.js";
+} from "@services/ingest/service.js";
+
 // Re-export Search service and Filter API
+export type { SearchServiceOps } from "@services/search/api.js";
 export {
   Filter,
-  SearchServiceLive,
-  SearchServiceTag,
   toJSON,
   type FilterExpression,
-  type SearchService,
-} from "./Search.js";
+} from "@services/search/filterBuilder.js";
+export {
+  SearchService,
+  SearchServiceLive,
+} from "@services/search/service.js";

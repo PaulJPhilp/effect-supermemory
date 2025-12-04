@@ -5,8 +5,8 @@
  * used in supermemory operations and API communications.
  */
 
+import type { MemoryKey } from "@services/inMemoryClient/types.js";
 import { Effect, Exit, Option } from "effect";
-import type { MemoryKey } from "../inMemoryClient/types.js";
 import type { SupermemoryClientApi } from "./api.js";
 import type { MemoryError } from "./errors.js";
 
