@@ -5,13 +5,17 @@
  * and the official Supermemory TypeScript SDK.
  */
 
-import * as Effect from "effect/Effect";
-import type { SupermemoryClient } from "../../services/supermemoryClient/api.js";
+import { Effect } from "effect";
+import type {
+  MemoryKey,
+  MemoryValue,
+} from "../../services/inMemoryClient/types.js";
+import type { SupermemoryClientApi } from "../../services/supermemoryClient/api.js";
 
 /**
  * Adapter interface to run same operations through both libraries
  */
-export interface CompatibilityAdapter {
+export type CompatibilityAdapter = {
   put(key: string, value: string): Promise<void>;
   get(key: string): Promise<string | undefined>;
   delete(key: string): Promise<boolean>;
@@ -20,29 +24,73 @@ export interface CompatibilityAdapter {
   putMany(items: Array<{ key: string; value: string }>): Promise<void>;
   getMany(keys: readonly string[]): Promise<Map<string, string | undefined>>;
   deleteMany(keys: readonly string[]): Promise<void>;
-}
+};
+
+/**
+ * Type definition for the official Supermemory SDK client structure.
+ * This represents the shape of the client returned by the official SDK.
+ */
+type OfficialSdkClient = {
+  readonly memories: {
+    create: (options: {
+      content: string;
+      containerTags: readonly string[];
+      customId?: string;
+    }) => Promise<unknown>;
+    search: (options: {
+      containerTags: readonly string[];
+      limit?: number;
+    }) => Promise<Array<{ content?: string; value?: string }>>;
+    get?: (
+      key: string
+    ) => Promise<{ content?: string; value?: string } | undefined>;
+    delete?: (key: string) => Promise<void>;
+    deleteByTags?: (options: {
+      containerTags: readonly string[];
+    }) => Promise<void>;
+    clear?: (options: { containerTags: readonly string[] }) => Promise<void>;
+    createMany?: (
+      items: Array<{
+        content: string;
+        containerTags: readonly string[];
+        customId?: string;
+      }>
+    ) => Promise<void>;
+    getMany?: (keys: readonly string[]) => Promise<
+      Array<{
+        customId?: string;
+        id?: string;
+        content?: string;
+        value?: string;
+      }>
+    >;
+    deleteMany?: (keys: readonly string[]) => Promise<void>;
+  };
+};
 
 /**
  * Effect-supermemory adapter implementation
  */
 export function createEffectSupermemoryAdapter(
-  client: SupermemoryClient
+  client: SupermemoryClientApi
 ): CompatibilityAdapter {
   return {
     async put(key: string, value: string): Promise<void> {
-      await Effect.runPromise(client.put(key, value));
+      await Effect.runPromise(
+        client.put(key as MemoryKey, value as MemoryValue)
+      );
     },
 
     async get(key: string): Promise<string | undefined> {
-      return await Effect.runPromise(client.get(key));
+      return await Effect.runPromise(client.get(key as MemoryKey));
     },
 
     async delete(key: string): Promise<boolean> {
-      return await Effect.runPromise(client.delete(key));
+      return await Effect.runPromise(client.delete(key as MemoryKey));
     },
 
     async exists(key: string): Promise<boolean> {
-      return await Effect.runPromise(client.exists(key));
+      return await Effect.runPromise(client.exists(key as MemoryKey));
     },
 
     async clear(): Promise<void> {
@@ -50,19 +98,30 @@ export function createEffectSupermemoryAdapter(
     },
 
     async putMany(items: Array<{ key: string; value: string }>): Promise<void> {
-      await Effect.runPromise(client.putMany(items));
+      await Effect.runPromise(
+        client.putMany(
+          items.map((item) => ({
+            key: item.key as MemoryKey,
+            value: item.value as MemoryValue,
+          }))
+        )
+      );
     },
 
     async getMany(
       keys: readonly string[]
     ): Promise<Map<string, string | undefined>> {
-      const result = await Effect.runPromise(client.getMany(keys));
+      const result = await Effect.runPromise(
+        client.getMany(keys.map((k) => k as MemoryKey))
+      );
       // Convert ReadonlyMap to Map
       return new Map(result);
     },
 
     async deleteMany(keys: readonly string[]): Promise<void> {
-      await Effect.runPromise(client.deleteMany(keys));
+      await Effect.runPromise(
+        client.deleteMany(keys.map((k) => k as MemoryKey))
+      );
     },
   };
 }
@@ -98,8 +157,7 @@ function createRejectingAdapter(error: Error): CompatibilityAdapter {
  * the tests will skip official SDK comparisons.
  */
 export function createOfficialSdkAdapter(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  sdkClient: any,
+  sdkClient: OfficialSdkClient,
   namespace: string
 ): CompatibilityAdapter {
   // Check if SDK client has the expected structure
@@ -145,7 +203,7 @@ export function createOfficialSdkAdapter(
           // Extract content from result
           return results[0]?.content || results[0]?.value || undefined;
         }
-        return undefined;
+        return;
       } catch {
         // Try direct get if available
         if (typeof sdkClient.memories.get === "function") {
@@ -153,10 +211,10 @@ export function createOfficialSdkAdapter(
             const result = await sdkClient.memories.get(key);
             return result?.content || result?.value || undefined;
           } catch {
-            return undefined;
+            return;
           }
         }
-        return undefined;
+        return;
       }
     },
 
@@ -284,11 +342,11 @@ export function isOfficialSdkAvailable(): boolean {
 /**
  * Create official SDK client (if available)
  */
-export async function createOfficialSdkClient(config: {
+export function createOfficialSdkClient(config: {
   apiKey: string;
   baseUrl?: string;
   namespace: string;
-}): Promise<CompatibilityAdapter | null> {
+}): CompatibilityAdapter | null {
   if (!isOfficialSdkAvailable()) {
     return null;
   }
@@ -300,7 +358,7 @@ export async function createOfficialSdkClient(config: {
     const client = new Supermemory({
       apiKey: config.apiKey,
       baseUrl: config.baseUrl,
-    });
+    }) as OfficialSdkClient;
 
     return createOfficialSdkAdapter(client, config.namespace);
   } catch (error) {
@@ -312,14 +370,14 @@ export async function createOfficialSdkClient(config: {
 /**
  * Compare results from two adapters
  */
-export interface ComparisonResult {
+export type ComparisonResult = {
   operation: string;
   parameters: unknown[];
   match: boolean;
   effectResult: unknown;
   sdkResult: unknown;
   difference?: string;
-}
+};
 
 /**
  * Compare operation results
@@ -340,7 +398,9 @@ export function compareResults(
       match,
       effectResult,
       sdkResult,
-      difference: `Results differ: ${JSON.stringify(effectResult)} vs ${JSON.stringify(sdkResult)}`,
+      difference: `Results differ: ${JSON.stringify(
+        effectResult
+      )} vs ${JSON.stringify(sdkResult)}`,
     };
   }
 
@@ -354,28 +414,74 @@ export function compareResults(
 }
 
 /**
+ * Compare two arrays for deep equality
+ */
+function deepEqualArrays(a: unknown[], b: unknown[]): boolean {
+  if (a.length !== b.length) {
+    return false;
+  }
+  return a.every((item, index) => deepEqual(item, b[index]));
+}
+
+/**
+ * Compare two Maps for deep equality
+ */
+function deepEqualMaps(
+  a: Map<unknown, unknown>,
+  b: Map<unknown, unknown>
+): boolean {
+  if (a.size !== b.size) {
+    return false;
+  }
+  for (const [key, value] of a.entries()) {
+    if (!(b.has(key) && deepEqual(value, b.get(key)))) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Compare two plain objects for deep equality
+ */
+function deepEqualObjects(
+  a: Record<string, unknown>,
+  b: Record<string, unknown>
+): boolean {
+  const keysA = Object.keys(a);
+  const keysB = Object.keys(b);
+
+  if (keysA.length !== keysB.length) {
+    return false;
+  }
+
+  return keysA.every((key) => keysB.includes(key) && deepEqual(a[key], b[key]));
+}
+
+/**
  * Deep equality check
  */
 function deepEqual(a: unknown, b: unknown): boolean {
-  if (a === b) return true;
+  if (a === b) {
+    return true;
+  }
 
-  if (a === null || b === null) return a === b;
-  if (typeof a !== typeof b) return false;
-  if (typeof a !== "object") return false;
+  if (a === null || b === null) {
+    return a === b;
+  }
+  if (typeof a !== typeof b) {
+    return false;
+  }
+  if (typeof a !== "object") {
+    return false;
+  }
 
   if (Array.isArray(a) && Array.isArray(b)) {
-    if (a.length !== b.length) return false;
-    return a.every((item, index) => deepEqual(item, b[index]));
+    return deepEqualArrays(a, b);
   }
 
   if (a instanceof Map && b instanceof Map) {
-    if (a.size !== b.size) return false;
-    for (const [key, value] of a.entries()) {
-      if (!b.has(key) || !deepEqual(value, b.get(key))) {
-        return false;
-      }
-    }
-    return true;
+    return deepEqualMaps(a, b);
   }
 
   if (
@@ -384,20 +490,10 @@ function deepEqual(a: unknown, b: unknown): boolean {
     !Array.isArray(a) &&
     !Array.isArray(b)
   ) {
-    const keysA = Object.keys(a);
-    const keysB = Object.keys(b);
-
-    if (keysA.length !== keysB.length) return false;
-
-    return keysA.every((key) => {
-      return (
-        keysB.includes(key) &&
-        deepEqual(
-          (a as Record<string, unknown>)[key],
-          (b as Record<string, unknown>)[key]
-        )
-      );
-    });
+    return deepEqualObjects(
+      a as Record<string, unknown>,
+      b as Record<string, unknown>
+    );
   }
 
   return false;
@@ -432,20 +528,28 @@ export async function cleanupTestData(
 }
 
 /**
+ * Options for running compatibility tests
+ */
+export type CompatibilityTestOptions<T> = {
+  effectAdapter: CompatibilityAdapter;
+  sdkAdapter: CompatibilityAdapter | null;
+  effectOp: (adapter: CompatibilityAdapter) => Promise<T>;
+  sdkOp?: (adapter: CompatibilityAdapter) => Promise<T>;
+};
+
+/**
  * Run operation through both adapters and compare results
  */
 export async function runCompatibilityTest<T>(
   operation: string,
-  effectAdapter: CompatibilityAdapter,
-  sdkAdapter: CompatibilityAdapter | null,
-  effectOp: (adapter: CompatibilityAdapter) => Promise<T>,
-  sdkOp?: (adapter: CompatibilityAdapter) => Promise<T>
+  options: CompatibilityTestOptions<T>
 ): Promise<{
   effectResult: T;
   sdkResult?: T;
   comparison?: ComparisonResult;
   skipped: boolean;
 }> {
+  const { effectAdapter, sdkAdapter, effectOp, sdkOp } = options;
   const effectResult = await effectOp(effectAdapter);
 
   if (!sdkAdapter) {

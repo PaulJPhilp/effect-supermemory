@@ -196,6 +196,11 @@ Biome provides extremely fast Rust-based linting and formatting with automatic f
 - **Declaration maps**: Enabled for source debugging
 - **No unused locals**, strict null checks, no implicit any
 
+### Type Casting Rules
+- **FORBIDDEN**: Never use double casts (e.g., `as unknown as Type`). Double casts are an anti-pattern that bypasses type safety.
+- **Preferred**: Fix the type definition to accurately reflect what the code accepts, or use a single cast if absolutely necessary.
+- **Example**: Instead of `value as unknown as HttpBody`, update the type definition to accept the actual type (e.g., `body?: HttpBody | unknown`).
+
 ### Import Conventions
 ```typescript
 // Effect imports - use named imports from "effect" package (not "effect/Effect")

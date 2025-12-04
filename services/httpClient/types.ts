@@ -37,7 +37,7 @@ export type HttpUrl = string & Brand.Brand<"HttpUrl">;
 export type HttpRequestOptions = {
   readonly method: HttpMethod;
   readonly headers?: HttpHeaders;
-  readonly body?: HttpBody;
+  readonly body?: HttpBody | unknown; // Accept HttpBody or any serializable value (objects, strings, etc.)
   readonly queryParams?: HttpQueryParams;
 };
 

@@ -150,7 +150,7 @@ Services need configuration (namespaces, credentials, retry policy). How should 
 **Example:**
 ```ts
 // Service definition
-export class MemoryClientImpl extends Effect.Service<MemoryClientImpl>()("MemoryClient", {
+export class MemoryClient extends Effect.Service<MemoryClient>()("MemoryClient", {
   sync: () => ({
     put: (key: string, value: string) => Effect.sync(() => store.set(key, value)),
     get: (key: string) => Effect.sync(() => store.get(key)),
@@ -159,11 +159,11 @@ export class MemoryClientImpl extends Effect.Service<MemoryClientImpl>()("Memory
 }) {}
 
 // Usage - separate instances for isolation
-const store1 = new MemoryClientImpl();  // "namespace 1"
-const store2 = new MemoryClientImpl();  // "namespace 2"
+const store1 = new MemoryClient();  // "namespace 1"
+const store2 = new MemoryClient();  // "namespace 2"
 
-const layer1 = Layer.succeed(MemoryClientImpl, store1);
-const layer2 = Layer.succeed(MemoryClientImpl, store2);
+const layer1 = Layer.succeed(MemoryClient, store1);
+const layer2 = Layer.succeed(MemoryClient, store2);
 ```
 
 ### Option 2: Layer-based via Context.Tag
@@ -238,6 +238,10 @@ We choose **Effect.Service with Effect.fn() Parameterization**.
 2. **Service:** Use `Effect.Service` with `Effect.fn()` for parameterized construction.
 3. **Parameters:** Pass configuration parameters to `Effect.fn()` constructor, operation parameters through method signatures.
 4. **Layers:** Use `Service.Default(param)` to create parameterized service layers.
+5. **Naming:**
+   - **Interface/API types:** Use PascalCase + "Api" suffix (e.g., `MemoryClientApi`, `HttpClientApi`).
+   - **Service classes:** Use PascalCase with no suffix (e.g., `MemoryClient`, `HttpClient`).
+   - **FORBIDDEN:** Never use "Impl" suffix for service classes (e.g., `MemoryClientImpl` is forbidden).
 
 **Example (MemoryClient):**
 ```ts
@@ -245,7 +249,7 @@ We choose **Effect.Service with Effect.fn() Parameterization**.
 export class MemoryNotFoundError extends Data.TaggedError("MemoryNotFoundError")<{ readonly key: string }> {}
 
 // service.ts
-export class MemoryClientImpl extends Effect.Service<MemoryClientImpl>()("MemoryClient", {
+export class MemoryClient extends Effect.Service<MemoryClient>()("MemoryClient", {
   effect: Effect.fn(function* (namespace: string) {
     const store = new Map<string, string>();
     return {
@@ -263,11 +267,11 @@ export class MemoryClientImpl extends Effect.Service<MemoryClientImpl>()("Memory
 }) {}
 
 // Usage - parameterized layers for isolation
-const ns1Layer = MemoryClientImpl.Default("namespace-one");
-const ns2Layer = MemoryClientImpl.Default("namespace-two");
+const ns1Layer = MemoryClient.Default("namespace-one");
+const ns2Layer = MemoryClient.Default("namespace-two");
 
 const program = Effect.gen(function* () {
-  const client = yield* MemoryClientImpl;
+  const client = yield* MemoryClient;
   return yield* client.get("key");
 }).pipe(Effect.provide(ns1Layer));
 ```
@@ -287,7 +291,7 @@ const program = Effect.gen(function* () {
 ---
 
 **Implementation (2025-10-26):**
-ADR-001 has been fully implemented using the Effect.Service pattern with Effect.fn() parameterization. The MemoryClient service demonstrates proper namespace isolation through parameterized layer construction (MemoryClientImpl.Default("namespace")). This establishes the architectural foundation for all future services in effect-supermemory.
+ADR-001 has been fully implemented using the Effect.Service pattern with Effect.fn() parameterization. The MemoryClient service demonstrates proper namespace isolation through parameterized layer construction (MemoryClient.Default("namespace")). This establishes the architectural foundation for all future services in effect-supermemory.
 
 **Proposed by:** System Architect (effect-supermemory)
 **Status:** Accepted (implemented and verified)

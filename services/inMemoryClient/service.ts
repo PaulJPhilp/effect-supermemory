@@ -1,9 +1,10 @@
 import { Effect } from "effect";
-import type { MemoryClient } from "./api.js";
+import type { InMemoryClientApi } from "./api.js";
+import type { MemoryValueMap } from "./types.js";
 // No longer importing MemoryConfig type or tag as it's a direct parameter now
 
-export class MemoryClientImpl extends Effect.Service<MemoryClientImpl>()(
-  "MemoryClient",
+export class InMemoryClient extends Effect.Service<InMemoryClient>()(
+  "InMemoryClient",
   {
     // Use Effect.fn to accept 'namespace' as a constructor parameter
     effect: Effect.fn(function* (namespace: string) {
@@ -62,14 +63,9 @@ export class MemoryClientImpl extends Effect.Service<MemoryClientImpl>()(
               const nsKey = `${namespace}:${key}`;
               result.set(key, store.get(nsKey));
             }
-            return result;
+            return result as MemoryValueMap;
           }),
-      } satisfies MemoryClient;
+      } satisfies InMemoryClientApi;
     }),
   }
 ) {}
-
-// The Default layer now requires the namespace parameter
-// We will not export a generic 'Default' layer from here,
-// as it requires a parameter. Specific layers will be created by consumers
-// or a higher-level factory. For tests, we'll create layers directly.

@@ -1,12 +1,12 @@
 import { Cause, Effect, Layer, Option } from "effect";
 import { describe, expect, it } from "vitest";
 import { type HttpClientError, HttpError } from "../../httpClient/errors.js";
-import { HttpClientImpl } from "../../httpClient/service.js";
+import { HttpClient } from "../../httpClient/service.js";
 import type { HttpResponse, HttpUrl } from "../../httpClient/types.js";
-import { MemoryValidationError } from "../../memoryClient/errors.js";
+import { MemoryValidationError } from "../../inMemoryClient/errors.js";
 import { type SearchError, SearchQueryError } from "../errors.js";
 import { toBase64 } from "../helpers.js";
-import { SearchClientImpl } from "../service.js";
+import { SearchClient } from "../service.js";
 import type { SearchResult, SupermemoryClientConfigType } from "../types.js";
 
 // Create a test HttpClient layer
@@ -43,7 +43,7 @@ const createTestHttpClientLayer = (
     });
   };
 
-  return HttpClientImpl.Default({
+  return HttpClient.Default({
     baseUrl: "https://api.supermemory.dev" as HttpUrl,
     fetch: mockFetch as any,
   });
@@ -62,12 +62,12 @@ const createSearchClientLayer = (
 ) => {
   const config = { ...baseConfig, ...configOverrides };
   const testHttpClientLayer = createTestHttpClientLayer(responses);
-  return SearchClientImpl.Default(config).pipe(
+  return SearchClient.Default(config).pipe(
     Layer.provideMerge(testHttpClientLayer)
   );
 };
 
-describe("SearchClientImpl", () => {
+describe("SearchClient", () => {
   it("search sends a GET request with query", async () => {
     const responses = new Map<string, HttpResponse<any> | HttpClientError>([
       [
@@ -91,7 +91,7 @@ describe("SearchClientImpl", () => {
     ]);
 
     const program = Effect.gen(function* () {
-      const client = yield* SearchClientImpl;
+      const client = yield* SearchClient;
       return yield* client.search("test query");
     }).pipe(
       Effect.provide(createSearchClientLayer(undefined, responses))
@@ -120,7 +120,7 @@ describe("SearchClientImpl", () => {
     ]);
 
     const program = Effect.gen(function* () {
-      const client = yield* SearchClientImpl;
+      const client = yield* SearchClient;
       return yield* client.search("query", {
         limit: 5,
         offset: 10,
@@ -146,7 +146,7 @@ describe("SearchClientImpl", () => {
     ]);
 
     const program = Effect.gen(function* () {
-      const client = yield* SearchClientImpl;
+      const client = yield* SearchClient;
       return yield* client.search("query", {
         filters: {
           tag: "cli",
@@ -174,7 +174,7 @@ describe("SearchClientImpl", () => {
     ]);
 
     const program = Effect.gen(function* () {
-      const client = yield* SearchClientImpl;
+      const client = yield* SearchClient;
       return yield* client.search("query", { maxAgeHours: 24 });
     }).pipe(
       Effect.provide(createSearchClientLayer(undefined, responses))
@@ -212,7 +212,7 @@ describe("SearchClientImpl", () => {
     ]);
 
     const program = Effect.gen(function* () {
-      const client = yield* SearchClientImpl;
+      const client = yield* SearchClient;
       return yield* client.search("multi query");
     }).pipe(
       Effect.provide(createSearchClientLayer(undefined, responses))
@@ -245,7 +245,7 @@ describe("SearchClientImpl", () => {
     ]);
 
     const program = Effect.gen(function* () {
-      const client = yield* SearchClientImpl;
+      const client = yield* SearchClient;
       return yield* client.search("no results query");
     }).pipe(
       Effect.provide(createSearchClientLayer(undefined, responses))
@@ -269,7 +269,7 @@ describe("SearchClientImpl", () => {
     ]);
 
     const program = Effect.gen(function* () {
-      const client = yield* SearchClientImpl;
+      const client = yield* SearchClient;
       return yield* client.search("invalid query");
     }).pipe(
       Effect.provide(createSearchClientLayer(undefined, responses))
@@ -300,7 +300,7 @@ describe("SearchClientImpl", () => {
     ]);
 
     const program = Effect.gen(function* () {
-      const client = yield* SearchClientImpl;
+      const client = yield* SearchClient;
       return yield* client.search("query");
     }).pipe(
       Effect.provide(createSearchClientLayer(undefined, responses))
@@ -334,7 +334,7 @@ describe("SearchClientImpl", () => {
     ]);
 
     const program = Effect.gen(function* () {
-      const client = yield* SearchClientImpl;
+      const client = yield* SearchClient;
       return yield* client.search("query", undefined);
     }).pipe(
       Effect.provide(createSearchClientLayer(undefined, responses))
@@ -356,7 +356,7 @@ describe("SearchClientImpl", () => {
     ]);
 
     const program = Effect.gen(function* () {
-      const client = yield* SearchClientImpl;
+      const client = yield* SearchClient;
       return yield* client.search("query");
     }).pipe(
       Effect.provide(createSearchClientLayer(undefined, responses))
@@ -366,7 +366,7 @@ describe("SearchClientImpl", () => {
   });
 
   it("includes timeout in HttpClient config when provided", () => {
-    const layer = SearchClientImpl.Default({ ...baseConfig, timeoutMs: 5000 });
+    const layer = SearchClient.Default({ ...baseConfig, timeoutMs: 5000 });
 
     // Since we can't easily inspect the internal HttpClient config,
     // we can test that the layer is created without error

@@ -1,13 +1,14 @@
 import { Effect, Stream } from "effect";
-import { HttpClientImpl } from "../httpClient/service.js";
+import { isHttpError, isNetworkError } from "../httpClient/helpers.js";
+import { HttpClient } from "../httpClient/service.js";
 import type { HttpPath, HttpUrl } from "../httpClient/types.js";
 import {
   type MemoryError,
   MemoryValidationError,
-} from "../memoryClient/errors.js";
+} from "../inMemoryClient/errors.js";
 import type { SearchError } from "../searchClient/errors.js";
 import type { SearchOptions, SearchResult } from "../searchClient/types.js";
-import type { MemoryStreamClient } from "./api.js";
+import type { MemoryStreamClientApi } from "./api.js";
 import { type StreamError, StreamReadError } from "./errors.js";
 import {
   buildKeysRequestOptions,
@@ -19,7 +20,7 @@ import {
 } from "./helpers.js";
 import type { MemoryStreamClientConfigType } from "./types.js";
 
-export class MemoryStreamClientImpl extends Effect.Service<MemoryStreamClientImpl>()(
+export class MemoryStreamClient extends Effect.Service<MemoryStreamClient>()(
   "MemoryStreamClient",
   {
     effect: Effect.fn(function* (config: MemoryStreamClientConfigType) {
@@ -37,7 +38,7 @@ export class MemoryStreamClientImpl extends Effect.Service<MemoryStreamClientImp
         timeoutMs !== undefined
           ? { ...httpClientConfigBase, timeoutMs }
           : httpClientConfigBase;
-      const httpClientLayer = HttpClientImpl.Default(httpClientConfig);
+      const httpClientLayer = HttpClient.Default(httpClientConfig);
 
       return {
         listAllKeys: (): Effect.Effect<
@@ -45,7 +46,7 @@ export class MemoryStreamClientImpl extends Effect.Service<MemoryStreamClientImp
           MemoryError | StreamError
         > => {
           return Effect.gen(function* () {
-            const httpClient = yield* HttpClientImpl.pipe(
+            const httpClient = yield* HttpClient.pipe(
               Effect.provide(httpClientLayer)
             );
             const keysPath = `/v1/keys/${encodeURIComponent(
@@ -56,12 +57,12 @@ export class MemoryStreamClientImpl extends Effect.Service<MemoryStreamClientImp
               .request<string>(keysPath, buildKeysRequestOptions())
               .pipe(
                 Effect.mapError((error): MemoryError | StreamError => {
-                  if (error._tag === "HttpError") {
+                  if (isHttpError(error)) {
                     return new MemoryValidationError({
                       message: `HTTP ${error.status}: ${error.message}`,
                     });
                   }
-                  if (error._tag === "NetworkError") {
+                  if (isNetworkError(error)) {
                     return new StreamReadError({
                       message: `Network error: ${error.message}`,
                       cause: error,
@@ -125,7 +126,7 @@ export class MemoryStreamClientImpl extends Effect.Service<MemoryStreamClientImp
           SearchError | StreamError
         > =>
           Effect.gen(function* () {
-            const httpClient = yield* HttpClientImpl.pipe(
+            const httpClient = yield* HttpClient.pipe(
               Effect.provide(httpClientLayer)
             );
             const searchPath = `/v1/search/${encodeURIComponent(
@@ -150,7 +151,7 @@ export class MemoryStreamClientImpl extends Effect.Service<MemoryStreamClientImp
 
             return parseNdjsonLines(responseBody, parseSearchResultLine);
           }),
-      } satisfies MemoryStreamClient;
+      } satisfies MemoryStreamClientApi;
     }),
   }
 ) {}

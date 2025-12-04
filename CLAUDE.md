@@ -35,7 +35,7 @@ bun run mock:server       # Start mock Supermemory API server for testing
 
 ```bash
 # Run a specific test file
-bun run vitest run services/memoryClient/__tests__/unit.test.ts
+bun run vitest run services/inMemoryClient/__tests__/unit.test.ts
 
 # Run tests in watch mode for a specific file
 bun run vitest services/httpClient/__tests__/unit.test.ts
@@ -46,9 +46,9 @@ bun run vitest services/httpClient/__tests__/unit.test.ts
 effect-supermemory is an Effect-native TypeScript client library for Supermemory's long-term memory API. The architecture is organized as a **modular, service-based library** with distinct layers:
 
 - **Service Layer** (`services/`): Core Effect.Service implementations
-  - `memoryClient/` - In-memory key-value store with namespace isolation
+  - `inMemoryClient/` - In-memory key-value store with namespace isolation
   - `httpClient/` - Generic HTTP client for external API requests
-  - `supermemoryClient/` - HTTP-backed MemoryClient implementation for Supermemory API
+  - `supermemoryClient/` - HTTP-backed InMemoryClient implementation for Supermemory API
   - `memoryStreamClient/` - Streaming operations for large datasets (Effect.Stream)
   - `searchClient/` - Search and reranking operations
 
@@ -79,24 +79,31 @@ export class MemoryNotFoundError extends Data.TaggedError("MemoryNotFoundError")
   readonly key: string;
 }> {}
 
-// service.ts - Effect.Service with Effect.fn()
-export class MemoryClientImpl extends Effect.Service<MemoryClientImpl>()(
-  "MemoryClient",
+// api.ts - Interface definition
+export interface InMemoryClientApi {
+  put: (key: string, value: string) => Effect.Effect<void, MemoryError>;
+  get: (key: string) => Effect.Effect<string | undefined, MemoryError>;
+  // ...
+}
+
+// service.ts - Effect.Service implementation
+export class InMemoryClient extends Effect.Service<InMemoryClient>()(
+  "InMemoryClient",
   {
     effect: Effect.fn(function* (namespace: string) {
       // Service implementation with namespace isolation
       return {
         put: (key, value) => Effect.sync(() => { /* ... */ }),
         get: (key) => Effect.sync(() => { /* ... */ }),
-      } satisfies MemoryClient;
+      } satisfies InMemoryClientApi;
     }),
   }
 ) {}
 
 // Usage - parameterized layer creation
-const layer = MemoryClientImpl.Default("my-namespace");
+const layer = InMemoryClient.Default("my-namespace");
 const program = Effect.gen(function* () {
-  const client = yield* MemoryClientImpl;
+  const client = yield* InMemoryClient;
   return yield* client.get("key");
 }).pipe(Effect.provide(layer));
 ```
@@ -105,9 +112,9 @@ const program = Effect.gen(function* () {
 
 ```
 src/index.ts (root exports)
-  ├── memoryClient/          # Base MemoryClient interface (in-memory impl)
+  ├── inMemoryClient/          # Base InMemoryClient interface (in-memory impl)
   ├── httpClient/            # Generic HTTP client service
-  ├── supermemoryClient/     # HTTP-backed MemoryClient (uses HttpClient)
+  ├── supermemoryClient/     # HTTP-backed InMemoryClient (uses HttpClient)
   ├── memoryStreamClient/    # Streaming operations (Effect.Stream)
   └── searchClient/          # Search and reranking operations
 ```
@@ -231,7 +238,9 @@ services/[serviceName]/
 ```
 
 **Naming conventions:**
-- Service classes: PascalCase + "Impl" suffix (e.g., `MemoryClientImpl`, `HttpClientImpl`)
+- Interface types: PascalCase + "Api" suffix (e.g., `InMemoryClientApi`, `HttpClientApi`)
+- Service classes: PascalCase (no suffix) (e.g., `InMemoryClient`, `HttpClient`)
+- **FORBIDDEN:** Never use "Impl" suffix for service classes (e.g., `MemoryClientImpl` is forbidden)
 - Error classes: PascalCase + "Error" suffix (e.g., `MemoryNotFoundError`)
 - Files: PascalCase for types/services, lowercase for utilities (e.g., `service.ts`, `helpers.ts`)
 
@@ -250,14 +259,14 @@ services/[serviceName]/
 ```typescript
 import * as Effect from "effect/Effect";
 import { describe, it, expect } from "vitest";
-import { MemoryClientImpl } from "../service.js";
+import { InMemoryClient } from "../service.js";
 
-describe("MemoryClient", () => {
-  const testLayer = MemoryClientImpl.Default("test-namespace");
+describe("InMemoryClient", () => {
+  const testLayer = InMemoryClient.Default("test-namespace");
 
   it("puts and gets a value", async () => {
     const program = Effect.gen(function* () {
-      const client = yield* MemoryClientImpl;
+      const client = yield* InMemoryClient;
       yield* client.put("key", "value");
       const result = yield* client.get("key");
       return result;

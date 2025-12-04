@@ -3,7 +3,10 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    include: ["test/integration.test.ts"],
+    include: [
+      "test/integration.test.ts",
+      "services/supermemoryClient/__tests__/unit.test.ts",
+    ],
     environment: "node",
     setupFiles: ["./test-setup/integration-setup.ts"],
     testTimeout: 10_000,

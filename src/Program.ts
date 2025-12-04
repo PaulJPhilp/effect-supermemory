@@ -1,21 +1,21 @@
 import { Effect, Layer, Redacted } from "effect";
-import { HttpClientImpl } from "../services/httpClient/service.js";
+import { HttpClient } from "../services/httpClient/service.js";
 import type { HttpUrl } from "../services/httpClient/types.js";
-import { SupermemoryClientImpl } from "../services/supermemoryClient/service.js";
+import { SupermemoryClient } from "../services/supermemoryClient/service.js";
 import { SupermemoryConfigFromValues } from "./Config.js";
 
 const supermemoryConfigLayer = SupermemoryConfigFromValues({
   apiKey: Redacted.make("test-api-key"),
 });
 
-const httpClientLayer = HttpClientImpl.Default({
+const httpClientLayer = HttpClient.Default({
   baseUrl: "https://api.supermemory.ai" as HttpUrl,
   headers: {},
   timeoutMs: 5000,
 });
 
 const supermemoryClientLayer = Layer.provide(
-  SupermemoryClientImpl.Default({
+  SupermemoryClient.Default({
     namespace: "demo-namespace",
     baseUrl: "https://api.supermemory.ai",
     apiKey: "test-api-key",

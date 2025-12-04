@@ -1,3 +1,4 @@
+import type { HttpBody } from "@effect/platform/HttpBody";
 import { Effect } from "effect";
 import {
   AuthorizationError,
@@ -27,7 +28,7 @@ export const createNetworkError = (
 export const handleErrorResponse = (
   response: Response,
   url: HttpUrl,
-  body?: unknown
+  body?: HttpBody
 ): Effect.Effect<never, HttpClientError> => {
   if (response.status === 401 || response.status === 403) {
     return Effect.fail(
@@ -60,19 +61,69 @@ export const handleErrorResponse = (
 };
 
 /**
+ * Type guard to check if an error is an instance of HttpClientError.
+ */
+export const isHttpClientError = (error: unknown): error is HttpClientError =>
+  error instanceof HttpError ||
+  error instanceof NetworkError ||
+  error instanceof RequestError ||
+  error instanceof AuthorizationError ||
+  error instanceof TooManyRequestsError;
+
+/**
+ * Type guard to check if an error is a retryable error type.
+ * Retryable errors are: NetworkError, HttpError, and TooManyRequestsError.
+ * Can be used with HttpClientError or union types that include HttpClientError.
+ */
+export const isRetryableErrorType = (
+  error: HttpClientError | { _tag: string }
+): error is HttpError | NetworkError | TooManyRequestsError =>
+  error._tag === "NetworkError" ||
+  error._tag === "HttpError" ||
+  error._tag === "TooManyRequestsError";
+
+/**
+ * Type guard to check if an error is a NetworkError.
+ */
+export const isNetworkError = (error: HttpClientError): error is NetworkError =>
+  error._tag === "NetworkError";
+
+/**
+ * Type guard to check if an error is an HttpError.
+ */
+export const isHttpError = (error: HttpClientError): error is HttpError =>
+  error._tag === "HttpError";
+
+/**
+ * Type guard to check if an error is an HttpError with a specific status code.
+ */
+export const isHttpErrorWithStatus = (
+  error: HttpClientError,
+  status: number
+): error is HttpError => error._tag === "HttpError" && error.status === status;
+
+/**
+ * Type guard to check if an error is an AuthorizationError.
+ */
+export const isAuthorizationError = (
+  error: HttpClientError
+): error is AuthorizationError => error._tag === "AuthorizationError";
+
+/**
+ * Type guard to check if an error is a TooManyRequestsError.
+ */
+export const isTooManyRequestsError = (
+  error: HttpClientError
+): error is TooManyRequestsError => error._tag === "TooManyRequestsError";
+
+/**
  * Handles fetch errors and converts them to HttpClientError.
  */
 export const handleFetchError = (
   error: unknown,
   url: HttpUrl
 ): HttpClientError => {
-  if (
-    error instanceof HttpError ||
-    error instanceof NetworkError ||
-    error instanceof RequestError ||
-    error instanceof AuthorizationError ||
-    error instanceof TooManyRequestsError
-  ) {
+  if (isHttpClientError(error)) {
     return error;
   }
   if (error instanceof Error) {
@@ -122,8 +173,29 @@ export const createStreamReader = (
     end: () => void;
     fail: (error: HttpClientError) => void;
   }
-): (() => Promise<void>) => {
+): { read: () => Promise<void>; cancel: () => void } => {
+  let cancelled = false;
+
+  const handleReadResult = (value: Uint8Array | undefined, done: boolean) => {
+    if (done) {
+      emit.end();
+      return;
+    }
+
+    if (value && value.length > 0) {
+      emit.single(value);
+    }
+
+    if (!cancelled) {
+      read();
+    }
+  };
+
   const read = async () => {
+    if (cancelled) {
+      return;
+    }
+
     try {
       const readResult = await Effect.runPromise(
         Effect.tryPromise({
@@ -132,22 +204,26 @@ export const createStreamReader = (
         })
       );
 
-      const { value, done } = readResult;
-      if (done) {
-        emit.end();
-      } else if (value && value.length > 0) {
-        emit.single(value);
-        read();
-      } else {
-        read();
+      if (cancelled) {
+        return;
       }
+
+      handleReadResult(readResult.value, readResult.done);
     } catch (error) {
+      if (cancelled) {
+        return;
+      }
       const networkError =
         error instanceof NetworkError ? error : createNetworkError(error, url);
       emit.fail(networkError);
     }
   };
-  return read;
+
+  const cancel = () => {
+    cancelled = true;
+  };
+
+  return { read, cancel };
 };
 
 /**

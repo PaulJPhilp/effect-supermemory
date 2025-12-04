@@ -5,7 +5,10 @@
  * used in supermemory operations and API communications.
  */
 
-import { Effect, Exit } from "effect";
+import { Effect, Exit, Option } from "effect";
+import type { MemoryKey } from "../inMemoryClient/types.js";
+import type { SupermemoryClientApi } from "./api.js";
+import type { MemoryError } from "./errors.js";
 
 /**
  * Converts a string to base64 encoding.
@@ -155,3 +158,28 @@ export const safeFromBase64 = (b64: string): Effect.Effect<string, Error> =>
         }`
       ),
   });
+
+/**
+ * Converts a SupermemoryClient.get() result to an Effect.Option.
+ * Returns None if the value is undefined, Some(value) otherwise.
+ *
+ * @param client - The SupermemoryClientApi instance
+ * @param key - The key to retrieve
+ * @returns Effect that produces Option.Option<string>
+ *
+ * @example
+ * ```typescript
+ * const program = Effect.gen(function* () {
+ *   const client = yield* SupermemoryClient;
+ *   const option = yield* getOption(client)("my-key");
+ *   return Option.match(option, {
+ *     onNone: () => "Key not found",
+ *     onSome: (value) => `Found: ${value}`,
+ *   });
+ * });
+ * ```
+ */
+export const getOption =
+  (client: SupermemoryClientApi) =>
+  (key: MemoryKey): Effect.Effect<Option.Option<string>, MemoryError> =>
+    client.get(key).pipe(Effect.map(Option.fromNullable));

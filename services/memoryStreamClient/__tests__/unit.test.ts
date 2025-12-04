@@ -1,23 +1,23 @@
 import { Cause, Effect, Layer, Option, Stream } from "effect";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthorizationError as HttpClientAuthorizationError } from "../../httpClient/errors.js";
-import { HttpClientImpl } from "../../httpClient/service.js";
+import { HttpClient } from "../../httpClient/service.js";
 import type { HttpUrl } from "../../httpClient/types.js";
-import { MemoryValidationError } from "../../memoryClient/errors.js";
+import { MemoryValidationError } from "../../inMemoryClient/errors.js";
 import type { SearchResult } from "../../searchClient/types.js";
 import { StreamReadError } from "../errors.js";
-import { MemoryStreamClientImpl } from "../service.js";
+import { MemoryStreamClient } from "../service.js";
 import type { MemoryStreamClientConfigType } from "../types.js";
 
-// Mock the HttpClientImpl service
+// Mock the HttpClient service
 const mockHttpClient = {
   request: vi.fn(),
   requestStream: vi.fn(),
 };
 
-// Create a layer that provides the mocked HttpClientImpl
+// Create a layer that provides the mocked HttpClient
 const mockHttpClientLayer = Layer.succeed(
-  HttpClientImpl,
+  HttpClient,
   mockHttpClient as any
 );
 
@@ -30,12 +30,12 @@ const baseConfig: MemoryStreamClientConfigType = {
 const createMemoryStreamClientLayer = (
   configOverrides?: Partial<MemoryStreamClientConfigType>
 ) =>
-  MemoryStreamClientImpl.Default({
+  MemoryStreamClient.Default({
     ...baseConfig,
     ...configOverrides,
   }).pipe(Layer.provide(mockHttpClientLayer));
 
-describe("MemoryStreamClientImpl", () => {
+describe("MemoryStreamClient", () => {
   beforeEach(() => {
     mockHttpClient.request.mockReset();
     mockHttpClient.requestStream.mockReset();
@@ -53,7 +53,7 @@ describe("MemoryStreamClientImpl", () => {
     );
 
     const program = Effect.gen(function* () {
-      const client = yield* MemoryStreamClientImpl;
+      const client = yield* MemoryStreamClient;
       const stream = yield* client.listAllKeys();
       return yield* Stream.runCollect(stream);
     }).pipe(Effect.provide(createMemoryStreamClientLayer()));
@@ -84,7 +84,7 @@ describe("MemoryStreamClientImpl", () => {
     );
 
     const program = Effect.gen(function* () {
-      const client = yield* MemoryStreamClientImpl;
+      const client = yield* MemoryStreamClient;
       const stream = yield* client.streamSearch("test query", {});
       return yield* Stream.runCollect(stream);
     }).pipe(Effect.provide(createMemoryStreamClientLayer()));
@@ -112,7 +112,7 @@ describe("MemoryStreamClientImpl", () => {
     );
 
     const program = Effect.gen(function* () {
-      const client = yield* MemoryStreamClientImpl;
+      const client = yield* MemoryStreamClient;
       const stream = yield* client.listAllKeys();
       return yield* Stream.runCollect(stream);
     }).pipe(Effect.provide(createMemoryStreamClientLayer()));
@@ -142,7 +142,7 @@ describe("MemoryStreamClientImpl", () => {
     );
 
     const program = Effect.gen(function* () {
-      const client = yield* MemoryStreamClientImpl;
+      const client = yield* MemoryStreamClient;
       const stream = yield* client.listAllKeys();
       return yield* Stream.runCollect(stream);
     }).pipe(Effect.provide(createMemoryStreamClientLayer()));
@@ -172,7 +172,7 @@ describe("MemoryStreamClientImpl", () => {
     );
 
     const program = Effect.gen(function* () {
-      const client = yield* MemoryStreamClientImpl;
+      const client = yield* MemoryStreamClient;
       const stream = yield* client.listAllKeys();
       return yield* stream.pipe(Stream.take(1), Stream.runCollect);
     }).pipe(Effect.provide(createMemoryStreamClientLayer()));
@@ -192,7 +192,7 @@ describe("MemoryStreamClientImpl", () => {
     );
 
     const program = Effect.gen(function* () {
-      const client = yield* MemoryStreamClientImpl;
+      const client = yield* MemoryStreamClient;
       const stream = yield* client.streamSearch("no results query", {});
       return yield* Stream.runCollect(stream);
     }).pipe(Effect.provide(createMemoryStreamClientLayer()));

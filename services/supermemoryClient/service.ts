@@ -1,15 +1,22 @@
 import type { HttpBody } from "@effect/platform/HttpBody";
 import { Duration, Effect, Schedule } from "effect";
 import type { HttpClientError } from "../httpClient/errors.js";
-import { HttpClientImpl } from "../httpClient/service.js";
+import {
+  isHttpError,
+  isNetworkError,
+  isRetryableErrorType,
+  isTooManyRequestsError,
+} from "../httpClient/helpers.js";
+import { HttpClient } from "../httpClient/service.js";
 import type { HttpPath, HttpRequestOptions } from "../httpClient/types.js";
 import {
   MemoryBatchPartialFailure,
   type MemoryError,
   MemoryNotFoundError,
   MemoryValidationError,
-} from "../memoryClient/errors.js";
-import type { SupermemoryClient } from "./api.js";
+} from "../inMemoryClient/errors.js";
+import type { MemoryKey, MemoryValueMap } from "../inMemoryClient/types.js";
+import type { SupermemoryClientApi } from "./api.js";
 import { translateHttpClientError } from "./errors.js";
 import { fromBase64, toBase64 } from "./helpers.js";
 import type {
@@ -21,32 +28,29 @@ import type {
 
 // Helper function to determine if an HttpClientError should trigger a retry
 const shouldRetryHttpClientError = (error: HttpClientError): boolean => {
-  if (error._tag === "NetworkError") {
+  if (isNetworkError(error)) {
     return true;
   }
-  if (
-    error._tag === "HttpError" &&
-    error.status >= 500 &&
-    error.status <= 599
-  ) {
+  if (isHttpError(error) && error.status >= 500 && error.status <= 599) {
     return true;
   }
-  if (error._tag === "TooManyRequestsError") {
+  if (isTooManyRequestsError(error)) {
     return true;
   }
   return false;
 };
 
-export class SupermemoryClientImpl extends Effect.Service<SupermemoryClientImpl>()(
+export class SupermemoryClient extends Effect.Service<SupermemoryClient>()(
   "SupermemoryClient",
   {
     effect: Effect.fn(function* (config: SupermemoryClientConfigType) {
       const { namespace, apiKey, retries } = config;
-      const httpClient = yield* HttpClientImpl;
+      const httpClient = yield* HttpClient;
 
       // Create a Schedule if retries are configured
+      // Type: Schedule<number, unknown, never> - tracks iteration count, compatible with Effect.retry
       const retrySchedule:
-        | Schedule.Schedule<unknown, HttpClientError>
+        | Schedule.Schedule<number, unknown, never>
         | undefined = retries
         ? Schedule.addDelay(Schedule.recurs(retries.attempts - 1), () =>
             Duration.millis(retries.delayMs)
@@ -77,11 +81,7 @@ export class SupermemoryClientImpl extends Effect.Service<SupermemoryClientImpl>
               shouldRetryHttpClientError,
               (error: HttpClientError) => {
                 // If retries are exhausted and it's a retryable error, re-fail with translated error
-                if (
-                  error._tag === "NetworkError" ||
-                  error._tag === "HttpError" ||
-                  error._tag === "TooManyRequestsError"
-                ) {
+                if (isRetryableErrorType(error)) {
                   return Effect.fail(
                     translateHttpClientError(error, keyFor404Translation)
                   );
@@ -91,11 +91,10 @@ export class SupermemoryClientImpl extends Effect.Service<SupermemoryClientImpl>
             ),
             Effect.mapError((error: HttpClientError | MemoryError) => {
               // Handle non-retryable errors or final translated errors
-              if (
-                error._tag === "NetworkError" ||
-                error._tag === "HttpError" ||
-                error._tag === "TooManyRequestsError"
-              ) {
+              // Check if it's an HttpClientError and retryable
+              if (isRetryableErrorType(error)) {
+                // TypeScript knows error is HttpError | NetworkError | TooManyRequestsError
+                // All of these are HttpClientError, so safe to cast
                 return translateHttpClientError(
                   error as HttpClientError,
                   keyFor404Translation
@@ -115,9 +114,28 @@ export class SupermemoryClientImpl extends Effect.Service<SupermemoryClientImpl>
 
       // Helper to process batch responses and generate MemoryBatchPartialFailure
       const processBatchResponse = (
-        response: SupermemoryBatchResponse,
+        response: SupermemoryBatchResponse | null,
         originalKeys: readonly string[]
       ): Effect.Effect<void, MemoryBatchPartialFailure> => {
+        // Handle null response (e.g., from empty arrays or parsing failures)
+        if (!response?.results) {
+          // If no keys were requested, this is a success
+          if (originalKeys.length === 0) {
+            return Effect.void;
+          }
+          // Otherwise, treat as failure
+          return Effect.fail(
+            new MemoryBatchPartialFailure({
+              successes: 0,
+              failures: originalKeys.map((key) => ({
+                key,
+                error: new MemoryValidationError({
+                  message: "Batch operation failed: invalid response",
+                }),
+              })),
+            })
+          );
+        }
         const buildBackendErrorMap = (
           items: readonly SupermemoryBatchResponseItem[]
         ): {
@@ -348,12 +366,21 @@ export class SupermemoryClientImpl extends Effect.Service<SupermemoryClientImpl>
               const originalKeysSet = new Set(keys); // Track keys we were asked for
 
               for (const item of response.body.results) {
-                if (item.status === 200 && item.value !== undefined) {
-                  resultMap.set(item.id, fromBase64(item.value));
-                  originalKeysSet.delete(item.id); // Mark as processed
-                } else if (item.status === 404) {
-                  resultMap.set(item.id, undefined); // Explicitly undefined for 404
-                  originalKeysSet.delete(item.id); // Mark as processed
+                const itemKey = item.id as MemoryKey;
+                switch (item.status) {
+                  case 200:
+                    if (item.value !== undefined) {
+                      resultMap.set(item.id, fromBase64(item.value));
+                      originalKeysSet.delete(itemKey); // Mark as processed
+                    }
+                    break;
+                  case 404:
+                    resultMap.set(item.id, undefined); // Explicitly undefined for 404
+                    originalKeysSet.delete(itemKey); // Mark as processed
+                    break;
+                  default:
+                    // Other status codes will be handled by processBatchResponse
+                    break;
                 }
               }
 
@@ -367,15 +394,15 @@ export class SupermemoryClientImpl extends Effect.Service<SupermemoryClientImpl>
                       resultMap.set(key, undefined);
                     }
                   }
-                  return resultMap;
+                  return resultMap as MemoryValueMap;
                 })
               );
             })
           ) as Effect.Effect<
-            ReadonlyMap<string, string | undefined>,
+            MemoryValueMap,
             MemoryError | MemoryBatchPartialFailure
           >,
-      } satisfies SupermemoryClient;
+      } satisfies SupermemoryClientApi;
     }),
   }
 ) {}

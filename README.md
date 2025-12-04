@@ -14,7 +14,7 @@ bun run test
 
 ```
 services/
-  ├── memoryClient/         # MemoryClient service (Effect.Service)
+  ├── inMemoryClient/         # InMemoryClient service (Effect.Service)
   │   ├── __tests__/        # unit.test.ts
   │   ├── api.ts            # Interface contract
   │   ├── errors.ts         # Discriminated error types
@@ -151,7 +151,7 @@ These differences are intentional and preserve Effect's sound error handling mod
 
 ## API
 
-### MemoryClient
+### InMemoryClient
 
 Core in-memory memory operations (MVP):
 - `put(key, value): Effect<void>`
@@ -190,7 +190,7 @@ Effect.runPromise(fetchMemories).then(console.log);
 
 ### SupermemoryClient
 
-Provides an HTTP-backed implementation of the `MemoryClient` interface, integrating with the Supermemory API. This service is parameterized by `namespace`, `baseUrl`, and `apiKey`.
+Provides an HTTP-backed implementation of the `InMemoryClient` interface, integrating with the Supermemory API. This service is parameterized by `namespace`, `baseUrl`, and `apiKey`.
 
 **Configuration:**
 
@@ -217,9 +217,9 @@ Effect.runPromise(myProgram).then(() => console.log("Program finished."));
 
 **Error Translation Policy Summary:**
 
--   **`MemoryClient.get` (404 HTTP):** Returns `undefined` (not an error).
--   **`MemoryClient.delete` (404 HTTP):** Returns `true` (idempotent; not an error).
--   **`MemoryClient.exists` (404 HTTP):** Returns `false` (not an error).
+-   **`InMemoryClient.get` (404 HTTP):** Returns `undefined` (not an error).
+-   **`InMemoryClient.delete` (404 HTTP):** Returns `true` (idempotent; not an error).
+-   **`InMemoryClient.exists` (404 HTTP):** Returns `false` (not an error).
 -   **401/403 HTTP (Authorization failures):** Translated to `MemoryValidationError`.
 -   **Other HTTP errors (4xx/5xx), Network errors, Request errors:** Translated to `MemoryValidationError`.
 -   All values are Base64 encoded before sending to Supermemory API and decoded upon retrieval.
@@ -276,7 +276,7 @@ The client adheres to the following retry policy:
 
 ### Batch Operations
 
-The `MemoryClient` now supports batch `put`, `get`, and `delete` operations, allowing multiple memory interactions in a single HTTP request for efficiency.
+The `InMemoryClient` now supports batch `put`, `get`, and `delete` operations, allowing multiple memory interactions in a single HTTP request for efficiency.
 
 **Methods:**
 
@@ -353,7 +353,7 @@ Effect.runPromise(streamKeysAndLog).then(() => console.log("Key streaming finish
 Memories are isolated by `namespace` via `MemoryConfig` Layer.
 
 ```ts
-import { MemoryClientImpl, MemoryConfig, Default } from "effect-supermemory";
+import { InMemoryClient, MemoryConfig, Default } from "effect-supermemory";
 import * as Layer from "effect/Layer";
 
 const layer = Layer.merge(
@@ -364,7 +364,7 @@ const layer = Layer.merge(
 
 ## Roadmap
 
-- **0.1.0** ✓ Bootstrap: MemoryClient service, in-memory adapter, unit tests
+- **0.1.0** ✓ Bootstrap: InMemoryClient service, in-memory adapter, unit tests
 - **0.2.0** ✓ HTTP client (Supermemory SDK integration)
 - **0.3.0** ✓ Search/reranking, semantic filtering
 - **0.4.0** ✓ Batch operations, streaming

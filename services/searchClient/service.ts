@@ -1,9 +1,10 @@
 import { Effect } from "effect";
-import { HttpClientImpl } from "../httpClient/service.js";
+import { isHttpErrorWithStatus } from "../httpClient/helpers.js";
+import { HttpClient } from "../httpClient/service.js";
 import type { HttpPath, HttpRequestOptions } from "../httpClient/types.js";
-import { MemoryValidationError } from "../memoryClient/errors.js";
+import { MemoryValidationError } from "../inMemoryClient/errors.js";
 import type { SupermemoryClientConfigType } from "../supermemoryClient/types.js";
-import type { SearchClient } from "./api.js";
+import type { SearchClientApi } from "./api.js";
 import { type SearchError, SearchQueryError } from "./errors.js";
 import { encodeFilters, fromBase64 } from "./helpers.js";
 import type {
@@ -17,11 +18,11 @@ import type {
   Timestamp,
 } from "./types.js";
 
-export class SearchClientImpl extends Effect.Service<SearchClientImpl>()(
+export class SearchClient extends Effect.Service<SearchClient>()(
   "SearchClient",
   {
     effect: Effect.fn(function* (_config: SupermemoryClientConfigType) {
-      const httpClient = yield* HttpClientImpl;
+      const httpClient = yield* HttpClient;
 
       const makeRequest = <T = unknown>(
         path: HttpPath,
@@ -30,7 +31,7 @@ export class SearchClientImpl extends Effect.Service<SearchClientImpl>()(
         httpClient.request<T>(path, options).pipe(
           Effect.map((response) => response.body),
           Effect.mapError((error) => {
-            if (error._tag === "HttpError" && error.status === 400) {
+            if (isHttpErrorWithStatus(error, 400)) {
               return new SearchQueryError({
                 message: `Search query error: ${error.message}`,
                 details: error.body,
@@ -94,7 +95,7 @@ export class SearchClientImpl extends Effect.Service<SearchClientImpl>()(
               )
             )
           ),
-      } satisfies SearchClient;
+      } satisfies SearchClientApi;
     }),
   }
 ) {}

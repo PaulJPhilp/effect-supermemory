@@ -6,6 +6,8 @@
  */
 
 import { Effect, Exit, Stream } from "effect";
+import type { HttpClientError } from "../httpClient/errors.js";
+import { isHttpError, isNetworkError } from "../httpClient/helpers.js";
 import type { HttpRequestOptions } from "../httpClient/types.js";
 import type { SearchResult } from "../searchClient/types.js";
 import { StreamReadError } from "./errors.js";
@@ -269,19 +271,16 @@ export const buildSearchQueryParams = (
 /**
  * Translates HTTP client errors to stream errors.
  */
-export const translateHttpClientError = (error: {
-  _tag: string;
-  status?: number;
-  message: string;
-  cause?: unknown;
-}): StreamReadError => {
-  if (error._tag === "HttpError") {
+export const translateHttpClientError = (
+  error: HttpClientError
+): StreamReadError => {
+  if (isHttpError(error)) {
     return new StreamReadError({
       message: `HTTP ${error.status}: ${error.message}`,
       cause: error as unknown,
     });
   }
-  if (error._tag === "NetworkError") {
+  if (isNetworkError(error)) {
     return new StreamReadError({
       message: `Network error: ${error.message}`,
       cause: error as unknown,

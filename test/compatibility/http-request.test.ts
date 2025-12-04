@@ -8,8 +8,8 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from "vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { SupermemoryClientImpl } from "../../services/supermemoryClient/index.js";
-import { HttpClientImpl } from "../../services/httpClient/index.js";
+import { SupermemoryClient } from "../../services/supermemoryClient/index.js";
+import { HttpClient } from "../../services/httpClient/index.js";
 import type { HttpUrl } from "../../services/httpClient/types.js";
 import type { CompatibilityAdapter } from "./helpers.js";
 import {
@@ -109,7 +109,7 @@ describe("HTTP Request Compatibility Tests", () => {
   });
 
   beforeAll(async () => {
-    const HttpClientTestLayer = HttpClientImpl.Default({
+    const HttpClientTestLayer = HttpClient.Default({
       baseUrl: TEST_CONFIG.baseUrl as HttpUrl,
       headers: {
         Authorization: `Bearer ${TEST_CONFIG.apiKey}`,
@@ -118,12 +118,12 @@ describe("HTTP Request Compatibility Tests", () => {
       timeoutMs: TEST_CONFIG.timeoutMs,
     });
 
-    const SupermemoryTestLayer = SupermemoryClientImpl.Default(
+    const SupermemoryTestLayer = SupermemoryClient.Default(
       TEST_CONFIG
     ).pipe(Layer.provide(HttpClientTestLayer));
 
     const program = Effect.gen(function* () {
-      const client = yield* SupermemoryClientImpl;
+      const client = yield* SupermemoryClient;
       return createEffectSupermemoryAdapter(client);
     }).pipe(Effect.provide(SupermemoryTestLayer));
 

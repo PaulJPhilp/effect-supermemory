@@ -4,20 +4,20 @@
  * Tests that verify effect-supermemory produces equivalent results
  * to the official Supermemory TypeScript SDK.
  */
+/** biome-ignore-all assist/source/organizeImports: we want to use named imports */
 
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import { SupermemoryClientImpl } from "../../services/supermemoryClient/index.js";
-import { HttpClientImpl } from "../../services/httpClient/index.js";
+import { Effect, Layer } from "effect";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { HttpClient } from "../../services/httpClient/index.js";
 import type { HttpUrl } from "../../services/httpClient/types.js";
+import { SupermemoryClient } from "../../services/supermemoryClient/index.js";
 import {
+  type CompatibilityAdapter,
+  cleanupTestData,
+  compareResults,
   createEffectSupermemoryAdapter,
   createOfficialSdkClient,
-  type CompatibilityAdapter,
-  compareResults,
   generateTestData,
-  cleanupTestData,
   runCompatibilityTest,
   skipIfSdkUnavailable,
 } from "./helpers.js";
@@ -31,7 +31,7 @@ const TEST_CONFIG = {
 };
 
 // Create test layers
-const HttpClientTestLayer = HttpClientImpl.Default({
+const HttpClientTestLayer = HttpClient.Default({
   baseUrl: TEST_CONFIG.baseUrl as HttpUrl,
   headers: {
     Authorization: `Bearer ${TEST_CONFIG.apiKey}`,
@@ -40,7 +40,7 @@ const HttpClientTestLayer = HttpClientImpl.Default({
   timeoutMs: TEST_CONFIG.timeoutMs,
 });
 
-const SupermemoryTestLayer = SupermemoryClientImpl.Default(TEST_CONFIG).pipe(
+const SupermemoryTestLayer = SupermemoryClient.Default(TEST_CONFIG).pipe(
   Layer.provide(HttpClientTestLayer)
 );
 
@@ -52,7 +52,7 @@ describe("Compatibility Tests", () => {
   beforeAll(async () => {
     // Create effect-supermemory adapter
     const program = Effect.gen(function* () {
-      const client = yield* SupermemoryClientImpl;
+      const client = yield* SupermemoryClient;
       return createEffectSupermemoryAdapter(client);
     }).pipe(Effect.provide(SupermemoryTestLayer));
 
@@ -60,7 +60,7 @@ describe("Compatibility Tests", () => {
 
     // Try to create official SDK adapter if available
     if (!sdkAvailability.skip) {
-      sdkAdapter = await createOfficialSdkClient({
+      sdkAdapter = createOfficialSdkClient({
         apiKey: TEST_CONFIG.apiKey,
         baseUrl: TEST_CONFIG.baseUrl,
         namespace: TEST_CONFIG.namespace,
@@ -114,14 +114,13 @@ describe("Compatibility Tests", () => {
     });
 
     it("should return undefined for non-existent keys", async () => {
-      const nonExistentKey = "compat-nonexistent-" + Date.now();
+      const nonExistentKey = `compat-nonexistent-${Date.now()}`;
 
-      const testResult = await runCompatibilityTest(
-        "get",
+      const testResult = await runCompatibilityTest("get", {
         effectAdapter,
         sdkAdapter,
-        async (adapter) => await adapter.get(nonExistentKey)
-      );
+        effectOp: async (adapter) => await adapter.get(nonExistentKey),
+      });
 
       expect(testResult.effectResult).toBeUndefined();
 
@@ -208,14 +207,13 @@ describe("Compatibility Tests", () => {
     });
 
     it("should be idempotent (return true even if key doesn't exist)", async () => {
-      const nonExistentKey = "compat-idempotent-" + Date.now();
+      const nonExistentKey = `compat-idempotent-${Date.now()}`;
 
-      const testResult = await runCompatibilityTest(
-        "delete",
+      const testResult = await runCompatibilityTest("delete", {
         effectAdapter,
         sdkAdapter,
-        async (adapter) => await adapter.delete(nonExistentKey)
-      );
+        effectOp: async (adapter) => await adapter.delete(nonExistentKey),
+      });
 
       expect(testResult.effectResult).toBe(true);
 
@@ -232,20 +230,17 @@ describe("Compatibility Tests", () => {
 
       await effectAdapter.put(testKey, testValue);
 
-      const testResult = await runCompatibilityTest(
-        "exists",
+      const testResult = await runCompatibilityTest("exists", {
         effectAdapter,
         sdkAdapter,
-        async (adapter) => {
-          if (adapter === effectAdapter) {
-            // Put in SDK first if comparing
-            if (sdkAdapter) {
-              await sdkAdapter.put(testKey, testValue);
-            }
+        effectOp: async (adapter) => {
+          // Put in SDK first if comparing
+          if (adapter === effectAdapter && sdkAdapter) {
+            await sdkAdapter.put(testKey, testValue);
           }
           return await adapter.exists(testKey);
-        }
-      );
+        },
+      });
 
       expect(testResult.effectResult).toBe(true);
 
@@ -261,14 +256,13 @@ describe("Compatibility Tests", () => {
     });
 
     it("should return false for non-existent keys", async () => {
-      const nonExistentKey = "compat-notexists-" + Date.now();
+      const nonExistentKey = `compat-notexists-${Date.now()}`;
 
-      const testResult = await runCompatibilityTest(
-        "exists",
+      const testResult = await runCompatibilityTest("exists", {
         effectAdapter,
         sdkAdapter,
-        async (adapter) => await adapter.exists(nonExistentKey)
-      );
+        effectOp: async (adapter) => await adapter.exists(nonExistentKey),
+      });
 
       expect(testResult.effectResult).toBe(false);
 
@@ -415,67 +409,66 @@ describe("Compatibility Tests", () => {
 
       it("should return undefined for non-existent keys", async () => {
         const nonExistentKeys = [
-          "compat-nonexistent-1-" + Date.now(),
-          "compat-nonexistent-2-" + Date.now(),
+          `compat-nonexistent-1-${Date.now()}`,
+          `compat-nonexistent-2-${Date.now()}`,
         ] as const;
 
         const results = await effectAdapter.getMany(nonExistentKeys);
-
         expect(results.size).toBe(2);
-        expect(results.get(nonExistentKeys[0]!)).toBeUndefined();
-        expect(results.get(nonExistentKeys[1]!)).toBeUndefined();
+        expect(results.get(nonExistentKeys[0])).toBeUndefined();
+        expect(results.get(nonExistentKeys[1])).toBeUndefined();
 
         // Compare with SDK
         if (sdkAdapter) {
           const sdkResults = await sdkAdapter.getMany(nonExistentKeys);
           expect(sdkResults.size).toBe(2);
-          expect(sdkResults.get(nonExistentKeys[0]!)).toBeUndefined();
-          expect(sdkResults.get(nonExistentKeys[1]!)).toBeUndefined();
+          expect(sdkResults.get(nonExistentKeys[0])).toBeUndefined();
+          expect(sdkResults.get(nonExistentKeys[1])).toBeUndefined();
         }
       });
-    });
 
-    describe("deleteMany()", () => {
-      it("should delete multiple values in a single request", async () => {
-        const testData = generateTestData("compat-deletemany", 5);
+      describe("deleteMany()", () => {
+        it("should delete multiple values in a single request", async () => {
+          const testData = generateTestData("compat-deletemany", 5);
 
-        // Create test data
-        await effectAdapter.putMany(testData);
+          // Create test data
+          await effectAdapter.putMany(testData);
 
-        // Delete all at once
-        const keys = testData.map((item) => item.key);
-        await effectAdapter.deleteMany(keys);
+          // Delete all at once
+          const keys = testData.map((item) => item.key);
+          await effectAdapter.deleteMany(keys);
 
-        // Verify all are deleted
-        for (const key of keys) {
-          const value = await effectAdapter.get(key);
-          expect(value).toBeUndefined();
-        }
-
-        // Compare with SDK
-        if (sdkAdapter) {
-          await sdkAdapter.putMany(testData);
-          await sdkAdapter.deleteMany(keys);
-
+          // Verify all are deleted
           for (const key of keys) {
-            const value = await sdkAdapter.get(key);
+            const value = await effectAdapter.get(key);
             expect(value).toBeUndefined();
           }
-        }
-      });
 
-      it("should handle empty arrays", async () => {
-        await expect(effectAdapter.deleteMany([])).resolves.not.toThrow();
+          // Compare with SDK
+          if (sdkAdapter) {
+            await sdkAdapter.putMany(testData);
+            await sdkAdapter.deleteMany(keys);
 
-        if (sdkAdapter) {
-          await expect(sdkAdapter.deleteMany([])).resolves.not.toThrow();
-        }
+            for (const key of keys) {
+              const value = await sdkAdapter.get(key);
+              expect(value).toBeUndefined();
+            }
+          }
+        });
+
+        it("should handle empty arrays", async () => {
+          await expect(effectAdapter.deleteMany([])).resolves.not.toThrow();
+
+          if (sdkAdapter) {
+            await expect(sdkAdapter.deleteMany([])).resolves.not.toThrow();
+          }
+        });
       });
     });
   });
 
   describe("error handling compatibility", () => {
-    it("should handle network errors equivalently", async () => {
+    it("should handle network errors equivalently", () => {
       // This test would require mocking network failures
       // For now, we just verify both adapters exist
       expect(effectAdapter).toBeDefined();
@@ -502,7 +495,7 @@ describe("Compatibility Tests", () => {
       await effectAdapter.putMany(largeBatch);
       const effectTime = Date.now() - startTime;
 
-      expect(effectTime).toBeLessThan(10000); // Should complete within 10 seconds
+      expect(effectTime).toBeLessThan(10_000); // Should complete within 10 seconds
 
       // Cleanup
       const keys = largeBatch.map((item) => item.key);

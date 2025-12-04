@@ -5,9 +5,19 @@
  * validation, and data transformation.
  */
 
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
+import type { InMemoryClientApi } from "./api.js";
+import {
+  MAX_MEMORY_KEY_LENGTH,
+  MAX_MEMORY_VALUE_SIZE_BYTES,
+  MAX_NAMESPACE_LENGTH,
+} from "./constants.js";
+import type { MemoryError } from "./errors.js";
 import { MemoryValidationError } from "./errors.js";
 import type { MemoryItem, MemoryKey, MemoryValue, Namespace } from "./types.js";
+
+// Top-level regex for namespace validation (performance optimization)
+const NAMESPACE_PATTERN = /^[a-zA-Z0-9_-]+$/;
 
 /**
  * Validates a memory key to ensure it meets requirements.
@@ -33,10 +43,10 @@ export const validateKey = (
         })
       );
     }
-    if (key.length > 255) {
+    if (key.length > MAX_MEMORY_KEY_LENGTH) {
       return yield* Effect.fail(
         new MemoryValidationError({
-          message: "Key must be 255 characters or less",
+          message: `Key must be ${MAX_MEMORY_KEY_LENGTH} characters or less`,
         })
       );
     }
@@ -65,10 +75,11 @@ export const validateValue = (
         new MemoryValidationError({ message: "Value must be a string" })
       );
     }
-    if (value.length > 1024 * 1024) {
-      // 1MB limit
+    if (value.length > MAX_MEMORY_VALUE_SIZE_BYTES) {
       return yield* Effect.fail(
-        new MemoryValidationError({ message: "Value must be 1MB or less" })
+        new MemoryValidationError({
+          message: "Value must be 1MB or less",
+        })
       );
     }
     return value;
@@ -98,7 +109,7 @@ export const validateNamespace = (
         })
       );
     }
-    if (!/^[a-zA-Z0-9_-]+$/.test(namespace)) {
+    if (!NAMESPACE_PATTERN.test(namespace)) {
       return yield* Effect.fail(
         new MemoryValidationError({
           message:
@@ -106,10 +117,10 @@ export const validateNamespace = (
         })
       );
     }
-    if (namespace.length > 64) {
+    if (namespace.length > MAX_NAMESPACE_LENGTH) {
       return yield* Effect.fail(
         new MemoryValidationError({
-          message: "Namespace must be 64 characters or less",
+          message: `Namespace must be ${MAX_NAMESPACE_LENGTH} characters or less`,
         })
       );
     }
@@ -194,3 +205,28 @@ export const extractKeyFromNamespaced = (
  */
 export const isNamespacedKey = (key: string): boolean =>
   key.includes(":") && key.split(":").length === 2;
+
+/**
+ * Converts a InMemoryClientApi.get() result to an Effect.Option.
+ * Returns None if the value is undefined, Some(value) otherwise.
+ *
+ * @param client - The InMemoryClientApi instance
+ * @param key - The key to retrieve
+ * @returns Effect that produces Option.Option<string>
+ *
+ * @example
+ * ```typescript
+ * const program = Effect.gen(function* () {
+ *   const client = yield* InMemoryClient;
+ *   const option = yield* getOption(client)("my-key");
+ *   return Option.match(option, {
+ *     onNone: () => "Key not found",
+ *     onSome: (value) => `Found: ${value}`,
+ *   });
+ * });
+ * ```
+ */
+export const getOption =
+  (client: InMemoryClientApi) =>
+  (key: string): Effect.Effect<Option.Option<string>, MemoryError> =>
+    client.get(key).pipe(Effect.map(Option.fromNullable));

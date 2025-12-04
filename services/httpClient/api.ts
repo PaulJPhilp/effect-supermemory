@@ -3,7 +3,7 @@ import type { Effect, Stream } from "effect";
 import type { HttpClientError } from "./errors.js";
 import type { HttpPath, HttpRequestOptions, HttpResponse } from "./types.js";
 
-export type HttpClient = {
+export type HttpClientApi = {
   /**
    * Sends an HTTP request and returns the response body as JSON.
    * Automatically handles error status codes (>= 400) by transforming to HttpClientError.
