@@ -7,6 +7,11 @@ Effect-native client abstractions for Supermemory long-term memory API.
 ```bash
 bun install
 bun run build
+
+# Set up environment variables (optional, for integration tests)
+cp .env.example .env
+# Edit .env and add your SUPERMEMORY_API_KEY
+
 bun run test
 ```
 

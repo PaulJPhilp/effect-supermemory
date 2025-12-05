@@ -34,7 +34,7 @@ const METADATA_PATH = path.join(
   "sdk-metadata.json"
 );
 
-interface CompatibilityReport {
+type CompatibilityReport = {
   generatedAt: string;
   sdkVersion: string;
   compatibility: {
@@ -47,9 +47,9 @@ interface CompatibilityReport {
     missingOperations: number;
     typeIssues: number;
   };
-}
+};
 
-interface ChangeReport {
+type ChangeReport = {
   generatedAt: string;
   packageName: string;
   currentVersion: string;
@@ -60,9 +60,9 @@ interface ChangeReport {
     additions: unknown[];
     modifications: unknown[];
   };
-}
+};
 
-interface SdkMetadata {
+type SdkMetadata = {
   packageName: string;
   lastAnalyzedVersion: string | null;
   lastAnalyzedAt: string | null;
@@ -70,7 +70,7 @@ interface SdkMetadata {
     version: string;
     timestamp: string;
   }>;
-}
+};
 
 /**
  * Load JSON file if it exists
@@ -92,7 +92,9 @@ function loadJsonFile<T>(filePath: string): T | null {
  * Format date for display
  */
 function formatDate(dateString: string | null): string {
-  if (!dateString) return "Never";
+  if (!dateString) {
+    return "Never";
+  }
 
   try {
     const date = new Date(dateString);
@@ -287,7 +289,7 @@ function generateDashboard(
  * Main dashboard generation function
  */
 async function main() {
-  console.log("\n" + "=".repeat(60));
+  console.log(`\n${"=".repeat(60)}`);
   console.log("📊 Compatibility Dashboard Generator");
   console.log("=".repeat(60));
 
@@ -333,7 +335,7 @@ async function main() {
     console.log("\n✅ Dashboard generated:");
     console.log(`   File: ${DASHBOARD_PATH}`);
 
-    console.log("\n" + "=".repeat(60) + "\n");
+    console.log(`\n${"=".repeat(60)}\n`);
   } catch (error) {
     console.error("\n❌ Dashboard generation failed:");
     console.error(error instanceof Error ? error.message : String(error));

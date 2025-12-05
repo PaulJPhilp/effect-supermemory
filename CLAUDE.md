@@ -28,7 +28,7 @@ bun run format            # Same as lint (checks formatting)
 bun run format:fix        # Fix formatting issues with Biome
 
 # Development utilities
-bun run mock:server       # Start mock Supermemory API server for testing
+# Note: No mock server - tests require real API access per anti-mocking policy
 ```
 
 ### Running Individual Tests
@@ -251,8 +251,8 @@ services/[serviceName]/
 - Use `vitest` with `@effect/vitest`
 
 **Integration Tests** (`test/integration.test.ts`):
-- Setup: `test-setup/integration-setup.ts`
-- Mock server: `test-setup/mock-server.ts`
+- Requires: Real API server running
+- No mocks allowed per anti-mocking policy
 - Timeout: 10s (elevated)
 
 **Test pattern:**

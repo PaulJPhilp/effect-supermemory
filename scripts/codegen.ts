@@ -87,7 +87,7 @@ async function main() {
 /**
  * Generate types for a specific API version using CLI
  */
-async function generateTypes(apiVersion: ApiVersion): Promise<void> {
+function generateTypes(apiVersion: ApiVersion): Promise<void> {
   const specPath = apiVersion.specFile;
   const outputDir = apiVersion.outputDir;
   const outputFile = join(outputDir, "index.ts");

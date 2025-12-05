@@ -23,10 +23,11 @@ import {
 } from "./helpers.js";
 
 // Test configuration
+// Loads from .env file: SUPERMEMORY_API_KEY and SUPERMEMORY_BASE_URL
 const TEST_CONFIG = {
-  namespace: "test-compatibility",
-  baseUrl: "http://localhost:3001", // Mock server
-  apiKey: "test-api-key",
+  namespace: process.env.SUPERMEMORY_TEST_NAMESPACE || "test-compatibility",
+  baseUrl: process.env.SUPERMEMORY_BASE_URL || "https://api.supermemory.dev", // Real API server - no mocks allowed per anti-mocking policy
+  apiKey: process.env.SUPERMEMORY_API_KEY || "test-api-key",
   timeoutMs: 5000,
 };
 
@@ -469,7 +470,7 @@ describe("Compatibility Tests", () => {
 
   describe("error handling compatibility", () => {
     it("should handle network errors equivalently", () => {
-      // This test would require mocking network failures
+      // This test would require mocking network failures - removed per anti-mocking policy
       // For now, we just verify both adapters exist
       expect(effectAdapter).toBeDefined();
       if (sdkAdapter) {

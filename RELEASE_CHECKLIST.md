@@ -4,8 +4,8 @@
 
 - [x] **Build passes**: `bun run build` ✅
 - [x] **Type checking passes**: `bun run typecheck` ✅
-- [ ] **Unit tests pass**: `bun run test` (some tests require mock server/SDK)
-- [ ] **Integration tests pass**: `bun run test:integration` (requires mock server)
+- [ ] **Pure function tests pass**: `bun run test services/search/__tests__/ services/inMemoryClient/__tests__/` (no mocks, no network)
+- [ ] **Integration tests pass**: `bun run test test/integration.test.js` (requires real API server)
 - [ ] **Linting**: `bun run lint` (scripts have non-blocking lint issues)
 - [x] **CHANGELOG.md created** ✅
 - [x] **Version set in package.json**: `0.1.0` ✅
@@ -51,13 +51,14 @@
 
 Some tests require external dependencies and may fail in CI without proper setup:
 
-- **Integration tests** (`test/integration.test.ts`): Require mock server running
-  - Run with: `bun run mock:server` in separate terminal, then `bun run test:integration`
+- **Integration tests** (`test/integration.test.ts`): Require real API server running
+  - No mocks allowed per anti-mocking policy
+  - Ensure API server is accessible before running tests
 
 - **Compatibility tests** (`test/compatibility/`): Require official Supermemory SDK
   - These are optional and test SDK compatibility, not core functionality
 
-- **Some unit tests**: May require mock server or SDK for full coverage
+- **Some service tests**: May require real API key for full coverage (use `SUPERMEMORY_API_KEY` env var)
   - Core functionality tests (memoryClient, httpClient) should pass without external deps
 
 ## Notes

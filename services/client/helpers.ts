@@ -1,7 +1,3 @@
-import type * as HttpClientError from "@effect/platform/HttpClientError";
-import * as HttpClientRequest from "@effect/platform/HttpClientRequest";
-import type * as HttpClientResponse from "@effect/platform/HttpClientResponse";
-import { Effect, Redacted, Schema } from "effect";
 import { HTTP_HEADERS, HTTP_STATUS, HTTP_VALUES } from "@/Constants.js";
 import {
   SupermemoryAuthenticationError,
@@ -10,6 +6,11 @@ import {
   SupermemoryServerError,
   SupermemoryValidationError,
 } from "@/Errors.js";
+import type * as HttpClientError from "@effect/platform/HttpClientError";
+// biome-ignore lint/performance/noNamespaceImport: Effect platform requires namespace imports
+import * as HttpClientRequest from "@effect/platform/HttpClientRequest";
+import type * as HttpClientResponse from "@effect/platform/HttpClientResponse";
+import { Effect, Redacted, Schema } from "effect";
 
 /**
  * Extract retry-after value from response headers.

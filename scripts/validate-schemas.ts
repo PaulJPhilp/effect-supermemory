@@ -20,7 +20,7 @@ const DEFAULT_SDK_SCHEMAS_PATH = path.join(
   "sdk-schemas.json"
 );
 
-interface ValidationResult {
+type ValidationResult = {
   operation: string;
   schemaType: "request" | "response";
   issues: Array<{
@@ -31,9 +31,9 @@ interface ValidationResult {
     effectType?: string;
     message: string;
   }>;
-}
+};
 
-interface ValidationReport {
+type ValidationReport = {
   generatedAt: string;
   overall: {
     status: "compatible" | "warnings" | "errors";
@@ -47,7 +47,7 @@ interface ValidationReport {
     change: string;
     impact: string;
   }>;
-}
+};
 
 /**
  * Load schemas from file
@@ -157,7 +157,7 @@ function extractEffectSupermemorySchemas(): Map<
  */
 function compareOperationSchemas(
   operation: string,
-  sdkSchemas: unknown,
+  _sdkSchemas: unknown,
   effectSchemas: Map<
     string,
     { request?: Record<string, string>; response?: string }
@@ -332,7 +332,7 @@ async function main() {
       ? args[outputIndex + 1]
       : path.join(process.cwd(), "docs", "schema-validation-report.json");
 
-  console.log("\n" + "=".repeat(60));
+  console.log(`\n${"=".repeat(60)}`);
   console.log("✅ Schema Validation");
   console.log("=".repeat(60));
 
@@ -381,7 +381,7 @@ async function main() {
       console.log("\n✅ Validation passed");
     }
 
-    console.log("\n" + "=".repeat(60) + "\n");
+    console.log(`\n${"=".repeat(60)}\n`);
   } catch (error) {
     console.error("\n❌ Validation failed:");
     console.error(error instanceof Error ? error.message : String(error));

@@ -84,15 +84,12 @@ export {
   type SupermemoryClientConfigType,
 } from "@services/supermemoryClient/types.js";
 // Re-export HTTP client
-export { mapHttpError } from "@services/client/helpers.js";
-export {
-  SupermemoryHttpClientLive,
-  SupermemoryHttpClientService,
-} from "@services/client/service.js";
 export {
   ApiVersions,
   type SupermemoryHttpClient,
-} from "@services/client/types.js";
+} from "@services/client/api.js";
+export { mapHttpError } from "@services/client/helpers.js";
+export { SupermemoryHttpClientService } from "@services/client/service.js";
 
 export {
   SupermemoryConfigFromValues,

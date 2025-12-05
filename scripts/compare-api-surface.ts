@@ -26,15 +26,15 @@ const DEFAULT_OUTPUT_PATH = path.join(
   "compatibility-report.json"
 );
 
-interface Operation {
+type Operation = {
   name: string;
   service?: string;
   parameters: Array<{ name: string; type: string; optional: boolean }>;
   returnType: string;
   description?: string;
-}
+};
 
-interface ComparisonReport {
+type ComparisonReport = {
   generatedAt: string;
   sdkVersion: string;
   compatibility: {
@@ -88,7 +88,7 @@ interface ComparisonReport {
     typeIssues: number;
     parameterIssues: number;
   };
-}
+};
 
 /**
  * Parse parameters from a function signature
@@ -211,7 +211,7 @@ function extractEffectSupermemoryApi(): {
 
     while ((match = methodRegex.exec(content)) !== null) {
       const methodName = match[1];
-      const params = match[2] || "";
+      const _params = match[2] || "";
       const returnType = match[3].trim();
 
       const op: Operation = {
@@ -246,7 +246,7 @@ function extractEffectSupermemoryApi(): {
 
     while ((match = methodRegex.exec(content)) !== null) {
       const methodName = match[1];
-      const params = match[2] || "";
+      const _params = match[2] || "";
       const returnType = match[3].trim();
 
       const op: Operation = {
@@ -874,7 +874,7 @@ async function main() {
   const outputPath =
     outputIndex >= 0 ? args[outputIndex + 1] : DEFAULT_OUTPUT_PATH;
 
-  console.log("\n" + "=".repeat(60));
+  console.log(`\n${"=".repeat(60)}`);
   console.log("🔍 API Surface Comparison");
   console.log("=".repeat(60));
 
@@ -932,7 +932,7 @@ async function main() {
       }
     }
 
-    console.log("\n" + "=".repeat(60) + "\n");
+    console.log(`\n${"=".repeat(60)}\n`);
   } catch (error) {
     console.error("\n❌ Comparison failed:");
     console.error(error instanceof Error ? error.message : String(error));

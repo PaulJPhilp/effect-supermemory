@@ -1,50 +1,67 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect, it } from "vitest";
 import { Chunk, Effect, Layer, Stream } from "effect";
-import { MemoryStreamClientImpl, SupermemoryClientImpl } from "../src/index.js";
+import { HttpClient } from "../services/httpClient/service.js";
+import { MemoryStreamClient, SupermemoryClient } from "../src/index.js";
 
 // Integration test configuration
+// Note: Requires real API access - no mocks allowed per anti-mocking policy
+// Loads API key from .env file automatically
 const TEST_CONFIG = {
   namespace: "test-integration",
-  baseUrl: "http://localhost:3001", // Mock server
-  apiKey: "test-api-key",
+  baseUrl: process.env.SUPERMEMORY_BASE_URL || "https://api.supermemory.dev",
+  apiKey: process.env.SUPERMEMORY_API_KEY || "test-api-key",
   timeoutMs: 5000,
 };
-// Create test layers
-const SupermemoryTestLayer = SupermemoryClientImpl.Default(TEST_CONFIG);
-const MemoryStreamTestLayer = Layer.merge(
-  MemoryStreamClientImpl.Default(TEST_CONFIG),
-  SupermemoryTestLayer
+
+// Create HttpClient layer
+const HttpClientTestLayer = HttpClient.Default({
+  baseUrl: TEST_CONFIG.baseUrl,
+  headers: {
+    Authorization: `Bearer ${TEST_CONFIG.apiKey}`,
+    "X-Supermemory-Namespace": TEST_CONFIG.namespace,
+  },
+  timeoutMs: TEST_CONFIG.timeoutMs,
+});
+
+// Create test layers with HttpClient dependency
+const SupermemoryTestLayer = SupermemoryClient.Default(TEST_CONFIG).pipe(
+  Layer.provide(HttpClientTestLayer)
 );
+
+const MemoryStreamTestLayer = Layer.merge(
+  MemoryStreamClient.Default(TEST_CONFIG),
+  SupermemoryTestLayer
+).pipe(Layer.provide(HttpClientTestLayer));
 describe("Integration Tests", () => {
   describe("SupermemoryClient", () => {
     it("should put and get memories", async () => {
       const program = Effect.gen(function* () {
-        const client = yield* SupermemoryClientImpl;
+        const client = yield* SupermemoryClient;
         // Put a memory
         yield* client.put("test-key", "test-value");
         // Get the memory
         const value = yield* client.get("test-key");
         expect(value).toBe("test-value");
       }).pipe(Effect.provide(SupermemoryTestLayer));
-      const result = Effect.runSyncExit(program);
+      const result = await Effect.runPromiseExit(program);
       if (result._tag === "Failure") {
         throw new Error(`Test failed: ${result.cause}`);
       }
     });
     it("should return undefined for non-existent keys", async () => {
       const program = Effect.gen(function* () {
-        const client = yield* SupermemoryClientImpl;
+        const client = yield* SupermemoryClient;
         const value = yield* client.get("non-existent-key");
         expect(value).toBeUndefined();
       }).pipe(Effect.provide(SupermemoryTestLayer));
-      const result = Effect.runSyncExit(program);
+      const result = await Effect.runPromiseExit(program);
       if (result._tag === "Failure") {
         throw new Error(`Test failed: ${result.cause}`);
       }
     });
     it("should delete memories", async () => {
       const program = Effect.gen(function* () {
-        const client = yield* SupermemoryClientImpl;
+        const client = yield* SupermemoryClient;
         // Put a memory first
         yield* client.put("delete-test-key", "delete-test-value");
         // Verify it exists
@@ -57,14 +74,14 @@ describe("Integration Tests", () => {
         const afterDelete = yield* client.get("delete-test-key");
         expect(afterDelete).toBeUndefined();
       }).pipe(Effect.provide(SupermemoryTestLayer));
-      const result = Effect.runSyncExit(program);
+      const result = await Effect.runPromiseExit(program);
       if (result._tag === "Failure") {
         throw new Error(`Test failed: ${result.cause}`);
       }
     });
     it("should check if memory exists", async () => {
       const program = Effect.gen(function* () {
-        const client = yield* SupermemoryClientImpl;
+        const client = yield* SupermemoryClient;
         // Check non-existent key
         const existsBefore = yield* client.exists("exists-test-key");
         expect(existsBefore).toBe(false);
@@ -74,7 +91,7 @@ describe("Integration Tests", () => {
         const existsAfter = yield* client.exists("exists-test-key");
         expect(existsAfter).toBe(true);
       }).pipe(Effect.provide(SupermemoryTestLayer));
-      const result = Effect.runSyncExit(program);
+      const result = await Effect.runPromiseExit(program);
       if (result._tag === "Failure") {
         throw new Error(`Test failed: ${result.cause}`);
       }
@@ -83,14 +100,14 @@ describe("Integration Tests", () => {
   describe("MemoryStreamClient", () => {
     it("should stream all keys", async () => {
       const program = Effect.gen(function* () {
-        const client = yield* MemoryStreamClientImpl;
+        const streamClient = yield* MemoryStreamClient;
         // Put some test memories
-        const memoryClient = yield* SupermemoryClientImpl;
+        const memoryClient = yield* SupermemoryClient;
         yield* memoryClient.put("stream-test-1", "value-1");
         yield* memoryClient.put("stream-test-2", "value-2");
         yield* memoryClient.put("stream-test-3", "value-3");
         // Stream all keys
-        const keys = yield* client.listAllKeys().pipe(Stream.runCollect);
+        const keys = yield* streamClient.listAllKeys().pipe(Stream.runCollect);
         // Type assertion for Chunk<string>
         const keysChunk = keys;
         const keysArray = Chunk.toReadonlyArray(keysChunk);
@@ -98,21 +115,21 @@ describe("Integration Tests", () => {
         expect(keysArray).toContain("stream-test-2");
         expect(keysArray).toContain("stream-test-3");
       }).pipe(Effect.provide(MemoryStreamTestLayer));
-      const result = Effect.runSyncExit(program);
+      const result = await Effect.runPromiseExit(program);
       if (result._tag === "Failure") {
         throw new Error(`Test failed: ${result.cause}`);
       }
     });
     it("should stream search results", async () => {
       const program = Effect.gen(function* () {
-        const client = yield* MemoryStreamClientImpl;
+        const streamClient = yield* MemoryStreamClient;
         // Put some test memories with searchable content
-        const memoryClient = yield* SupermemoryClientImpl;
+        const memoryClient = yield* SupermemoryClient;
         yield* memoryClient.put("search-test-1", "apple banana cherry");
         yield* memoryClient.put("search-test-2", "dog cat mouse");
         yield* memoryClient.put("search-test-3", "apple orange grape");
         // Search for "apple"
-        const results = yield* client
+        const results = yield* streamClient
           .streamSearch("apple")
           .pipe(Stream.runCollect);
         // Type assertion to help TypeScript understand this is a Chunk
@@ -123,7 +140,7 @@ describe("Integration Tests", () => {
         expect(resultKeys).toContain("search-test-1");
         expect(resultKeys).toContain("search-test-3");
       }).pipe(Effect.provide(MemoryStreamTestLayer));
-      const result = Effect.runSyncExit(program);
+      const result = await Effect.runPromiseExit(program);
       if (result._tag === "Failure") {
         throw new Error(`Test failed: ${result.cause}`);
       }

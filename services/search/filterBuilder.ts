@@ -137,7 +137,11 @@ export const toJSON = (filter: FilterExpression): Record<string, unknown> => {
         return {};
       }
       if (conditions.length === 1) {
-        return conditions[0]!;
+        const firstCondition = conditions[0];
+        if (firstCondition === undefined) {
+          return {};
+        }
+        return firstCondition;
       }
       return { $and: conditions };
     }

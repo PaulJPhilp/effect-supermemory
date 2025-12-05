@@ -17,10 +17,10 @@
  *   bun run scripts/discover-api.ts --diff # Show changes vs. previous spec
  */
 
-import * as fs from "node:fs";
-import * as path from "node:path";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { join, dirname } from "node:path";
 
-interface OpenAPISpec {
+type OpenAPISpec = {
   openapi: string;
   info: {
     title: string;
@@ -38,7 +38,7 @@ interface OpenAPISpec {
     schemas: Record<string, unknown>;
     securitySchemes: Record<string, unknown>;
   };
-}
+};
 
 /**
  * Discovered endpoints from code analysis
@@ -275,11 +275,14 @@ function generateOpenAPISpec(): OpenAPISpec {
     if (!paths[path_]) {
       paths[path_] = {};
     }
-    paths[path_]![method.toLowerCase()] = {
-      ...details,
-      security: [{ BearerAuth: [] }],
-      tags: ["Memory Operations"],
-    };
+    const pathEntry = paths[path_];
+    if (pathEntry) {
+      pathEntry[method.toLowerCase()] = {
+        ...details,
+        security: [{ BearerAuth: [] }],
+        tags: ["Memory Operations"],
+      };
+    }
   }
 
   const spec: OpenAPISpec = {
@@ -401,8 +404,8 @@ function toJSON(obj: unknown): string {
 /**
  * Main discovery function
  */
-async function main() {
-  console.log("\n" + "=".repeat(60));
+function main() {
+  console.log(`\n${"=".repeat(60)}`);
   console.log("🔍 API Discovery - Code Analysis");
   console.log("=".repeat(60));
 
@@ -410,12 +413,12 @@ async function main() {
   const showDiff = args.includes("--diff");
 
   const spec = generateOpenAPISpec();
-  const specPath = path.resolve("specs/supermemory/openapi-v4.json");
-  const specDir = path.dirname(specPath);
+  const specPath = join(process.cwd(), "specs/supermemory/openapi-v4.json");
+  const specDir = dirname(specPath);
 
   // Ensure directory exists
-  if (!fs.existsSync(specDir)) {
-    fs.mkdirSync(specDir, { recursive: true });
+  if (!existsSync(specDir)) {
+    mkdirSync(specDir, { recursive: true });
   }
 
   // Convert to JSON
@@ -423,8 +426,8 @@ async function main() {
 
   // Check if spec changed
   let changed = false;
-  if (fs.existsSync(specPath)) {
-    const previous = fs.readFileSync(specPath, "utf-8");
+  if (existsSync(specPath)) {
+    const previous = readFileSync(specPath, "utf-8");
     changed = previous !== json;
 
     if (showDiff && changed) {
@@ -437,7 +440,7 @@ async function main() {
   }
 
   // Write spec
-  fs.writeFileSync(specPath, json);
+  writeFileSync(specPath, json);
 
   console.log("\n✅ OpenAPI spec generated:");
   console.log(`   File: ${specPath}`);
@@ -449,11 +452,11 @@ async function main() {
 
   // Summary
   console.log("\n📋 Discovered Endpoints:");
-  Object.keys(discoveredEndpoints).forEach((endpoint) => {
+  for (const endpoint of Object.keys(discoveredEndpoints)) {
     console.log(`   ${endpoint}`);
-  });
+  }
 
-  console.log("\n" + "=".repeat(60) + "\n");
+  console.log(`\n${"=".repeat(60)}\n`);
 
   if (changed) {
     console.log("💡 Tip: Run 'bun run codegen' to regenerate TypeScript types");

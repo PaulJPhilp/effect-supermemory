@@ -16,7 +16,7 @@ import type {
  * @since 1.0.0
  * @category Services
  */
-export interface SearchServiceOps {
+export type SearchServiceOps = {
   /**
    * Search documents (RAG path).
    * Returns document chunks relevant to the query.
@@ -42,4 +42,4 @@ export interface SearchServiceOps {
     query: string,
     options?: SearchOptions
   ) => Effect.Effect<readonly SupermemoryMemory[], SupermemoryError>;
-}
+};

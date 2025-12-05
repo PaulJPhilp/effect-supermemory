@@ -13,19 +13,26 @@
  */
 
 import { spawn } from "node:child_process";
-import * as fs from "node:fs";
-import * as path from "node:path";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { dirname, join, relative } from "node:path";
 
 const SDK_PACKAGE_NAME = "supermemory";
-const TEMP_DIR = path.join(process.cwd(), ".sdk-extract");
-const DEFAULT_OUTPUT = path.join(
+const TEMP_DIR = join(process.cwd(), ".sdk-extract");
+const DEFAULT_OUTPUT = join(
   process.cwd(),
   "specs",
   "supermemory",
   "sdk-api.json"
 );
 
-interface MethodSignature {
+type MethodSignature = {
   name: string;
   parameters: Array<{
     name: string;
@@ -34,9 +41,9 @@ interface MethodSignature {
   }>;
   returnType: string;
   isAsync: boolean;
-}
+};
 
-interface ClassInfo {
+type ClassInfo = {
   name: string;
   methods: MethodSignature[];
   properties: Array<{
@@ -49,9 +56,9 @@ interface ClassInfo {
     type: string;
     optional: boolean;
   }>;
-}
+};
 
-interface TypeInfo {
+type TypeInfo = {
   name: string;
   kind: "interface" | "type" | "enum" | "class";
   properties?: Array<{
@@ -59,9 +66,9 @@ interface TypeInfo {
     type: string;
     optional: boolean;
   }>;
-}
+};
 
-interface FunctionInfo {
+type FunctionInfo = {
   name: string;
   parameters: Array<{
     name: string;
@@ -70,9 +77,9 @@ interface FunctionInfo {
   }>;
   returnType: string;
   isAsync: boolean;
-}
+};
 
-interface SdkApiSurface {
+type SdkApiSurface = {
   packageName: string;
   version: string;
   extractedAt: string;
@@ -90,7 +97,7 @@ interface SdkApiSurface {
       description?: string;
     }>;
   };
-}
+};
 
 /**
  * Get package version from npm registry
@@ -129,10 +136,10 @@ async function installPackage(
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     // Clean up target directory
-    if (fs.existsSync(targetDir)) {
-      fs.rmSync(targetDir, { recursive: true, force: true });
+    if (existsSync(targetDir)) {
+      rmSync(targetDir, { recursive: true, force: true });
     }
-    fs.mkdirSync(targetDir, { recursive: true });
+    mkdirSync(targetDir, { recursive: true });
 
     // Create a minimal package.json
     const packageJson = {
@@ -143,8 +150,8 @@ async function installPackage(
         [packageName]: version,
       },
     };
-    fs.writeFileSync(
-      path.join(targetDir, "package.json"),
+    writeFileSync(
+      join(targetDir, "package.json"),
       JSON.stringify(packageJson, null, 2)
     );
 
@@ -177,20 +184,20 @@ function findDeclarationFiles(dir: string): {
   mainEntry?: string;
 } {
   const files: string[] = [];
-  const nodeModulesPath = path.join(dir, "node_modules", SDK_PACKAGE_NAME);
+  const nodeModulesPath = join(dir, "node_modules", SDK_PACKAGE_NAME);
 
-  if (!fs.existsSync(nodeModulesPath)) {
+  if (!existsSync(nodeModulesPath)) {
     console.warn(`Package not found at ${nodeModulesPath}`);
     return { files };
   }
 
   // Try to find package.json to get main entry point
-  const packageJsonPath = path.join(nodeModulesPath, "package.json");
+  const packageJsonPath = join(nodeModulesPath, "package.json");
   let mainEntry: string | undefined;
-  if (fs.existsSync(packageJsonPath)) {
+  if (existsSync(packageJsonPath)) {
     try {
       const packageJson = JSON.parse(
-        fs.readFileSync(packageJsonPath, "utf-8")
+        readFileSync(packageJsonPath, "utf-8")
       ) as { main?: string; types?: string; exports?: unknown };
       mainEntry = packageJson.types || packageJson.main;
     } catch {
@@ -200,10 +207,10 @@ function findDeclarationFiles(dir: string): {
 
   function walk(currentDir: string) {
     try {
-      const entries = fs.readdirSync(currentDir, { withFileTypes: true });
+      const entries = readdirSync(currentDir, { withFileTypes: true });
 
       for (const entry of entries) {
-        const fullPath = path.join(currentDir, entry.name);
+        const fullPath = join(currentDir, entry.name);
         if (
           entry.isDirectory() &&
           entry.name !== "node_modules" &&
@@ -265,7 +272,9 @@ function parseParameters(paramString: string): Array<{
 
   for (const param of params) {
     const trimmed = param.trim();
-    if (!trimmed) continue;
+    if (!trimmed) {
+      continue;
+    }
 
     // Handle rest parameters
     if (trimmed.startsWith("...")) {
@@ -319,7 +328,7 @@ function extractClasses(content: string): ClassInfo[] {
     // Extract constructor
     const constructorRegex = /\s+constructor\s*\(([^)]*)\)/;
     const constructorMatch = classBody.match(constructorRegex);
-    if (constructorMatch && constructorMatch[1]) {
+    if (constructorMatch?.[1]) {
       classInfo.constructorParams = parseParameters(constructorMatch[1]);
     }
 
@@ -337,7 +346,9 @@ function extractClasses(content: string): ClassInfo[] {
         .includes("async");
 
       // Skip constructors
-      if (methodName === "constructor") continue;
+      if (methodName === "constructor") {
+        continue;
+      }
 
       classInfo.methods.push({
         name: methodName,
@@ -358,7 +369,9 @@ function extractClasses(content: string): ClassInfo[] {
       const optional = propertyMatch[1].includes("?");
 
       // Skip methods (they have parentheses)
-      if (type.includes("(")) continue;
+      if (type.includes("(")) {
+        continue;
+      }
 
       classInfo.properties.push({
         name,
@@ -586,9 +599,9 @@ async function extractApiSurface(
 
   for (const file of filesToProcess) {
     try {
-      const content = fs.readFileSync(file, "utf-8");
-      const relativePath = path.relative(
-        path.join(TEMP_DIR, "node_modules", SDK_PACKAGE_NAME),
+      const content = readFileSync(file, "utf-8");
+      const relativePath = relative(
+        join(TEMP_DIR, "node_modules", SDK_PACKAGE_NAME),
         file
       );
 
@@ -646,7 +659,7 @@ async function main() {
   const outputIndex = args.indexOf("--output");
   const outputPath = outputIndex >= 0 ? args[outputIndex + 1] : DEFAULT_OUTPUT;
 
-  console.log("\n" + "=".repeat(60));
+  console.log(`\n${"=".repeat(60)}`);
   console.log("📦 SDK API Extraction");
   console.log("=".repeat(60));
 
@@ -682,22 +695,22 @@ async function main() {
     );
 
     // Ensure output directory exists
-    const outputDir = path.dirname(outputPath);
-    if (!fs.existsSync(outputDir)) {
-      fs.mkdirSync(outputDir, { recursive: true });
+    const outputDir = dirname(outputPath);
+    if (!existsSync(outputDir)) {
+      mkdirSync(outputDir, { recursive: true });
     }
 
     // Write output
-    fs.writeFileSync(outputPath, JSON.stringify(apiSurface, null, 2));
+    writeFileSync(outputPath, JSON.stringify(apiSurface, null, 2));
     console.log("\n✅ API surface extracted:");
     console.log(`   File: ${outputPath}`);
 
     // Cleanup
-    if (fs.existsSync(TEMP_DIR)) {
-      fs.rmSync(TEMP_DIR, { recursive: true, force: true });
+    if (existsSync(TEMP_DIR)) {
+      rmSync(TEMP_DIR, { recursive: true, force: true });
     }
 
-    console.log("\n" + "=".repeat(60) + "\n");
+    console.log(`\n${"=".repeat(60)}\n`);
   } catch (error) {
     console.error("\n❌ Extraction failed:");
     console.error(error instanceof Error ? error.message : String(error));

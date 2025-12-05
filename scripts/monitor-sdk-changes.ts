@@ -30,7 +30,7 @@ const SDK_API_FILE = path.join(
   "sdk-api.json"
 );
 
-interface SdkMetadata {
+type SdkMetadata = {
   packageName: string;
   lastAnalyzedVersion: string | null;
   lastAnalyzedAt: string | null;
@@ -40,9 +40,9 @@ interface SdkMetadata {
     apiSurfacePath?: string;
   }>;
   notes?: string;
-}
+};
 
-interface ChangeReport {
+type ChangeReport = {
   generatedAt: string;
   packageName: string;
   currentVersion: string;
@@ -70,7 +70,7 @@ interface ChangeReport {
     missingOperations: number;
     typeIssues: number;
   };
-}
+};
 
 /**
  * Load SDK metadata
@@ -292,7 +292,7 @@ async function generateChangeReport(
   packageName: string,
   currentVersion: string,
   previousVersion: string | null,
-  force: boolean
+  _force: boolean
 ): Promise<ChangeReport> {
   let changes: ChangeReport["changes"] = {
     breaking: [],
@@ -519,7 +519,7 @@ async function main() {
       ? args[outputIndex + 1]
       : path.join(process.cwd(), "docs", "sdk-change-report.json");
 
-  console.log("\n" + "=".repeat(60));
+  console.log(`\n${"=".repeat(60)}`);
   console.log("📦 SDK Change Monitoring");
   console.log("=".repeat(60));
 
@@ -538,7 +538,7 @@ async function main() {
     if (!force && metadata.lastAnalyzedVersion === latestVersion) {
       console.log("\n✅ Already analyzed latest version");
       console.log("   Use --force to re-analyze.");
-      console.log("\n" + "=".repeat(60) + "\n");
+      console.log(`\n${"=".repeat(60)}\n`);
       return;
     }
 
@@ -615,7 +615,7 @@ async function main() {
       process.exit(1);
     }
 
-    console.log("\n" + "=".repeat(60) + "\n");
+    console.log(`\n${"=".repeat(60)}\n`);
   } catch (error) {
     console.error("\n❌ Monitoring failed:");
     console.error(error instanceof Error ? error.message : String(error));

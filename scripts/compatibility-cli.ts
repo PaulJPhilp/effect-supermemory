@@ -15,7 +15,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const SDK_PACKAGE_NAME = "supermemory";
-const METADATA_FILE = join(
+const _METADATA_FILE = join(
   process.cwd(),
   "specs",
   "supermemory",

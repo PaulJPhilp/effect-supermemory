@@ -10,22 +10,24 @@
  *   bun run scripts/extract-schemas.ts --sdk-path ./node_modules/supermemory
  */
 
-import * as fs from "node:fs";
-import * as path from "node:path";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
+import { dirname, join } from "node:path";
 
-const DEFAULT_SDK_PATH = path.join(
-  process.cwd(),
-  "node_modules",
-  "supermemory"
-);
-const DEFAULT_OUTPUT = path.join(
+const DEFAULT_SDK_PATH = join(process.cwd(), "node_modules", "supermemory");
+const DEFAULT_OUTPUT = join(
   process.cwd(),
   "specs",
   "supermemory",
   "sdk-schemas.json"
 );
 
-interface ExtractedSchema {
+type ExtractedSchema = {
   name: string;
   kind: "interface" | "type" | "enum" | "class";
   properties: Array<{
@@ -35,13 +37,13 @@ interface ExtractedSchema {
     description?: string;
   }>;
   description?: string;
-}
+};
 
-interface SchemaCollection {
+type SchemaCollection = {
   extractedAt: string;
   sdkPath: string;
   schemas: ExtractedSchema[];
-}
+};
 
 /**
  * Find all TypeScript declaration files in a directory
@@ -49,16 +51,16 @@ interface SchemaCollection {
 function findDeclarationFiles(dir: string): string[] {
   const files: string[] = [];
 
-  if (!fs.existsSync(dir)) {
+  if (!existsSync(dir)) {
     return files;
   }
 
   function walk(currentDir: string) {
     try {
-      const entries = fs.readdirSync(currentDir, { withFileTypes: true });
+      const entries = readdirSync(currentDir, { withFileTypes: true });
 
       for (const entry of entries) {
-        const fullPath = path.join(currentDir, entry.name);
+        const fullPath = join(currentDir, entry.name);
 
         if (entry.isDirectory() && entry.name !== "node_modules") {
           walk(fullPath);
@@ -82,7 +84,7 @@ function findDeclarationFiles(dir: string): string[] {
  */
 function extractSchemasFromFile(filePath: string): ExtractedSchema[] {
   const schemas: ExtractedSchema[] = [];
-  const content = fs.readFileSync(filePath, "utf-8");
+  const content = readFileSync(filePath, "utf-8");
 
   // Simple regex-based extraction
   // In production, use @typescript/compiler-api or ts-morph
@@ -90,22 +92,25 @@ function extractSchemasFromFile(filePath: string): ExtractedSchema[] {
   // Extract interfaces
   const interfaceRegex =
     /(?:export\s+)?interface\s+(\w+)(?:<[^>]*>)?\s*\{([^}]+)\}/gs;
-  let match;
+  let match: RegExpExecArray | null = null;
 
-  while ((match = interfaceRegex.exec(content)) !== null) {
+  match = interfaceRegex.exec(content);
+  while (match !== null) {
     const name = match[1];
     const body = match[2];
 
     const properties: ExtractedSchema["properties"] = [];
     const propertyRegex = /(\w+\??)\s*:\s*([^;]+);/g;
-    let propMatch;
+    let propMatch: RegExpExecArray | null = null;
 
-    while ((propMatch = propertyRegex.exec(body)) !== null) {
+    propMatch = propertyRegex.exec(body);
+    while (propMatch !== null) {
       properties.push({
         name: propMatch[1].replace("?", ""),
         type: propMatch[2].trim(),
         optional: propMatch[1].includes("?"),
       });
+      propMatch = propertyRegex.exec(body);
     }
 
     schemas.push({
@@ -113,11 +118,13 @@ function extractSchemasFromFile(filePath: string): ExtractedSchema[] {
       kind: "interface",
       properties,
     });
+    match = interfaceRegex.exec(content);
   }
 
   // Extract type aliases
   const typeRegex = /(?:export\s+)?type\s+(\w+)(?:<[^>]*>)?\s*=\s*([^;]+);/gs;
-  while ((match = typeRegex.exec(content)) !== null) {
+  match = typeRegex.exec(content);
+  while (match !== null) {
     schemas.push({
       name: match[1],
       kind: "type",
@@ -129,24 +136,28 @@ function extractSchemasFromFile(filePath: string): ExtractedSchema[] {
         },
       ],
     });
+    match = typeRegex.exec(content);
   }
 
   // Extract enums
   const enumRegex = /(?:export\s+)?enum\s+(\w+)\s*\{([^}]+)\}/gs;
-  while ((match = enumRegex.exec(content)) !== null) {
+  match = enumRegex.exec(content);
+  while (match !== null) {
     const name = match[1];
     const body = match[2];
     const properties: ExtractedSchema["properties"] = [];
 
     const enumMemberRegex = /(\w+)(?:\s*=\s*([^,\n]+))?/g;
-    let enumMatch;
+    let enumMatch: RegExpExecArray | null = null;
 
-    while ((enumMatch = enumMemberRegex.exec(body)) !== null) {
+    enumMatch = enumMemberRegex.exec(body);
+    while (enumMatch !== null) {
       properties.push({
         name: enumMatch[1],
         type: enumMatch[2]?.trim() || "string",
         optional: false,
       });
+      enumMatch = enumMemberRegex.exec(body);
     }
 
     schemas.push({
@@ -154,6 +165,7 @@ function extractSchemasFromFile(filePath: string): ExtractedSchema[] {
       kind: "enum",
       properties,
     });
+    match = enumRegex.exec(content);
   }
 
   return schemas;
@@ -162,16 +174,27 @@ function extractSchemasFromFile(filePath: string): ExtractedSchema[] {
 /**
  * Convert TypeScript type to JSON Schema type
  */
-function toJsonSchemaType(tsType: string): string {
+function _toJsonSchemaType(tsType: string): string {
   const normalized = tsType.toLowerCase().trim();
 
-  if (normalized.includes("string")) return "string";
-  if (normalized.includes("number")) return "number";
-  if (normalized.includes("boolean")) return "boolean";
-  if (normalized.includes("array")) return "array";
-  if (normalized.includes("object") || normalized.includes("{"))
+  if (normalized.includes("string")) {
+    return "string";
+  }
+  if (normalized.includes("number")) {
+    return "number";
+  }
+  if (normalized.includes("boolean")) {
+    return "boolean";
+  }
+  if (normalized.includes("array")) {
+    return "array";
+  }
+  if (normalized.includes("object") || normalized.includes("{")) {
     return "object";
-  if (normalized === "null" || normalized === "undefined") return "null";
+  }
+  if (normalized === "null" || normalized === "undefined") {
+    return "null";
+  }
 
   return "unknown";
 }
@@ -179,7 +202,7 @@ function toJsonSchemaType(tsType: string): string {
 /**
  * Main extraction function
  */
-async function main() {
+function main() {
   const args = process.argv.slice(2);
   const sdkPathIndex = args.indexOf("--sdk-path");
   const sdkPath = sdkPathIndex >= 0 ? args[sdkPathIndex + 1] : DEFAULT_SDK_PATH;
@@ -187,12 +210,12 @@ async function main() {
   const outputIndex = args.indexOf("--output");
   const outputPath = outputIndex >= 0 ? args[outputIndex + 1] : DEFAULT_OUTPUT;
 
-  console.log("\n" + "=".repeat(60));
+  console.log(`\n${"=".repeat(60)}`);
   console.log("📋 Schema Extraction");
   console.log("=".repeat(60));
 
   try {
-    if (!fs.existsSync(sdkPath)) {
+    if (!existsSync(sdkPath)) {
       throw new Error(`SDK path not found: ${sdkPath}`);
     }
 
@@ -219,32 +242,29 @@ async function main() {
     };
 
     // Ensure output directory exists
-    const outputDir = path.dirname(outputPath);
-    if (!fs.existsSync(outputDir)) {
-      fs.mkdirSync(outputDir, { recursive: true });
+    const outputDir = dirname(outputPath);
+    if (!existsSync(outputDir)) {
+      mkdirSync(outputDir, { recursive: true });
     }
 
     // Write output
-    fs.writeFileSync(outputPath, JSON.stringify(collection, null, 2));
+    writeFileSync(outputPath, JSON.stringify(collection, null, 2));
     console.log("\n✅ Schemas extracted:");
     console.log(`   File: ${outputPath}`);
     console.log(`   Total: ${allSchemas.length}`);
 
     // Print summary by kind
-    const byKind = allSchemas.reduce(
-      (acc, schema) => {
-        acc[schema.kind] = (acc[schema.kind] || 0) + 1;
-        return acc;
-      },
-      {} as Record<string, number>
-    );
+    const byKind = allSchemas.reduce((acc, schema) => {
+      acc[schema.kind] = (acc[schema.kind] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
 
     console.log("\n📊 Summary by kind:");
     for (const [kind, count] of Object.entries(byKind)) {
       console.log(`   ${kind}: ${count}`);
     }
 
-    console.log("\n" + "=".repeat(60) + "\n");
+    console.log(`\n${"=".repeat(60)}\n`);
   } catch (error) {
     console.error("\n❌ Extraction failed:");
     console.error(error instanceof Error ? error.message : String(error));
@@ -253,7 +273,4 @@ async function main() {
 }
 
 // Run the extraction
-main().catch((error) => {
-  console.error("Fatal error:", error);
-  process.exit(1);
-});
+main();

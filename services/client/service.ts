@@ -1,19 +1,45 @@
-/** @effect-diagnostics classSelfMismatch:skip-file */
-import * as HttpClient from "@effect/platform/HttpClient";
+/**
+ * Supermemory HTTP Client Service Implementation
+ *
+ * Provides a configurable HTTP client for making requests to the Supermemory API
+ * with proper error handling, telemetry, and schema validation.
+ *
+ * @since 1.0.0
+ * @module Client
+ */
+
+import { SPANS, TELEMETRY_ATTRIBUTES } from "@/Constants.js";
+import { type SupermemoryError, SupermemoryValidationError } from "@/Errors.js";
+import { HttpClient } from "@effect/platform/HttpClient";
 import type * as HttpClientError from "@effect/platform/HttpClientError";
 import { SupermemoryConfigService } from "@services/config/service.js";
 import { Effect, type Schema } from "effect";
-import { SPANS, TELEMETRY_ATTRIBUTES } from "@/Constants.js";
-import { type SupermemoryError, SupermemoryValidationError } from "@/Errors.js";
+import type { SupermemoryHttpClient } from "./api.js";
+import { ApiVersions } from "./api.js";
 import { makeBaseRequest, processResponse } from "./helpers.js";
-import { ApiVersions, type SupermemoryHttpClient } from "./types.js";
 
 /**
- * Create the client implementation effect.
+ * Creates the Supermemory HTTP client implementation.
+ *
+ * This function builds a client that can make HTTP requests to both v3 and v4
+ * API endpoints with proper error handling, telemetry, and schema validation.
+ *
+ * @returns Effect that resolves with a configured SupermemoryHttpClient
+ *
+ * @example
+ * ```typescript
+ * const client = yield* makeSupermemoryHttpClient
+ * const result = yield* client.requestV3("GET", "/documents", {
+ *   schema: DocumentSchema
+ * })
+ * ```
+ *
+ * @since 1.0.0
+ * @category Factory
  */
 export const makeSupermemoryHttpClient = Effect.gen(function* () {
   const config = yield* SupermemoryConfigService;
-  const httpClient = yield* HttpClient.HttpClient;
+  const httpClient = yield* HttpClient;
 
   const makeRequest = <A, I, R>(
     version: string,
@@ -86,21 +112,16 @@ export const makeSupermemoryHttpClient = Effect.gen(function* () {
 /**
  * Context tag and Service for SupermemoryHttpClient.
  *
+ * Provides the Effect.Service implementation for dependency injection
+ * and composition with other Effect services.
+ *
  * @since 1.0.0
  * @category Services
  */
-export class SupermemoryHttpClientService extends Effect.Service<SupermemoryHttpClient>()(
+export class SupermemoryHttpClientService extends Effect.Service<SupermemoryHttpClientService>()(
   "@effect-supermemory/HttpClient",
   {
     accessors: false,
     effect: makeSupermemoryHttpClient,
   }
 ) {}
-
-/**
- * Live layer for SupermemoryHttpClient.
- *
- * @since 1.0.0
- * @category Layers
- */
-export const SupermemoryHttpClientLive = SupermemoryHttpClientService.Default;
