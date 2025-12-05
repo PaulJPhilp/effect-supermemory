@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+
 /**
  * Schema Extraction Script
  *
@@ -10,6 +11,8 @@
  *   bun run scripts/extract-schemas.ts --sdk-path ./node_modules/supermemory
  */
 
+import { stringifyJson } from "@/utils/json.js";
+import { Effect } from "effect";
 import {
   existsSync,
   mkdirSync,
@@ -202,7 +205,7 @@ function _toJsonSchemaType(tsType: string): string {
 /**
  * Main extraction function
  */
-function main() {
+async function main() {
   const args = process.argv.slice(2);
   const sdkPathIndex = args.indexOf("--sdk-path");
   const sdkPath = sdkPathIndex >= 0 ? args[sdkPathIndex + 1] : DEFAULT_SDK_PATH;
@@ -248,7 +251,10 @@ function main() {
     }
 
     // Write output
-    writeFileSync(outputPath, JSON.stringify(collection, null, 2));
+    const jsonOutput = await Effect.runPromise(
+      stringifyJson(collection, { indent: 2 })
+    );
+    writeFileSync(outputPath, jsonOutput);
     console.log("\n✅ Schemas extracted:");
     console.log(`   File: ${outputPath}`);
     console.log(`   Total: ${allSchemas.length}`);
@@ -273,4 +279,8 @@ function main() {
 }
 
 // Run the extraction
-main();
+main().catch((error) => {
+  console.error("\n❌ Extraction failed:");
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+});

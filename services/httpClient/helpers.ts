@@ -1,3 +1,4 @@
+import { parseJson } from "@/utils/json.js";
 import type { HttpBody } from "@effect/platform/HttpBody";
 import { Effect } from "effect";
 import {
@@ -143,6 +144,7 @@ export const handleFetchError = (
 
 /**
  * Parses response body based on Content-Type header.
+ * Uses effect-json for JSON parsing.
  */
 export const parseResponseBody = async <T>(response: Response): Promise<T> => {
   const contentType = response.headers.get("Content-Type");
@@ -151,7 +153,9 @@ export const parseResponseBody = async <T>(response: Response): Promise<T> => {
     contentType?.includes("application/json") &&
     !contentType?.includes("application/x-ndjson")
   ) {
-    return (await response.json()) as T;
+    const text = await response.text();
+    const parsed = await Effect.runPromise(parseJson(text));
+    return parsed as T;
   }
   if (
     contentType?.includes("text/") ||

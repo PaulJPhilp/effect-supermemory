@@ -30,6 +30,7 @@ const createMemoryStreamClientLayer = (
 describe("MemoryStreamClient", () => {
   // Skip network-dependent tests if no real API key is provided
   const hasRealApiKey =
+    process.env.SUPERMEMORY_RUN_INTEGRATION_TESTS === "true" &&
     process.env.SUPERMEMORY_API_KEY &&
     process.env.SUPERMEMORY_API_KEY !== "stream-api-key";
 

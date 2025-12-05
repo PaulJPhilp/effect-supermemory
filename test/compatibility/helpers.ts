@@ -5,6 +5,7 @@
  * and the official Supermemory TypeScript SDK.
  */
 
+import { stringifyJson } from "@/utils/json.js";
 import { Effect } from "effect";
 import type {
   MemoryKey,
@@ -392,15 +393,23 @@ export function compareResults(
   const match = deepEqual(effectResult, sdkResult);
 
   if (!match) {
+    const effectResultStr = Effect.runSync(
+      stringifyJson(effectResult).pipe(
+        Effect.orElseSucceed(() => String(effectResult))
+      )
+    );
+    const sdkResultStr = Effect.runSync(
+      stringifyJson(sdkResult).pipe(
+        Effect.orElseSucceed(() => String(sdkResult))
+      )
+    );
     return {
       operation,
       parameters,
       match,
       effectResult,
       sdkResult,
-      difference: `Results differ: ${JSON.stringify(
-        effectResult
-      )} vs ${JSON.stringify(sdkResult)}`,
+      difference: `Results differ: ${effectResultStr} vs ${sdkResultStr}`,
     };
   }
 

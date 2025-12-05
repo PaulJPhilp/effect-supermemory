@@ -1,3 +1,4 @@
+import { stringifyJson } from "@/utils/json.js";
 import type { HttpBody } from "@effect/platform/HttpBody";
 import { Effect, Stream } from "effect";
 
@@ -32,11 +33,15 @@ const stringifyBody = (
   if (typeof body === "string") {
     return Effect.succeed(body);
   }
-  return Effect.try({
-    try: () => JSON.stringify(body),
-    catch: () =>
-      new RequestError({ cause: new Error("Failed to stringify body") }),
-  });
+  return stringifyJson(body).pipe(
+    Effect.mapError(
+      (error) =>
+        new RequestError({
+          cause: new Error(`Failed to stringify body: ${error.message}`),
+          details: error,
+        })
+    )
+  );
 };
 
 export class HttpClient extends Effect.Service<HttpClient>()("HttpClient", {

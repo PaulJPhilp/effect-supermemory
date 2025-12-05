@@ -12,6 +12,8 @@
  *   bun run scripts/monitor-sdk-changes.ts --force  # Force re-analysis
  */
 
+import { parseJsonc, stringifyJson } from "@/utils/json.js";
+import { Effect } from "effect";
 import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -75,7 +77,7 @@ type ChangeReport = {
 /**
  * Load SDK metadata
  */
-function loadMetadata(): SdkMetadata {
+async function loadMetadata(): Promise<SdkMetadata> {
   if (!fs.existsSync(METADATA_FILE)) {
     return {
       packageName: SDK_PACKAGE_NAME,
@@ -86,19 +88,22 @@ function loadMetadata(): SdkMetadata {
   }
 
   const content = fs.readFileSync(METADATA_FILE, "utf-8");
-  return JSON.parse(content) as SdkMetadata;
+  return (await Effect.runPromise(parseJsonc(content))) as SdkMetadata;
 }
 
 /**
  * Save SDK metadata
  */
-function saveMetadata(metadata: SdkMetadata): void {
+async function saveMetadata(metadata: SdkMetadata): Promise<void> {
   const dir = path.dirname(METADATA_FILE);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
 
-  fs.writeFileSync(METADATA_FILE, JSON.stringify(metadata, null, 2));
+  const jsonContent = await Effect.runPromise(
+    stringifyJson(metadata, { indent: 2 })
+  );
+  fs.writeFileSync(METADATA_FILE, jsonContent);
 }
 
 /**
@@ -113,7 +118,10 @@ async function getLatestVersion(packageName: string): Promise<string> {
       throw new Error(`Failed to fetch package info: ${response.statusText}`);
     }
 
-    const data = (await response.json()) as { version: string };
+    const text = await response.text();
+    const data = (await Effect.runPromise(parseJson(text))) as {
+      version: string;
+    };
     return data.version;
   } catch (error) {
     throw new Error(`Failed to get latest version: ${error}`);
@@ -148,10 +156,10 @@ async function extractApiSurface(version: string): Promise<boolean> {
 /**
  * Compare two API surface files
  */
-function compareApiSurfaceFiles(
+async function compareApiSurfaceFiles(
   oldApiPath: string,
   newApiPath: string
-): ChangeReport["changes"] {
+): Promise<ChangeReport["changes"]> {
   if (!(fs.existsSync(oldApiPath) && fs.existsSync(newApiPath))) {
     return {
       breaking: [],
@@ -160,14 +168,16 @@ function compareApiSurfaceFiles(
     };
   }
 
-  const oldApi = JSON.parse(fs.readFileSync(oldApiPath, "utf-8")) as {
+  const oldApiContent = fs.readFileSync(oldApiPath, "utf-8");
+  const oldApi = (await Effect.runPromise(parseJsonc(oldApiContent))) as {
     exports?: {
       classes?: Array<{ name: string; methods?: Array<{ name: string }> }>;
       functions?: Array<{ name: string }>;
     };
   };
 
-  const newApi = JSON.parse(fs.readFileSync(newApiPath, "utf-8")) as {
+  const newApiContent = fs.readFileSync(newApiPath, "utf-8");
+  const newApi = (await Effect.runPromise(parseJsonc(newApiContent))) as {
     exports?: {
       classes?: Array<{ name: string; methods?: Array<{ name: string }> }>;
       functions?: Array<{ name: string }>;
@@ -264,7 +274,8 @@ async function runCompatibilityCheck(): Promise<
     });
 
     if (fs.existsSync(compatReportPath)) {
-      const report = JSON.parse(fs.readFileSync(compatReportPath, "utf-8")) as {
+      const reportContent = fs.readFileSync(compatReportPath, "utf-8");
+      const report = (await Effect.runPromise(parseJsonc(reportContent))) as {
         compatibility?: { score?: number };
         summary?: {
           missingOperations?: number;
@@ -338,7 +349,7 @@ async function generateChangeReport(
 
     // Compare if we have both
     if (fs.existsSync(oldApiPathToUse) && fs.existsSync(newApiPath)) {
-      changes = compareApiSurfaceFiles(oldApiPathToUse, newApiPath);
+      changes = await compareApiSurfaceFiles(oldApiPathToUse, newApiPath);
 
       if (
         changes.breaking.length === 0 &&
@@ -406,10 +417,10 @@ function generateMarkdownReport(report: ChangeReport): string {
     report.status === "new_version"
       ? "🆕"
       : report.status === "changes_detected"
-        ? "🔔"
-        : report.status === "no_changes"
-          ? "✅"
-          : "❌";
+      ? "🔔"
+      : report.status === "no_changes"
+      ? "✅"
+      : "❌";
   lines.push(`${statusEmoji} **${report.status.toUpperCase()}**`);
   lines.push("");
 
@@ -525,7 +536,7 @@ async function main() {
 
   try {
     // Load metadata
-    const metadata = loadMetadata();
+    const metadata = await loadMetadata();
     console.log(`\n📋 Package: ${packageName}`);
     console.log(`   Last analyzed: ${metadata.lastAnalyzedVersion || "never"}`);
 
@@ -572,7 +583,7 @@ async function main() {
       metadata.apiSurfaceSnapshots = metadata.apiSurfaceSnapshots.slice(-10);
     }
 
-    saveMetadata(metadata);
+    await saveMetadata(metadata);
 
     // Ensure output directory exists
     const outputDir = path.dirname(outputPath);
@@ -581,7 +592,10 @@ async function main() {
     }
 
     // Write JSON report
-    fs.writeFileSync(outputPath, JSON.stringify(report, null, 2));
+    const jsonContent = await Effect.runPromise(
+      stringifyJson(report, { indent: 2 })
+    );
+    fs.writeFileSync(outputPath, jsonContent);
     console.log("\n✅ Change report generated:");
     console.log(`   JSON: ${outputPath}`);
 

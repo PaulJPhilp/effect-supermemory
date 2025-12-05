@@ -6,6 +6,7 @@
  */
 /** biome-ignore-all assist/source/organizeImports: we want to use named imports */
 
+import { stringifyJson } from "@/utils/json.js";
 import { Effect, Layer } from "effect";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { HttpClient } from "../../services/httpClient/index.js";
@@ -31,6 +32,10 @@ const TEST_CONFIG = {
   timeoutMs: 5000,
 };
 
+// Skip tests unless explicitly enabled via environment variable
+const shouldSkipTests =
+  process.env.SUPERMEMORY_RUN_INTEGRATION_TESTS !== "true";
+
 // Create test layers
 const HttpClientTestLayer = HttpClient.Default({
   baseUrl: TEST_CONFIG.baseUrl as HttpUrl,
@@ -45,7 +50,7 @@ const SupermemoryTestLayer = SupermemoryClient.Default(TEST_CONFIG).pipe(
   Layer.provide(HttpClientTestLayer)
 );
 
-describe("Compatibility Tests", () => {
+describe.skipIf(shouldSkipTests)("Compatibility Tests", () => {
   let effectAdapter: CompatibilityAdapter;
   let sdkAdapter: CompatibilityAdapter | null = null;
   const sdkAvailability = skipIfSdkUnavailable();
@@ -140,7 +145,14 @@ describe("Compatibility Tests", () => {
       const testCases = [
         { key: "key-with-special/chars", value: "value with spaces" },
         { key: "unicode-key-测试", value: "unicode-value-🚀" },
-        { key: "json-key", value: JSON.stringify({ nested: { data: 123 } }) },
+        {
+          key: "json-key",
+          value: Effect.runSync(
+            stringifyJson({ nested: { data: 123 } }).pipe(
+              Effect.orElseSucceed(() => '{"nested":{"data":123}}')
+            )
+          ),
+        },
       ];
 
       for (const testCase of testCases) {

@@ -17,8 +17,10 @@
  *   bun run scripts/discover-api.ts --diff # Show changes vs. previous spec
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { stringifyJson } from "@/utils/json.js";
+import { Effect } from "effect";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 
 type OpenAPISpec = {
   openapi: string;
@@ -397,14 +399,14 @@ function generateOpenAPISpec(): OpenAPISpec {
  * Format spec as pretty JSON
  * (openapi-typescript supports both YAML and JSON)
  */
-function toJSON(obj: unknown): string {
-  return JSON.stringify(obj, null, 2);
+async function toJSON(obj: unknown): Promise<string> {
+  return await Effect.runPromise(stringifyJson(obj, { indent: 2 }));
 }
 
 /**
  * Main discovery function
  */
-function main() {
+async function main() {
   console.log(`\n${"=".repeat(60)}`);
   console.log("🔍 API Discovery - Code Analysis");
   console.log("=".repeat(60));
@@ -422,7 +424,7 @@ function main() {
   }
 
   // Convert to JSON
-  const json = toJSON(spec);
+  const json = await toJSON(spec);
 
   // Check if spec changed
   let changed = false;

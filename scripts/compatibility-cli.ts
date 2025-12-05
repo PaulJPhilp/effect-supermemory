@@ -11,6 +11,8 @@
  *   bun run scripts/compatibility-cli.ts report
  */
 
+import { parseJsonc } from "@/utils/json.js";
+import { Effect } from "effect";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -31,7 +33,7 @@ type CliCommand = {
 /**
  * Check compatibility status
  */
-function checkCompatibility(_args: string[]): void {
+async function checkCompatibility(_args: string[]): Promise<void> {
   console.log(`\n${"=".repeat(60)}`);
   console.log("🔍 Compatibility Check");
   console.log("=".repeat(60));
@@ -49,7 +51,8 @@ function checkCompatibility(_args: string[]): void {
     return;
   }
 
-  const report = JSON.parse(readFileSync(compatReportPath, "utf-8")) as {
+  const reportContent = readFileSync(compatReportPath, "utf-8");
+  const report = (await Effect.runPromise(parseJsonc(reportContent))) as {
     compatibility: { overall: string; score: number };
     summary: {
       totalSdkOperations: number;

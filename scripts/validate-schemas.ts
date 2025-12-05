@@ -10,6 +10,8 @@
  *   bun run scripts/validate-schemas.ts --sdk-schemas ./specs/supermemory/sdk-schemas.json
  */
 
+import { parseJsonc, stringifyJson } from "@/utils/json.js";
+import { Effect } from "effect";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -52,13 +54,13 @@ type ValidationReport = {
 /**
  * Load schemas from file
  */
-function loadSchemas(filePath: string): unknown {
+async function loadSchemas(filePath: string): Promise<unknown> {
   if (!fs.existsSync(filePath)) {
     throw new Error(`Schema file not found: ${filePath}`);
   }
 
   const content = fs.readFileSync(filePath, "utf-8");
-  return JSON.parse(content);
+  return await Effect.runPromise(parseJsonc(content));
 }
 
 /**
@@ -300,7 +302,9 @@ function generateValidationReport(report: ValidationReport): string {
         lines.push("");
         for (const issue of result.issues) {
           lines.push(
-            `- **[${issue.severity.toUpperCase()}]** ${issue.type}: ${issue.field}`
+            `- **[${issue.severity.toUpperCase()}]** ${issue.type}: ${
+              issue.field
+            }`
           );
           lines.push(`  - ${issue.message}`);
           if (issue.sdkType && issue.effectType) {
@@ -339,7 +343,7 @@ async function main() {
   try {
     // Load SDK schemas
     console.log(`\n📦 Loading SDK schemas from: ${sdkSchemasPath}`);
-    const sdkSchemas = loadSchemas(sdkSchemasPath);
+    const sdkSchemas = await loadSchemas(sdkSchemasPath);
 
     // Extract effect-supermemory schemas
     console.log("🔍 Extracting effect-supermemory schemas...");
@@ -357,7 +361,10 @@ async function main() {
     }
 
     // Write JSON report
-    fs.writeFileSync(outputPath, JSON.stringify(report, null, 2));
+    const jsonContent = await Effect.runPromise(
+      stringifyJson(report, { indent: 2 })
+    );
+    fs.writeFileSync(outputPath, jsonContent);
     console.log("\n✅ Validation report generated:");
     console.log(`   JSON: ${outputPath}`);
 

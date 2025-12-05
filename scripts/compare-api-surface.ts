@@ -11,6 +11,8 @@
  *   bun run scripts/compare-api-surface.ts --output ./compatibility-report.json
  */
 
+import { parseJsonc, stringifyJson } from "@/utils/json.js";
+import { Effect } from "effect";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -269,7 +271,7 @@ function extractEffectSupermemoryApi(): {
 /**
  * Load SDK API surface from extracted JSON
  */
-function loadSdkApiSurface(filePath: string): unknown {
+async function loadSdkApiSurface(filePath: string): Promise<unknown> {
   if (!fs.existsSync(filePath)) {
     throw new Error(
       `SDK API file not found: ${filePath}. Run 'bun run compat:extract' first.`
@@ -277,7 +279,7 @@ function loadSdkApiSurface(filePath: string): unknown {
   }
 
   const content = fs.readFileSync(filePath, "utf-8");
-  return JSON.parse(content);
+  return await Effect.runPromise(parseJsonc(content));
 }
 
 /**
@@ -679,8 +681,8 @@ function compareApiSurfaces(
     parameterDifferences.filter((p) => p.severity === "breaking").length === 0
       ? "compatible"
       : score >= 80
-        ? "partial"
-        : "incompatible";
+      ? "partial"
+      : "incompatible";
 
   return {
     generatedAt: new Date().toISOString(),
@@ -812,7 +814,9 @@ function generateMarkdownReport(report: ComparisonReport): string {
         lines.push("- **Missing parameters:**");
         for (const param of diff.missingParams) {
           lines.push(
-            `  - \`${param.name}: ${param.type}\` ${param.optional ? "(optional)" : "(required)"}`
+            `  - \`${param.name}: ${param.type}\` ${
+              param.optional ? "(optional)" : "(required)"
+            }`
           );
         }
       }
@@ -881,7 +885,7 @@ async function main() {
   try {
     // Load SDK API surface
     console.log(`\n📦 Loading SDK API surface from: ${sdkApiPath}`);
-    const sdkApi = loadSdkApiSurface(sdkApiPath);
+    const sdkApi = await loadSdkApiSurface(sdkApiPath);
 
     // Extract effect-supermemory API surface
     console.log("🔍 Extracting effect-supermemory API surface...");
@@ -901,7 +905,10 @@ async function main() {
     }
 
     // Write JSON report
-    fs.writeFileSync(outputPath, JSON.stringify(report, null, 2));
+    const jsonContent = await Effect.runPromise(
+      stringifyJson(report, { indent: 2 })
+    );
+    fs.writeFileSync(outputPath, jsonContent);
     console.log("\n✅ Comparison report generated:");
     console.log(`   JSON: ${outputPath}`);
 

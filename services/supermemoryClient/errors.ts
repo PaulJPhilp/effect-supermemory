@@ -32,8 +32,16 @@ export const translateHttpClientError = (
   }
   // Generic mapping for other HttpClient errors to MemoryValidationError
   let errorMessage: string;
-  if ("message" in error && typeof error.message === "string") {
+  if (error._tag === "NetworkError") {
+    // NetworkError has a cause property with the actual error and a url property
+    const causeMsg = error.cause.message || String(error.cause);
+    const urlInfo = error.url ? ` (URL: ${error.url})` : "";
+    errorMessage = `${causeMsg}${urlInfo}`;
+  } else if ("message" in error && typeof error.message === "string") {
     errorMessage = error.message;
+    if ("url" in error && typeof error.url === "string") {
+      errorMessage += ` (URL: ${error.url})`;
+    }
   } else if (error instanceof Error) {
     errorMessage = error.message;
   } else {

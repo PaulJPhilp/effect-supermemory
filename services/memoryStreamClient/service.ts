@@ -1,3 +1,10 @@
+import {
+  API_ENDPOINTS,
+  HTTP_HEADERS,
+  HTTP_STATUS,
+  HTTP_VALUES,
+} from "@/Constants.js";
+import { parseJson, stringifyJson } from "@/utils/json.js";
 import { isHttpError, isNetworkError } from "@services/httpClient/helpers.js";
 import { HttpClient } from "@services/httpClient/service.js";
 import type { HttpPath, HttpUrl } from "@services/httpClient/types.js";
@@ -11,12 +18,6 @@ import type {
   SearchResult,
 } from "@services/searchClient/types.js";
 import { Effect, Stream } from "effect";
-import {
-  API_ENDPOINTS,
-  HTTP_HEADERS,
-  HTTP_STATUS,
-  HTTP_VALUES,
-} from "@/Constants.js";
 import type { MemoryStreamClientApi } from "./api.js";
 import { type StreamError, StreamReadError } from "./errors.js";
 import {
@@ -90,10 +91,11 @@ export class MemoryStreamClient extends Effect.Service<MemoryStreamClient>()(
 
             // Handle response body as string that needs to be parsed as NDJSON
             if (typeof response.body !== "string") {
+              const bodyStr = yield* stringifyJson(response.body).pipe(
+                Effect.orElseSucceed(() => String(response.body))
+              );
               return yield* new StreamReadError({
-                message: `Expected string response body, got ${typeof response.body}: ${JSON.stringify(
-                  response.body
-                )}`,
+                message: `Expected string response body, got ${typeof response.body}: ${bodyStr}`,
               });
             }
 
@@ -104,22 +106,16 @@ export class MemoryStreamClient extends Effect.Service<MemoryStreamClient>()(
 
             return Stream.fromIterable(lines).pipe(
               Stream.mapEffect((line) =>
-                Effect.try({
-                  try: () => {
-                    const parsed = JSON.parse(line) as { key: string };
-                    return parsed.key;
-                  },
-                  catch: (error) =>
-                    new StreamReadError({
-                      message: `Failed to parse key from line "${line}": ${
-                        error instanceof Error ? error.message : String(error)
-                      }`,
-                      cause:
-                        error instanceof Error
-                          ? error
-                          : new Error(String(error)),
-                    }),
-                })
+                parseJson(line).pipe(
+                  Effect.map((parsed) => (parsed as { key: string }).key),
+                  Effect.mapError(
+                    (error) =>
+                      new StreamReadError({
+                        message: `Failed to parse key from line "${line}": ${error.message}`,
+                        cause: error,
+                      })
+                  )
+                )
               )
             );
           });

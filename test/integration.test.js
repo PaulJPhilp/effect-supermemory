@@ -13,6 +13,10 @@ const TEST_CONFIG = {
   timeoutMs: 5000,
 };
 
+// Skip tests unless explicitly enabled via environment variable
+// This prevents tests from running when API server is unavailable
+const shouldSkipTests = process.env.SUPERMEMORY_RUN_INTEGRATION_TESTS !== "true";
+
 // Create HttpClient layer
 const HttpClientTestLayer = HttpClient.Default({
   baseUrl: TEST_CONFIG.baseUrl,
@@ -33,7 +37,7 @@ const MemoryStreamTestLayer = Layer.merge(
   SupermemoryTestLayer
 ).pipe(Layer.provide(HttpClientTestLayer));
 describe("Integration Tests", () => {
-  describe("SupermemoryClient", () => {
+  describe.skipIf(shouldSkipTests)("SupermemoryClient", () => {
     it("should put and get memories", async () => {
       const program = Effect.gen(function* () {
         const client = yield* SupermemoryClient;
@@ -97,7 +101,7 @@ describe("Integration Tests", () => {
       }
     });
   });
-  describe("MemoryStreamClient", () => {
+  describe.skipIf(shouldSkipTests)("MemoryStreamClient", () => {
     it("should stream all keys", async () => {
       const program = Effect.gen(function* () {
         const streamClient = yield* MemoryStreamClient;

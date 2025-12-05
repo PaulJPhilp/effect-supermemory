@@ -9,6 +9,8 @@
  *   bun run scripts/generate-dashboard.ts
  */
 
+import { parseJsonc } from "@/utils/json.js";
+import { Effect } from "effect";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -75,14 +77,14 @@ type SdkMetadata = {
 /**
  * Load JSON file if it exists
  */
-function loadJsonFile<T>(filePath: string): T | null {
+async function loadJsonFile<T>(filePath: string): Promise<T | null> {
   if (!fs.existsSync(filePath)) {
     return null;
   }
 
   try {
     const content = fs.readFileSync(filePath, "utf-8");
-    return JSON.parse(content) as T;
+    return (await Effect.runPromise(parseJsonc(content))) as T;
   } catch {
     return null;
   }
@@ -296,11 +298,11 @@ async function main() {
   try {
     // Load all reports
     console.log("\n📋 Loading reports...");
-    const compatReport = loadJsonFile<CompatibilityReport>(
+    const compatReport = await loadJsonFile<CompatibilityReport>(
       COMPATIBILITY_REPORT_PATH
     );
-    const changeReport = loadJsonFile<ChangeReport>(CHANGE_REPORT_PATH);
-    const metadata = loadJsonFile<SdkMetadata>(METADATA_PATH);
+    const changeReport = await loadJsonFile<ChangeReport>(CHANGE_REPORT_PATH);
+    const metadata = await loadJsonFile<SdkMetadata>(METADATA_PATH);
 
     if (compatReport) {
       console.log("   ✅ Compatibility report loaded");

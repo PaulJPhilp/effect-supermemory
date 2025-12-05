@@ -33,6 +33,7 @@ const asValue = (s: string): MemoryValue => s as MemoryValue;
 describe("SupermemoryClient", () => {
   // Skip network-dependent tests if no real API key is provided
   const hasRealApiKey =
+    process.env.SUPERMEMORY_RUN_INTEGRATION_TESTS === "true" &&
     process.env.SUPERMEMORY_API_KEY &&
     process.env.SUPERMEMORY_API_KEY !== "test-api-key";
 

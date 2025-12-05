@@ -5,7 +5,7 @@
  * @module Client
  */
 
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect, it } from "vitest";
 import { SupermemoryHttpClientService } from "../service.js";
 
 describe("SupermemoryHttpClientService", () => {

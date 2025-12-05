@@ -12,6 +12,8 @@
  *   bun run scripts/extract-sdk-api.ts --output ./output   # Custom output directory
  */
 
+import { parseJsonc, stringifyJson } from "@/utils/json.js";
+import { Effect } from "effect";
 import { spawn } from "node:child_process";
 import {
   existsSync,
@@ -115,7 +117,8 @@ async function getPackageVersion(
     if (!response.ok) {
       throw new Error(`Failed to fetch package info: ${response.statusText}`);
     }
-    const data = (await response.json()) as {
+    const text = await response.text();
+    const data = (await Effect.runPromise(parseJson(text))) as {
       version: string;
       dist?: { tarball: string };
     };
@@ -134,27 +137,27 @@ async function installPackage(
   version: string,
   targetDir: string
 ): Promise<void> {
+  // Clean up target directory
+  if (existsSync(targetDir)) {
+    rmSync(targetDir, { recursive: true, force: true });
+  }
+  mkdirSync(targetDir, { recursive: true });
+
+  // Create a minimal package.json
+  const packageJson = {
+    name: "sdk-extraction",
+    version: "1.0.0",
+    type: "module",
+    dependencies: {
+      [packageName]: version,
+    },
+  };
+  const packageJsonContent = await Effect.runPromise(
+    stringifyJson(packageJson, { indent: 2 })
+  );
+  writeFileSync(join(targetDir, "package.json"), packageJsonContent);
+
   return new Promise((resolve, reject) => {
-    // Clean up target directory
-    if (existsSync(targetDir)) {
-      rmSync(targetDir, { recursive: true, force: true });
-    }
-    mkdirSync(targetDir, { recursive: true });
-
-    // Create a minimal package.json
-    const packageJson = {
-      name: "sdk-extraction",
-      version: "1.0.0",
-      type: "module",
-      dependencies: {
-        [packageName]: version,
-      },
-    };
-    writeFileSync(
-      join(targetDir, "package.json"),
-      JSON.stringify(packageJson, null, 2)
-    );
-
     console.log(`Installing ${packageName}@${version}...`);
 
     const proc = spawn("bun", ["install"], {
@@ -164,7 +167,7 @@ async function installPackage(
 
     proc.on("close", (code) => {
       if (code === 0) {
-        resolve();
+        resolve(undefined);
       } else {
         reject(new Error(`Installation failed with code ${code}`));
       }
@@ -179,10 +182,10 @@ async function installPackage(
 /**
  * Find TypeScript declaration files and main entry point
  */
-function findDeclarationFiles(dir: string): {
+async function findDeclarationFiles(dir: string): Promise<{
   files: string[];
   mainEntry?: string;
-} {
+}> {
   const files: string[] = [];
   const nodeModulesPath = join(dir, "node_modules", SDK_PACKAGE_NAME);
 
@@ -196,9 +199,10 @@ function findDeclarationFiles(dir: string): {
   let mainEntry: string | undefined;
   if (existsSync(packageJsonPath)) {
     try {
-      const packageJson = JSON.parse(
-        readFileSync(packageJsonPath, "utf-8")
-      ) as { main?: string; types?: string; exports?: unknown };
+      const packageJsonContent = readFileSync(packageJsonPath, "utf-8");
+      const packageJson = (await Effect.runPromise(
+        parseJsonc(packageJsonContent)
+      )) as { main?: string; types?: string; exports?: unknown };
       mainEntry = packageJson.types || packageJson.main;
     } catch {
       // Ignore parse errors
@@ -674,8 +678,9 @@ async function main() {
     await installPackage(SDK_PACKAGE_NAME, packageVersion, TEMP_DIR);
 
     // Find declaration files
-    const { files: declarationFiles, mainEntry } =
-      findDeclarationFiles(TEMP_DIR);
+    const { files: declarationFiles, mainEntry } = await findDeclarationFiles(
+      TEMP_DIR
+    );
     if (declarationFiles.length === 0) {
       throw new Error("No TypeScript declaration files found");
     }
@@ -701,7 +706,10 @@ async function main() {
     }
 
     // Write output
-    writeFileSync(outputPath, JSON.stringify(apiSurface, null, 2));
+    const jsonContent = await Effect.runPromise(
+      stringifyJson(apiSurface, { indent: 2 })
+    );
+    writeFileSync(outputPath, jsonContent);
     console.log("\n✅ API surface extracted:");
     console.log(`   File: ${outputPath}`);
 
