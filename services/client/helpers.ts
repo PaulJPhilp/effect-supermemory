@@ -1,22 +1,28 @@
+/** biome-ignore-all assist/source/organizeImports: <> */
 import { HTTP_HEADERS, HTTP_STATUS, HTTP_VALUES } from "@/Constants.js";
 import {
   SupermemoryAuthenticationError,
-  type SupermemoryError,
   SupermemoryRateLimitError,
   SupermemoryServerError,
   SupermemoryValidationError,
+  type SupermemoryError,
 } from "@/Errors.js";
-import type * as HttpClientError from "@effect/platform/HttpClientError";
-// biome-ignore lint/performance/noNamespaceImport: Effect platform requires namespace imports
-import * as HttpClientRequest from "@effect/platform/HttpClientRequest";
-import type * as HttpClientResponse from "@effect/platform/HttpClientResponse";
+import type { HttpClientError } from "@effect/platform/HttpClientError";
+import {
+  bodyJson,
+  make,
+  setHeader,
+  type HttpClientRequest,
+} from "@effect/platform/HttpClientRequest";
+import type { HttpClientResponse } from "@effect/platform/HttpClientResponse";
+import type { HttpMethod } from "@services/httpClient/types.js";
 import { Effect, Redacted, Schema } from "effect";
 
 /**
  * Extract retry-after value from response headers.
  */
 export const extractRetryAfter = (
-  headers: HttpClientResponse.HttpClientResponse["headers"]
+  headers: HttpClientResponse["headers"]
 ): number | undefined => {
   const retryAfter = headers[HTTP_HEADERS.RETRY_AFTER];
   if (!retryAfter) {
@@ -37,6 +43,23 @@ export const extractRetryAfter = (
 };
 
 /**
+ * Type guard to check if an unknown value is an object with a string message property.
+ *
+ * @param value - The value to check
+ * @returns True if value is an object with a string message property
+ * @since 1.0.0
+ * @category Type Guards
+ */
+function hasMessage(value: unknown): value is { message: string } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "message" in value &&
+    typeof (value as { message: unknown }).message === "string"
+  );
+}
+
+/**
  * Map HTTP status codes to typed Supermemory errors.
  *
  * @since 1.0.0
@@ -45,15 +68,9 @@ export const extractRetryAfter = (
 export const mapHttpError = (
   status: number,
   body: unknown,
-  headers: HttpClientResponse.HttpClientResponse["headers"]
+  headers: HttpClientResponse["headers"]
 ): SupermemoryError => {
-  const message =
-    typeof body === "object" &&
-    body !== null &&
-    "message" in body &&
-    typeof (body as { message: unknown }).message === "string"
-      ? (body as { message: string }).message
-      : `HTTP ${status}`;
+  const message = hasMessage(body) ? body.message : `HTTP ${status}`;
 
   switch (status) {
     case HTTP_STATUS.UNAUTHORIZED:
@@ -81,35 +98,24 @@ export const mapHttpError = (
  * Create the base request with authentication and common headers.
  */
 export const makeBaseRequest = (
-  method: "GET" | "POST" | "PUT" | "DELETE",
+  method: HttpMethod,
   url: string,
   apiKey: Redacted.Redacted<string>,
   body?: unknown
-): Effect.Effect<
-  HttpClientRequest.HttpClientRequest,
-  HttpClientError.HttpClientError
-> =>
+): Effect.Effect<HttpClientRequest, HttpClientError> =>
   Effect.gen(function* () {
-    let request = HttpClientRequest.make(method)(url).pipe(
-      HttpClientRequest.setHeader(
+    let request = make(method)(url).pipe(
+      setHeader(
         HTTP_HEADERS.AUTHORIZATION,
         `${HTTP_VALUES.BEARER_PREFIX}${Redacted.value(apiKey)}`
       ),
-      HttpClientRequest.setHeader(
-        HTTP_HEADERS.CONTENT_TYPE,
-        HTTP_VALUES.APPLICATION_JSON
-      ),
-      HttpClientRequest.setHeader(
-        HTTP_HEADERS.ACCEPT,
-        HTTP_VALUES.APPLICATION_JSON
-      )
+      setHeader(HTTP_HEADERS.CONTENT_TYPE, HTTP_VALUES.APPLICATION_JSON),
+      setHeader(HTTP_HEADERS.ACCEPT, HTTP_VALUES.APPLICATION_JSON)
     );
 
     if (body !== undefined) {
-      request = yield* HttpClientRequest.bodyJson(request, body).pipe(
-        Effect.mapError(
-          (error) => error as unknown as HttpClientError.HttpClientError
-        )
+      request = yield* bodyJson(request, body).pipe(
+        Effect.mapError((error) => error as unknown as HttpClientError)
       );
     }
 
@@ -120,7 +126,7 @@ export const makeBaseRequest = (
  * Process response with error mapping and schema validation.
  */
 export const processResponse = <A, I, R>(
-  response: HttpClientResponse.HttpClientResponse,
+  response: HttpClientResponse,
   schema?: Schema.Schema<A, I, R>
 ): Effect.Effect<A, SupermemoryError, R> =>
   Effect.gen(function* () {

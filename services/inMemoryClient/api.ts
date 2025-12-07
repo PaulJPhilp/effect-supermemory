@@ -1,6 +1,13 @@
-import type { HttpClient } from "@services/httpClient/service.js"; // For R type
+/**
+ * In-Memory Client Service API
+ *
+ * @since 1.0.0
+ * @module InMemoryClient
+ */
+
+import type { HttpClient } from "@services/httpClient/service.js";
 import type { Effect } from "effect";
-import type { MemoryBatchError, MemoryError } from "./errors.js"; // Import batch error
+import type { MemoryBatchError, MemoryError } from "./errors.js";
 import type { MemoryValueMap } from "./types.js";
 
 /**

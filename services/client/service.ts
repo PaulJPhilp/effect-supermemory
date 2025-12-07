@@ -7,16 +7,19 @@
  * @since 1.0.0
  * @module Client
  */
+/** biome-ignore-all assist/source/organizeImports: <> */
 
 import { SPANS, TELEMETRY_ATTRIBUTES } from "@/Constants.js";
 import { type SupermemoryError, SupermemoryValidationError } from "@/Errors.js";
+import type { HttpBody } from "@effect/platform/HttpBody";
 import { HttpClient } from "@effect/platform/HttpClient";
 import type * as HttpClientError from "@effect/platform/HttpClientError";
 import { SupermemoryConfigService } from "@services/config/service.js";
+import type { HttpMethod } from "@services/httpClient/types.js";
 import { Effect, type Schema } from "effect";
 import type { SupermemoryHttpClient } from "./api.js";
-import { ApiVersions } from "./api.js";
 import { makeBaseRequest, processResponse } from "./helpers.js";
+import { ApiVersions } from "./types.js";
 
 /**
  * Creates the Supermemory HTTP client implementation.
@@ -43,10 +46,10 @@ export const makeSupermemoryHttpClient = Effect.gen(function* () {
 
   const makeRequest = <A, I, R>(
     version: string,
-    method: "GET" | "POST" | "PUT" | "DELETE",
+    method: HttpMethod,
     path: string,
     options?: {
-      readonly body?: unknown;
+      readonly body?: HttpBody | unknown;
       readonly schema?: Schema.Schema<A, I, R>;
     }
   ) =>
@@ -91,7 +94,7 @@ export const makeSupermemoryHttpClient = Effect.gen(function* () {
 
   return {
     requestV3: <A, I, R>(
-      method: "GET" | "POST" | "PUT" | "DELETE",
+      method: HttpMethod,
       path: string,
       options?: {
         readonly body?: unknown;
@@ -99,7 +102,7 @@ export const makeSupermemoryHttpClient = Effect.gen(function* () {
       }
     ) => makeRequest<A, I, R>(ApiVersions.V3, method, path, options),
     requestV4: <A, I, R>(
-      method: "GET" | "POST" | "PUT" | "DELETE",
+      method: HttpMethod,
       path: string,
       options?: {
         readonly body?: unknown;

@@ -4,28 +4,15 @@
  * @module Config
  */
 
-import { Effect, Layer, Redacted, Schema as S } from "effect";
-import { EnvTag, fromProcess, makeEnvSchema } from "effect-env";
-import type { SupermemoryConfig } from "./types.js";
+import { Effect, Layer, type Redacted } from "effect";
+import { fromProcess, makeEnvSchema } from "effect-env";
+import type { SupermemoryConfig } from "./api.js";
+import { buildConfigFromEnv } from "./helpers.js";
+import { SupermemoryConfigEnv } from "./schema.js";
 
-/**
- * Schema for Supermemory configuration environment variables.
- * Uses strings for all values and parses numbers in the service layer.
- *
- * @since 1.0.0
- * @category Schema
- */
 const SupermemoryConfigEnvSchema = makeEnvSchema(
-  S.Struct({
-    SUPERMEMORY_API_KEY: S.String,
-    SUPERMEMORY_WORKSPACE_ID: S.optional(S.String),
-    SUPERMEMORY_BASE_URL: S.optional(S.String),
-    SUPERMEMORY_DEFAULT_THRESHOLD: S.optional(S.String),
-    SUPERMEMORY_TIMEOUT_MS: S.optional(S.String),
-  })
+  SupermemoryConfigEnv as unknown as Parameters<typeof makeEnvSchema>[0]
 );
-
-type SupermemoryConfigEnv = S.Schema.Type<typeof SupermemoryConfigEnvSchema>;
 
 /**
  * Environment layer for Supermemory configuration.
@@ -45,35 +32,7 @@ export class SupermemoryConfigService extends Effect.Service<SupermemoryConfig>(
   "@effect-supermemory/Config",
   {
     accessors: true,
-    effect: Effect.gen(function* () {
-      const env = yield* EnvTag;
-
-      const apiKey = yield* env.get("SUPERMEMORY_API_KEY");
-      const workspaceId = yield* env.get("SUPERMEMORY_WORKSPACE_ID");
-      const baseUrlStr = yield* env.get("SUPERMEMORY_BASE_URL");
-      const defaultThresholdStr = yield* env.get(
-        "SUPERMEMORY_DEFAULT_THRESHOLD"
-      );
-      const timeoutMsStr = yield* env.get("SUPERMEMORY_TIMEOUT_MS");
-
-      // Parse numbers from strings
-      const defaultThreshold = defaultThresholdStr
-        ? Number.parseFloat(defaultThresholdStr)
-        : 0.7;
-      const timeoutMs = timeoutMsStr
-        ? Number.parseInt(timeoutMsStr, 10)
-        : 30_000;
-
-      return {
-        apiKey: Redacted.make(apiKey),
-        workspaceId: workspaceId ?? undefined,
-        baseUrl: baseUrlStr ?? "https://api.supermemory.ai",
-        defaultThreshold: Number.isNaN(defaultThreshold)
-          ? 0.7
-          : defaultThreshold,
-        timeoutMs: Number.isNaN(timeoutMs) ? 30_000 : timeoutMs,
-      } satisfies SupermemoryConfig;
-    }),
+    effect: buildConfigFromEnv(),
   }
 ) {}
 
@@ -85,7 +44,7 @@ export class SupermemoryConfigService extends Effect.Service<SupermemoryConfig>(
  */
 export const SupermemoryConfigLive = Layer.provide(
   SupermemoryConfigService.Default,
-  envLayer
+  envLayer as unknown as Layer.Layer<unknown, unknown, unknown>
 );
 
 /**

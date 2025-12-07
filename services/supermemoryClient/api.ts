@@ -1,3 +1,10 @@
+/**
+ * Supermemory Client Service API
+ *
+ * @since 1.0.0
+ * @module SupermemoryClient
+ */
+
 import type {
   MemoryKey,
   MemoryValue,

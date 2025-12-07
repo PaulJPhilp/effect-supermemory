@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+/** biome-ignore-all assist/source/organizeImports: <> */
 
 /**
  * Schema Extraction Script
@@ -82,17 +83,37 @@ function findDeclarationFiles(dir: string): string[] {
 }
 
 /**
- * Extract schemas from a TypeScript declaration file
- * This is a simplified parser - for production, use TypeScript compiler API
+ * Extract properties from an interface body string.
  */
-function extractSchemasFromFile(filePath: string): ExtractedSchema[] {
+function extractInterfaceProperties(
+  body: string
+): ExtractedSchema["properties"] {
+  const properties: ExtractedSchema["properties"] = [];
+  const propertyRegex = /(\w+\??)\s*:\s*([^;]+);/g;
+  let propMatch: RegExpExecArray | null = null;
+
+  propMatch = propertyRegex.exec(body);
+  while (propMatch !== null) {
+    const nameMatch = propMatch[1];
+    const typeMatch = propMatch[2];
+    if (nameMatch !== undefined && typeMatch !== undefined) {
+      properties.push({
+        name: nameMatch.replace("?", ""),
+        type: typeMatch.trim(),
+        optional: nameMatch.includes("?"),
+      });
+    }
+    propMatch = propertyRegex.exec(body);
+  }
+
+  return properties;
+}
+
+/**
+ * Extract interfaces from TypeScript content.
+ */
+function extractInterfaces(content: string): ExtractedSchema[] {
   const schemas: ExtractedSchema[] = [];
-  const content = readFileSync(filePath, "utf-8");
-
-  // Simple regex-based extraction
-  // In production, use @typescript/compiler-api or ts-morph
-
-  // Extract interfaces
   const interfaceRegex =
     /(?:export\s+)?interface\s+(\w+)(?:<[^>]*>)?\s*\{([^}]+)\}/gs;
   let match: RegExpExecArray | null = null;
@@ -102,74 +123,117 @@ function extractSchemasFromFile(filePath: string): ExtractedSchema[] {
     const name = match[1];
     const body = match[2];
 
-    const properties: ExtractedSchema["properties"] = [];
-    const propertyRegex = /(\w+\??)\s*:\s*([^;]+);/g;
-    let propMatch: RegExpExecArray | null = null;
-
-    propMatch = propertyRegex.exec(body);
-    while (propMatch !== null) {
-      properties.push({
-        name: propMatch[1].replace("?", ""),
-        type: propMatch[2].trim(),
-        optional: propMatch[1].includes("?"),
+    if (name !== undefined && body !== undefined) {
+      const properties = extractInterfaceProperties(body);
+      schemas.push({
+        name,
+        kind: "interface",
+        properties,
       });
-      propMatch = propertyRegex.exec(body);
     }
-
-    schemas.push({
-      name,
-      kind: "interface",
-      properties,
-    });
     match = interfaceRegex.exec(content);
   }
 
-  // Extract type aliases
+  return schemas;
+}
+
+/**
+ * Extract type aliases from TypeScript content.
+ */
+function extractTypeAliases(content: string): ExtractedSchema[] {
+  const schemas: ExtractedSchema[] = [];
   const typeRegex = /(?:export\s+)?type\s+(\w+)(?:<[^>]*>)?\s*=\s*([^;]+);/gs;
+  let match: RegExpExecArray | null = null;
+
   match = typeRegex.exec(content);
   while (match !== null) {
-    schemas.push({
-      name: match[1],
-      kind: "type",
-      properties: [
-        {
-          name: "value",
-          type: match[2].trim(),
-          optional: false,
-        },
-      ],
-    });
+    const typeName = match[1];
+    const typeValue = match[2];
+    if (typeName !== undefined && typeValue !== undefined) {
+      schemas.push({
+        name: typeName,
+        kind: "type",
+        properties: [
+          {
+            name: "value",
+            type: typeValue.trim(),
+            optional: false,
+          },
+        ],
+      });
+    }
     match = typeRegex.exec(content);
   }
 
-  // Extract enums
+  return schemas;
+}
+
+/**
+ * Extract enum members from an enum body string.
+ */
+function extractEnumMembers(body: string): ExtractedSchema["properties"] {
+  const properties: ExtractedSchema["properties"] = [];
+  const enumMemberRegex = /(\w+)(?:\s*=\s*([^,\n]+))?/g;
+  let enumMatch: RegExpExecArray | null = null;
+
+  enumMatch = enumMemberRegex.exec(body);
+  while (enumMatch !== null) {
+    const memberName = enumMatch[1];
+    if (memberName !== undefined) {
+      properties.push({
+        name: memberName,
+        type: enumMatch[2]?.trim() || "string",
+        optional: false,
+      });
+    }
+    enumMatch = enumMemberRegex.exec(body);
+  }
+
+  return properties;
+}
+
+/**
+ * Extract enums from TypeScript content.
+ */
+function extractEnums(content: string): ExtractedSchema[] {
+  const schemas: ExtractedSchema[] = [];
   const enumRegex = /(?:export\s+)?enum\s+(\w+)\s*\{([^}]+)\}/gs;
+  let match: RegExpExecArray | null = null;
+
   match = enumRegex.exec(content);
   while (match !== null) {
     const name = match[1];
     const body = match[2];
-    const properties: ExtractedSchema["properties"] = [];
 
-    const enumMemberRegex = /(\w+)(?:\s*=\s*([^,\n]+))?/g;
-    let enumMatch: RegExpExecArray | null = null;
-
-    enumMatch = enumMemberRegex.exec(body);
-    while (enumMatch !== null) {
-      properties.push({
-        name: enumMatch[1],
-        type: enumMatch[2]?.trim() || "string",
-        optional: false,
+    if (name !== undefined && body !== undefined) {
+      const properties = extractEnumMembers(body);
+      schemas.push({
+        name,
+        kind: "enum",
+        properties,
       });
-      enumMatch = enumMemberRegex.exec(body);
     }
-
-    schemas.push({
-      name,
-      kind: "enum",
-      properties,
-    });
     match = enumRegex.exec(content);
   }
+
+  return schemas;
+}
+
+/**
+ * Extract schemas from a TypeScript declaration file.
+ * This is a simplified parser - for production, use TypeScript compiler API
+ * or ts-morph for accurate parsing.
+ */
+function extractSchemasFromFile(filePath: string): ExtractedSchema[] {
+  const content = readFileSync(filePath, "utf-8");
+
+  // Simple regex-based extraction
+  // In production, use @typescript/compiler-api or ts-morph
+
+  const schemas: ExtractedSchema[] = [];
+  schemas.push(...extractInterfaces(content));
+  schemas.push(...extractTypeAliases(content));
+  schemas.push(...extractEnums(content));
 
   return schemas;
 }
@@ -208,10 +272,14 @@ function _toJsonSchemaType(tsType: string): string {
 async function main() {
   const args = process.argv.slice(2);
   const sdkPathIndex = args.indexOf("--sdk-path");
-  const sdkPath = sdkPathIndex >= 0 ? args[sdkPathIndex + 1] : DEFAULT_SDK_PATH;
+  const sdkPathArg = sdkPathIndex >= 0 ? args[sdkPathIndex + 1] : undefined;
+  const sdkPath: string =
+    sdkPathArg !== undefined ? sdkPathArg : DEFAULT_SDK_PATH;
 
   const outputIndex = args.indexOf("--output");
-  const outputPath = outputIndex >= 0 ? args[outputIndex + 1] : DEFAULT_OUTPUT;
+  const outputPathArg = outputIndex >= 0 ? args[outputIndex + 1] : undefined;
+  const outputPath: string =
+    outputPathArg !== undefined ? outputPathArg : DEFAULT_OUTPUT;
 
   console.log(`\n${"=".repeat(60)}`);
   console.log("📋 Schema Extraction");

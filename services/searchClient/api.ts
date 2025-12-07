@@ -1,3 +1,10 @@
+/**
+ * Search Client Service API
+ *
+ * @since 1.0.0
+ * @module SearchClient
+ */
+
 import type * as Effect from "effect/Effect";
 import type { SearchError } from "./errors.js";
 import type { SearchOptions, SearchResult } from "./types.js";

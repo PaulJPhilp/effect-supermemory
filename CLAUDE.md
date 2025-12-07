@@ -244,6 +244,12 @@ services/[serviceName]/
 - Error classes: PascalCase + "Error" suffix (e.g., `MemoryNotFoundError`)
 - Files: PascalCase for types/services, lowercase for utilities (e.g., `service.ts`, `helpers.ts`)
 
+**Type definitions:**
+- **REQUIRED:** All API contracts in `api.ts` files MUST use `interface` instead of `type` for object shapes
+- Use `export interface ServiceApi { ... }` not `export type ServiceApi = { ... }`
+- This applies to all service API definitions (e.g., `InMemoryClientApi`, `HttpClientApi`, `SupermemoryHttpClient`)
+- Type aliases (`type`) are acceptable for unions, intersections, or utility types, but object shapes must be interfaces
+
 ### Testing Patterns
 
 **Unit Tests** (`**/__tests__/*.test.ts` and `test/**/*.test.ts`):

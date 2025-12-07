@@ -84,19 +84,17 @@ export {
   type SupermemoryClientConfigType,
 } from "@services/supermemoryClient/types.js";
 // Re-export HTTP client
-export {
-  ApiVersions,
-  type SupermemoryHttpClient,
-} from "@services/client/api.js";
+export type { SupermemoryHttpClient } from "@services/client/api.js";
 export { mapHttpError } from "@services/client/helpers.js";
 export { SupermemoryHttpClientService } from "@services/client/service.js";
+export { ApiVersions } from "@services/client/types.js";
 
+export type { SupermemoryConfig } from "@services/config/api.js";
 export {
   SupermemoryConfigFromValues,
   SupermemoryConfigLive,
   SupermemoryConfigService,
 } from "@services/config/service.js";
-export type { SupermemoryConfig } from "@services/config/types.js";
 
 // Re-export domain models
 export {
@@ -123,10 +121,7 @@ export {
 
 // Re-export Ingest service
 export type { IngestServiceOps } from "@services/ingest/api.js";
-export {
-  IngestService,
-  IngestServiceLive,
-} from "@services/ingest/service.js";
+export { IngestService, IngestServiceLive } from "@services/ingest/service.js";
 
 // Re-export Search service and Filter API
 export type { SearchServiceOps } from "@services/search/api.js";
@@ -135,7 +130,4 @@ export {
   toJSON,
   type FilterExpression,
 } from "@services/search/filterBuilder.js";
-export {
-  SearchService,
-  SearchServiceLive,
-} from "@services/search/service.js";
+export { SearchService, SearchServiceLive } from "@services/search/service.js";

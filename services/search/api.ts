@@ -1,9 +1,12 @@
 /**
+ * Search Service API
+ *
  * @since 1.0.0
  * @module Search
  */
-import type { Effect } from "effect";
+
 import type { SupermemoryError } from "@/Errors.js";
+import type { Effect } from "effect";
 import type {
   DocumentChunk,
   SearchOptions,
@@ -12,6 +15,8 @@ import type {
 
 /**
  * Search service interface.
+ *
+ * Provides methods for searching documents (RAG path) and memories (Chat path).
  *
  * @since 1.0.0
  * @category Services

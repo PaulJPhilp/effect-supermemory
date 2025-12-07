@@ -1,13 +1,18 @@
 /**
+ * Ingest Service API
+ *
  * @since 1.0.0
  * @module Ingest
  */
-import type { Effect } from "effect";
+
 import type { SupermemoryError } from "@/Errors.js";
+import type { Effect } from "effect";
 import type { IngestOptions, IngestResponse } from "./types.js";
 
 /**
  * Ingest service interface.
+ *
+ * Provides methods for adding text content and URLs to Supermemory.
  *
  * @since 1.0.0
  * @category Services

@@ -1,8 +1,24 @@
+/**
+ * HTTP Client Service API
+ *
+ * @since 1.0.0
+ * @module HttpClient
+ */
+
 import type { HttpBody } from "@effect/platform/HttpBody";
 import type { Effect, Stream } from "effect";
 import type { HttpClientError } from "./errors.js";
 import type { HttpPath, HttpRequestOptions, HttpResponse } from "./types.js";
 
+/**
+ * HTTP client interface.
+ *
+ * Provides methods for making HTTP requests with proper error handling
+ * and streaming support for large responses.
+ *
+ * @since 1.0.0
+ * @category Services
+ */
 export type HttpClientApi = {
   /**
    * Sends an HTTP request and returns the response body as JSON.

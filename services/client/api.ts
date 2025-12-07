@@ -4,20 +4,12 @@
  * @since 1.0.0
  * @module Client
  */
+/** biome-ignore-all assist/source/organizeImports: <> */
 
-import type { Effect, Schema } from "effect";
 import type { SupermemoryError } from "@/Errors.js";
-
-/**
- * API version paths for different endpoints.
- *
- * @since 1.0.0
- * @category Constants
- */
-export const ApiVersions = {
-  V3: "/v3",
-  V4: "/v4",
-} as const;
+import type { HttpBody } from "@effect/platform/HttpBody";
+import type { HttpMethod } from "@services/httpClient/types.js";
+import type { Effect, Schema } from "effect";
 
 /**
  * Supermemory HTTP client interface.
@@ -52,10 +44,10 @@ export type SupermemoryHttpClient = {
    * @since 1.0.0
    */
   readonly requestV3: <A, I, R>(
-    method: "GET" | "POST" | "PUT" | "DELETE",
+    method: HttpMethod,
     path: string,
     options?: {
-      readonly body?: unknown;
+      readonly body?: HttpBody | unknown;
       readonly schema?: Schema.Schema<A, I, R>;
     }
   ) => Effect.Effect<A, SupermemoryError, R>;
@@ -83,10 +75,10 @@ export type SupermemoryHttpClient = {
    * @since 1.0.0
    */
   readonly requestV4: <A, I, R>(
-    method: "GET" | "POST" | "PUT" | "DELETE",
+    method: HttpMethod,
     path: string,
     options?: {
-      readonly body?: unknown;
+      readonly body?: HttpBody | unknown;
       readonly schema?: Schema.Schema<A, I, R>;
     }
   ) => Effect.Effect<A, SupermemoryError, R>;

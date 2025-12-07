@@ -26,5 +26,5 @@
       }
     ]
   },
-  "include": ["src", "test", "services", "vitest.config.ts"]
+  "include": ["src", "test", "services", "scripts", "vitest.config.ts"]
 }
