@@ -19,6 +19,7 @@ import { buildSearchParams } from "./helpers.js";
 import type {
   DocumentChunk,
   SearchDocumentsResponse,
+  SearchExecuteResponse,
   SearchMemoriesResponse,
   SearchOptions,
   SupermemoryMemory,
@@ -75,6 +76,48 @@ const makeSearchService = Effect.gen(function* () {
       })
     );
 
+  const execute = (
+    query: string,
+    options?: SearchOptions
+  ): Effect.Effect<readonly DocumentChunk[], SupermemoryError> =>
+    Effect.gen(function* () {
+      // Validate query (must be non-empty string)
+      const validatedQuery = yield* Schema.decodeUnknown(
+        Schema.String.pipe(Schema.minLength(1))
+      )(query).pipe(
+        Effect.mapError(
+          (error) =>
+            new SupermemoryValidationError({
+              message: ERROR_MESSAGES.QUERY_MUST_BE_NON_EMPTY_STRING,
+              details: error,
+            })
+        )
+      );
+
+      // Build request body
+      const body = buildSearchParams(validatedQuery, options);
+
+      // Make request to search execute endpoint
+      const response = yield* httpClient.request<
+        SearchExecuteResponse,
+        unknown,
+        never
+      >("POST", API_ENDPOINTS.SEARCH.EXECUTE, {
+        body,
+      });
+
+      return response.results;
+    }).pipe(
+      Effect.withSpan(SPANS.SEARCH_EXECUTE, {
+        attributes: {
+          [TELEMETRY_ATTRIBUTES.QUERY_LENGTH]: query.length,
+          [TELEMETRY_ATTRIBUTES.TOP_K]: options?.topK,
+          [TELEMETRY_ATTRIBUTES.THRESHOLD]: options?.threshold,
+          [TELEMETRY_ATTRIBUTES.HAS_FILTERS]: options?.filters !== undefined,
+        },
+      })
+    );
+
   const searchMemories = (
     query: string,
     options?: SearchOptions
@@ -119,6 +162,7 @@ const makeSearchService = Effect.gen(function* () {
 
   return {
     searchDocuments,
+    execute,
     searchMemories,
   } satisfies SearchServiceOps;
 });

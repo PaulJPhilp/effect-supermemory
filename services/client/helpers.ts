@@ -50,7 +50,7 @@ export const extractRetryAfter = (headers: HeadersLike): number | undefined => {
   }
 
   const seconds = Number.parseInt(retryAfter, 10);
-  if (!Number.isNaN(seconds)) {
+  if (!Number.isNaN(seconds) && seconds >= 0) {
     return seconds * 1000;
   }
 

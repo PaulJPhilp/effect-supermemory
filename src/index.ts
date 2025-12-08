@@ -53,6 +53,7 @@ export {
   IngestResponse,
   Metadata,
   SearchDocumentsResponse,
+  SearchExecuteResponse,
   SearchMemoriesResponse,
   SearchOptions,
   SupermemoryDocument,
@@ -110,3 +111,44 @@ export {
   type FilterExpression,
 } from "@services/search/filterBuilder.js";
 export { SearchService, SearchServiceLive } from "@services/search/service.js";
+
+// Connections service (OAuth integrations)
+export type { ConnectionsServiceOps } from "@services/connections/api.js";
+export {
+  ConnectionsService,
+  ConnectionsServiceLive,
+} from "@services/connections/service.js";
+export type {
+  Connection,
+  ConnectionCreateParams,
+  ConnectionCreateResponse,
+  ConnectionDeleteByIDResponse,
+  ConnectionDeleteByProviderParams,
+  ConnectionDeleteByProviderResponse,
+  ConnectionDocument,
+  ConnectionGetByIDResponse,
+  ConnectionGetByTagsParams,
+  ConnectionGetByTagsResponse,
+  ConnectionImportParams,
+  ConnectionImportResponse,
+  ConnectionListDocumentsParams,
+  ConnectionListDocumentsResponse,
+  ConnectionListParams,
+  ConnectionListResponse,
+  ConnectionMetadata,
+  ConnectionProvider,
+} from "@services/connections/types.js";
+
+// Settings service (Organization configuration)
+export type { SettingsServiceOps } from "@services/settings/api.js";
+export {
+  SettingsService,
+  SettingsServiceLive,
+} from "@services/settings/service.js";
+export type {
+  OrganizationSettings,
+  SettingsGetResponse,
+  SettingsJsonValue,
+  SettingsUpdateParams,
+  SettingsUpdateResponse,
+} from "@services/settings/types.js";

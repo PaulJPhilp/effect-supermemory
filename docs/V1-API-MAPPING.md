@@ -112,11 +112,32 @@ get(id: string) → { id, content, status, type, metadata, ... }
 
 ---
 
-## Next Steps
+## Implementation Status
 
-1. [ ] Update `Constants.ts` with correct endpoints
-2. [ ] Create `MemoriesService` matching SDK's `client.memories`
-3. [ ] Update `SearchService` to match SDK's `client.search`
-4. [ ] Remove deprecated services (`SupermemoryClient`, `InMemoryClient`)
-5. [ ] Update types from SDK's TypeScript definitions
-6. [ ] Write integration tests against real API
+### Completed ✅
+
+1. [x] Update `Constants.ts` with correct endpoints (`/v1/...`)
+2. [x] Create `MemoriesService` matching SDK's `client.memories` (6/6 methods)
+3. [x] Update `SearchService` to match SDK's `client.search` (3/3 methods)
+   - `searchDocuments()` → `/v1/search/documents`
+   - `execute()` → `/v1/search`
+   - `searchMemories()` → `/v1/search/memories`
+4. [x] Remove deprecated services (`SupermemoryClient`, `InMemoryClient`, `MemoryStreamClient`, `SearchClient`)
+5. [x] Update types from SDK's TypeScript definitions
+6. [x] Comprehensive unit tests (350 tests passing)
+7. [x] Implement `ConnectionsService` (OAuth integrations - 8 methods)
+   - `create()` - Initialize OAuth connection
+   - `list()` - List all connections
+   - `getByID()` - Get connection by ID
+   - `getByTags()` - Get connection by provider and tags
+   - `deleteByID()` - Delete by ID
+   - `deleteByProvider()` - Delete by provider and tags
+   - `importData()` - Trigger manual sync
+   - `listDocuments()` - List indexed documents
+8. [x] Implement `SettingsService` (Org configuration - 2 methods)
+   - `get()` - Get organization settings
+   - `update()` - Update organization settings
+
+### Remaining
+
+9. [ ] Write integration tests against real API

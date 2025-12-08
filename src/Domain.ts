@@ -200,6 +200,21 @@ export type SearchDocumentsResponse = Schema.Schema.Type<
 >;
 
 /**
+ * Response from general search execution.
+ * Same structure as SearchDocumentsResponse.
+ *
+ * @since 1.0.0
+ * @category Schemas
+ */
+export const SearchExecuteResponse = Schema.Struct({
+  results: Schema.Array(DocumentChunk),
+  query: Schema.optional(Schema.String),
+});
+export type SearchExecuteResponse = Schema.Schema.Type<
+  typeof SearchExecuteResponse
+>;
+
+/**
  * Response from memory search (Chat path).
  *
  * @since 1.0.0

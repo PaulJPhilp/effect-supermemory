@@ -1,6 +1,7 @@
 export type {
   DocumentChunk,
   SearchDocumentsResponse,
+  SearchExecuteResponse,
   SearchMemoriesResponse,
   SearchOptions,
   SupermemoryMemory,

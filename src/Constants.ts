@@ -81,6 +81,7 @@ export const HTTP_STATUS = {
  */
 export const SPANS = {
   SEARCH_DOCUMENTS: "supermemory.search.documents",
+  SEARCH_EXECUTE: "supermemory.search.execute",
   SEARCH_MEMORIES: "supermemory.search.memories",
   INGEST_ADD_TEXT: "supermemory.ingest.addText",
   INGEST_ADD_URL: "supermemory.ingest.addUrl",

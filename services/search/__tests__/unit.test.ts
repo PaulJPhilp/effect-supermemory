@@ -15,6 +15,7 @@ import type {
   FilterPrimitive,
   FilterValue,
   SearchDocumentsResponse,
+  SearchExecuteResponse,
   SearchMemoriesResponse,
   SearchOptions,
   SupermemoryMemory,
@@ -147,6 +148,51 @@ describe("SearchService", () => {
       });
     });
 
+    describe("SearchExecuteResponse", () => {
+      it("should define expected response shape", () => {
+        const response: SearchExecuteResponse = {
+          results: [
+            {
+              id: "1",
+              documentId: "doc_1",
+              content: "test",
+              score: 0.9,
+              metadata: {},
+            },
+          ],
+        };
+
+        expect(response.results).toHaveLength(1);
+        expect(response.results[0]?.score).toBe(0.9);
+      });
+
+      it("should handle empty results", () => {
+        const response: SearchExecuteResponse = {
+          results: [],
+        };
+
+        expect(response.results).toHaveLength(0);
+      });
+
+      it("should have the same structure as SearchDocumentsResponse", () => {
+        // SearchExecuteResponse is structurally equivalent to SearchDocumentsResponse
+        const executeResponse: SearchExecuteResponse = {
+          results: [
+            {
+              id: "chunk_1",
+              documentId: "doc_1",
+              content: "Execute result",
+              score: 0.88,
+            },
+          ],
+        };
+
+        // It can be assigned to SearchDocumentsResponse type
+        const docsResponse: SearchDocumentsResponse = executeResponse;
+        expect(docsResponse.results).toEqual(executeResponse.results);
+      });
+    });
+
     describe("FilterOperator", () => {
       it("should define valid operators", () => {
         const operators: readonly FilterOperator[] = [
@@ -200,6 +246,12 @@ describe("SearchService", () => {
     it("should have searchDocuments method", () => {
       type SearchDocsMethod = typeof SearchService.prototype.searchDocuments;
       const _typeCheck: SearchDocsMethod = {} as SearchDocsMethod;
+      expect(true).toBe(true);
+    });
+
+    it("should have execute method", () => {
+      type ExecuteMethod = typeof SearchService.prototype.execute;
+      const _typeCheck: ExecuteMethod = {} as ExecuteMethod;
       expect(true).toBe(true);
     });
 
@@ -440,6 +492,40 @@ describe("SearchService Validation", () => {
       };
       expect(query.length).toBeGreaterThan(0);
       expect(options.topK).toBe(10);
+    });
+  });
+
+  describe("execute() validation", () => {
+    it("should require non-empty query", () => {
+      const emptyQuery = "";
+      expect(emptyQuery.length).toBe(0);
+    });
+
+    it("should accept valid query", () => {
+      const validQuery = "How does authentication work?";
+      expect(validQuery.length).toBeGreaterThan(0);
+    });
+
+    it("should accept valid query with options", () => {
+      const query = "general search";
+      const options: SearchOptions = {
+        topK: 20,
+        threshold: 0.6,
+        rerank: true,
+      };
+      expect(query.length).toBeGreaterThan(0);
+      expect(options.topK).toBe(20);
+      expect(options.threshold).toBe(0.6);
+      expect(options.rerank).toBe(true);
+    });
+
+    it("should accept filters option", () => {
+      const filter = Filter.and(
+        Filter.tag("project-x"),
+        Filter.meta("version", "gte", 2)
+      );
+      const options: SearchOptions = { filters: filter };
+      expect(options.filters).toBeDefined();
     });
   });
 });

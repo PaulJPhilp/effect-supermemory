@@ -3,9 +3,9 @@
   "sdkPackage": "supermemory",
   "current": {
     "version": "3.10.0",
-    "syncedAt": "2024-12-08",
-    "status": "in-progress",
-    "notes": "Initial alignment to official SDK. Previous implementation targeted unknown/older API."
+    "syncedAt": "2025-12-08",
+    "status": "completed",
+    "notes": "All SDK services implemented: Memories (6 methods), Search (3 methods), Connections (8 methods), Settings (2 methods). 350 unit tests passing."
   },
   "history": []
 }

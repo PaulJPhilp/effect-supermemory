@@ -145,9 +145,8 @@ describe("extractRetryAfter", () => {
     it("returns undefined for negative number", () => {
       const headers = { "retry-after": "-30" };
       const result = extractRetryAfter(headers);
-      // parseInt returns -30, which * 1000 = -30000
-      // This is technically valid but unusual
-      expect(result).toBe(-30_000);
+      // Negative values are invalid per HTTP semantics
+      expect(result).toBeUndefined();
     });
 
     it("returns undefined for floating point", () => {
