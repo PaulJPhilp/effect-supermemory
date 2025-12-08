@@ -65,11 +65,3 @@ export class SettingsService extends Effect.Service<SettingsServiceOps>()(
     effect: makeSettingsService,
   }
 ) {}
-
-/**
- * Live layer for SettingsService.
- *
- * @since 1.0.0
- * @category Layers
- */
-export const SettingsServiceLive = SettingsService.Default;

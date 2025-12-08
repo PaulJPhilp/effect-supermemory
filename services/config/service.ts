@@ -4,23 +4,47 @@
  * @module Config
  */
 
-import { Effect, Layer, type Redacted } from "effect";
-import { fromProcess, makeEnvSchema } from "effect-env";
+import { Effect, Layer, Redacted, type Redacted as RedactedType } from "effect";
 import type { SupermemoryConfig } from "./api.js";
-import { buildConfigFromEnv } from "./helpers.js";
-import { SupermemoryConfigEnv } from "./schema.js";
-
-const SupermemoryConfigEnvSchema = makeEnvSchema(
-  SupermemoryConfigEnv as unknown as Parameters<typeof makeEnvSchema>[0]
-);
 
 /**
- * Environment layer for Supermemory configuration.
- *
- * @since 1.0.0
- * @category Layers
+ * Default configuration values.
  */
-const envLayer = fromProcess(SupermemoryConfigEnvSchema);
+const DEFAULTS = {
+  BASE_URL: "https://api.supermemory.ai",
+  DEFAULT_THRESHOLD: 0.7,
+  TIMEOUT_MS: 30_000,
+} as const;
+
+/**
+ * Build SupermemoryConfig from process.env directly.
+ * Avoids effect-env to prevent Effect version conflicts.
+ */
+function buildConfigFromProcessEnv(): SupermemoryConfig {
+  const apiKey = process.env.SUPERMEMORY_API_KEY ?? "";
+  const workspaceId = process.env.SUPERMEMORY_WORKSPACE_ID;
+  const baseUrl = process.env.SUPERMEMORY_BASE_URL ?? DEFAULTS.BASE_URL;
+
+  const thresholdStr = process.env.SUPERMEMORY_DEFAULT_THRESHOLD;
+  const timeoutStr = process.env.SUPERMEMORY_TIMEOUT_MS;
+
+  const defaultThreshold = thresholdStr
+    ? Number.parseFloat(thresholdStr)
+    : DEFAULTS.DEFAULT_THRESHOLD;
+  const timeoutMs = timeoutStr
+    ? Number.parseInt(timeoutStr, 10)
+    : DEFAULTS.TIMEOUT_MS;
+
+  return {
+    apiKey: Redacted.make(apiKey),
+    workspaceId,
+    baseUrl,
+    defaultThreshold: Number.isNaN(defaultThreshold)
+      ? DEFAULTS.DEFAULT_THRESHOLD
+      : defaultThreshold,
+    timeoutMs: Number.isNaN(timeoutMs) ? DEFAULTS.TIMEOUT_MS : timeoutMs,
+  };
+}
 
 /**
  * Context tag for SupermemoryConfig.
@@ -32,20 +56,19 @@ export class SupermemoryConfigService extends Effect.Service<SupermemoryConfig>(
   "@effect-supermemory/Config",
   {
     accessors: true,
-    effect: buildConfigFromEnv(),
+    sync: buildConfigFromProcessEnv,
   }
 ) {}
 
 /**
- * Live layer for SupermemoryConfig.
+ * Layer for SupermemoryConfig that reads from process environment.
+ *
+ * Usage: Effect.provide(myProgram, SupermemoryConfigFromEnv)
  *
  * @since 1.0.0
  * @category Layers
  */
-export const SupermemoryConfigLive = Layer.provide(
-  SupermemoryConfigService.Default,
-  envLayer as unknown as Layer.Layer<unknown, unknown, unknown>
-);
+export const SupermemoryConfigFromEnv = SupermemoryConfigService.Default;
 
 /**
  * Create a config layer from explicit values.
@@ -55,12 +78,12 @@ export const SupermemoryConfigLive = Layer.provide(
  * @category Layers
  */
 export const SupermemoryConfigFromValues = (
-  config: Partial<SupermemoryConfig> & { apiKey: Redacted.Redacted<string> }
+  config: Partial<SupermemoryConfig> & { apiKey: RedactedType.Redacted<string> }
 ): Layer.Layer<SupermemoryConfigService> =>
   Layer.succeed(SupermemoryConfigService, {
     apiKey: config.apiKey,
     workspaceId: config.workspaceId,
-    baseUrl: config.baseUrl ?? "https://api.supermemory.ai",
-    defaultThreshold: config.defaultThreshold ?? 0.7,
-    timeoutMs: config.timeoutMs ?? 30_000,
+    baseUrl: config.baseUrl ?? DEFAULTS.BASE_URL,
+    defaultThreshold: config.defaultThreshold ?? DEFAULTS.DEFAULT_THRESHOLD,
+    timeoutMs: config.timeoutMs ?? DEFAULTS.TIMEOUT_MS,
   });

@@ -127,10 +127,7 @@ describe("Filter Builder", () => {
       const filter = Filter.scoreRange(0.5, 1.0);
       const json = toJSON(filter);
       expect(json).toEqual({
-        $and: [
-          { score: { $gte: 0.5 } },
-          { score: { $lte: 1.0 } },
-        ],
+        $and: [{ score: { $gte: 0.5 } }, { score: { $lte: 1.0 } }],
       });
     });
 
@@ -210,10 +207,7 @@ describe("Filter Builder", () => {
         $and: [
           { tag: "archived" },
           {
-            $and: [
-              { "metadata.author": "Paul" },
-              { score: { $gte: 0.8 } },
-            ],
+            $and: [{ "metadata.author": "Paul" }, { score: { $gte: 0.8 } }],
           },
         ],
       });
@@ -351,10 +345,7 @@ describe("Filter Builder", () => {
           {
             $or: [
               {
-                $and: [
-                  { "metadata.author": "Paul" },
-                  { score: { $gte: 0.8 } },
-                ],
+                $and: [{ "metadata.author": "Paul" }, { score: { $gte: 0.8 } }],
               },
               {
                 $and: [
@@ -405,4 +396,3 @@ describe("Filter Builder", () => {
     });
   });
 });
-

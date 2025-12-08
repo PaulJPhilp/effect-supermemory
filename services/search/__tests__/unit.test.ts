@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import { Filter, toJSON } from "../filterBuilder.js";
 import { buildSearchParams } from "../helpers.js";
-import { SearchService, SearchServiceLive } from "../service.js";
+import { SearchService } from "../service.js";
 import type {
   DocumentChunk,
   FilterOperator,
@@ -28,8 +28,8 @@ describe("SearchService", () => {
       expect(typeof SearchService).toBe("function");
     });
 
-    it("should export SearchServiceLive layer", () => {
-      expect(SearchServiceLive).toBeDefined();
+    it("should export Default layer via SearchService.Default", () => {
+      expect(SearchService.Default).toBeDefined();
     });
 
     it("should have the correct service tag", () => {

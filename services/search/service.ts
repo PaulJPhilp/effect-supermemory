@@ -180,11 +180,3 @@ export class SearchService extends Effect.Service<SearchServiceOps>()(
     effect: makeSearchService,
   }
 ) {}
-
-/**
- * Live layer for SearchService.
- *
- * @since 1.0.0
- * @category Layers
- */
-export const SearchServiceLive = SearchService.Default;

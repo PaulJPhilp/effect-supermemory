@@ -323,11 +323,3 @@ export class MemoriesService extends Effect.Service<MemoriesService>()(
     effect: makeMemoriesService,
   }
 ) {}
-
-/**
- * Live layer for MemoriesService.
- *
- * @since 1.0.0
- * @category Layers
- */
-export const MemoriesServiceLive = MemoriesService.Default;

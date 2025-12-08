@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { SettingsService, SettingsServiceLive } from "../service.js";
+import { SettingsService } from "../service.js";
 import type {
   OrganizationSettings,
   SettingsGetResponse,
@@ -22,8 +22,8 @@ describe("SettingsService", () => {
       expect(typeof SettingsService).toBe("function");
     });
 
-    it("should export SettingsServiceLive layer", () => {
-      expect(SettingsServiceLive).toBeDefined();
+    it("should export Default layer via SettingsService.Default", () => {
+      expect(SettingsService.Default).toBeDefined();
     });
 
     it("should have the correct service tag", () => {

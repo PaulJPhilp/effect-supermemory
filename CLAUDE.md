@@ -238,11 +238,38 @@ services/[serviceName]/
 ```
 
 **Naming conventions:**
-- Interface types: PascalCase + "Api" suffix (e.g., `InMemoryClientApi`, `HttpClientApi`)
-- Service classes: PascalCase (no suffix) (e.g., `InMemoryClient`, `HttpClient`)
-- **FORBIDDEN:** Never use "Impl" suffix for service classes (e.g., `MemoryClientImpl` is forbidden)
+- Interface types: PascalCase + "Ops" suffix (e.g., `MemoriesServiceOps`, `SearchServiceOps`)
+- Service classes: PascalCase + "Service" suffix (e.g., `MemoriesService`, `SearchService`)
 - Error classes: PascalCase + "Error" suffix (e.g., `MemoryNotFoundError`)
-- Files: PascalCase for types/services, lowercase for utilities (e.g., `service.ts`, `helpers.ts`)
+- Files: lowercase for all (e.g., `service.ts`, `helpers.ts`, `api.ts`)
+
+**Effect.Service Pattern (STRICT):**
+```typescript
+// CORRECT: Service class extends Effect.Service with ITSELF as type parameter
+export class MemoriesService extends Effect.Service<MemoriesService>()(
+  SERVICE_TAGS.MEMORIES,
+  { effect: makeMemoriesService }
+) {}
+
+// CORRECT: Access via ServiceName.Default
+const layer = MemoriesService.Default;
+```
+
+**FORBIDDEN Naming Patterns:**
+- `XXXLive` - Never use "Live" suffix (e.g., `MemoriesServiceLive` is FORBIDDEN)
+- `XXXImpl` - Never use "Impl" suffix (e.g., `MemoriesServiceImpl` is FORBIDDEN)  
+- `XXXLayer` - Never use "Layer" suffix (e.g., `MemoriesServiceLayer` is FORBIDDEN)
+
+**Layer Export Names:**
+- Use descriptive names based on the layer's purpose
+- Example: `SupermemoryConfigFromEnv` (reads from environment)
+- Example: `SupermemoryConfigFromValues` (accepts explicit values)
+- NOT: `SupermemoryConfigLive` or `SupermemoryConfigLayer`
+
+**FORBIDDEN: Double Casts:**
+- Never use `as unknown as Type` - this bypasses type safety entirely
+- If a double cast seems necessary, fix the underlying type mismatch instead
+- For third-party library interop issues, use proper type declarations or wrapper functions
 
 **Type definitions:**
 - **REQUIRED:** All API contracts in `api.ts` files MUST use `interface` instead of `type` for object shapes

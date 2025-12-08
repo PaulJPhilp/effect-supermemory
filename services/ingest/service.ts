@@ -151,11 +151,3 @@ export class IngestService extends Effect.Service<IngestServiceOps>()(
     effect: makeIngestService,
   }
 ) {}
-
-/**
- * Live layer for IngestService.
- *
- * @since 1.0.0
- * @category Layers
- */
-export const IngestServiceLive = IngestService.Default;

@@ -9,10 +9,7 @@ const __dirname = path.dirname(__filename);
 export default defineConfig({
   test: {
     environment: "node",
-    include: [
-      "**/__tests__/*.test.{ts,js}",
-      "test/**/*.test.{ts,js}",
-    ],
+    include: ["**/__tests__/*.test.{ts,js}", "test/**/*.test.{ts,js}"],
     env: loadEnv("test", process.cwd(), ""), // Load .env file
     globals: true, // Enable globals for .js files
   },

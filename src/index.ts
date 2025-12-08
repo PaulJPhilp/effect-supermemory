@@ -37,12 +37,7 @@ export { SupermemoryHttpClientService } from "@services/client/service.js";
 export { ApiVersions } from "@services/client/types.js";
 
 // Configuration exports
-export type { SupermemoryConfig } from "@services/config/api.js";
-export {
-  SupermemoryConfigFromValues,
-  SupermemoryConfigLive,
-  SupermemoryConfigService,
-} from "@services/config/service.js";
+export { SupermemoryConfigFromEnv } from "@services/config/service.js";
 
 // Domain models
 export {
@@ -72,10 +67,7 @@ export {
 
 // Memories service (V1.0)
 export type { MemoriesServiceApi } from "@services/memories/api.js";
-export {
-  MemoriesService,
-  MemoriesServiceLive,
-} from "@services/memories/service.js";
+export { MemoriesService } from "@services/memories/service.js";
 export type {
   Memory,
   MemoryAddParams,
@@ -101,7 +93,7 @@ export type {
 /** @deprecated Use MemoriesService instead */
 export type { IngestServiceOps } from "@services/ingest/api.js";
 /** @deprecated Use MemoriesService instead */
-export { IngestService, IngestServiceLive } from "@services/ingest/service.js";
+export { IngestService } from "@services/ingest/service.js";
 
 // Search service and Filter API
 export type { SearchServiceOps } from "@services/search/api.js";
@@ -110,14 +102,11 @@ export {
   toJSON,
   type FilterExpression,
 } from "@services/search/filterBuilder.js";
-export { SearchService, SearchServiceLive } from "@services/search/service.js";
+export { SearchService } from "@services/search/service.js";
 
 // Connections service (OAuth integrations)
 export type { ConnectionsServiceOps } from "@services/connections/api.js";
-export {
-  ConnectionsService,
-  ConnectionsServiceLive,
-} from "@services/connections/service.js";
+export { ConnectionsService } from "@services/connections/service.js";
 export type {
   Connection,
   ConnectionCreateParams,
@@ -141,10 +130,7 @@ export type {
 
 // Settings service (Organization configuration)
 export type { SettingsServiceOps } from "@services/settings/api.js";
-export {
-  SettingsService,
-  SettingsServiceLive,
-} from "@services/settings/service.js";
+export { SettingsService } from "@services/settings/service.js";
 export type {
   OrganizationSettings,
   SettingsGetResponse,

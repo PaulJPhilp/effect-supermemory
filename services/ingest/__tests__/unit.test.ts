@@ -9,7 +9,7 @@
 
 import { SERVICE_TAGS } from "@/Constants.js";
 import { describe, expect, it } from "vitest";
-import { IngestService, IngestServiceLive } from "../service.js";
+import { IngestService } from "../service.js";
 import type { IngestOptions, IngestResponse } from "../types.js";
 
 describe("IngestService", () => {
@@ -19,8 +19,8 @@ describe("IngestService", () => {
       expect(typeof IngestService).toBe("function");
     });
 
-    it("should export IngestServiceLive layer", () => {
-      expect(IngestServiceLive).toBeDefined();
+    it("should export Default layer via IngestService.Default", () => {
+      expect(IngestService.Default).toBeDefined();
     });
 
     it("should have the correct service tag", () => {

@@ -175,11 +175,3 @@ export class ConnectionsService extends Effect.Service<ConnectionsServiceOps>()(
     effect: makeConnectionsService,
   }
 ) {}
-
-/**
- * Live layer for ConnectionsService.
- *
- * @since 1.0.0
- * @category Layers
- */
-export const ConnectionsServiceLive = ConnectionsService.Default;

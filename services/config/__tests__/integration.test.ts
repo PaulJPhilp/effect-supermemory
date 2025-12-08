@@ -1,5 +1,5 @@
 /**
- * SupermemoryConfig Service Integration Tests
+ * SupermemoryConfigService Integration Tests
  *
  * Tests environment variable parsing and default value handling.
  * These tests require environment variables to be set.
@@ -11,7 +11,10 @@
 import { Effect, Redacted } from "effect";
 import { describe, expect, it } from "vitest";
 import type { SupermemoryConfig } from "../api.js";
-import { SupermemoryConfigLive, SupermemoryConfigService } from "../service.js";
+import {
+  SupermemoryConfigFromEnv,
+  SupermemoryConfigService,
+} from "../service.js";
 
 describe("SupermemoryConfigService Integration", () => {
   describe("Environment Variable Parsing", () => {
@@ -28,7 +31,7 @@ describe("SupermemoryConfigService Integration", () => {
         const program = Effect.gen(function* () {
           const config = yield* SupermemoryConfigService;
           return config;
-        }).pipe(Effect.provide(SupermemoryConfigLive)) as Effect.Effect<
+        }).pipe(Effect.provide(SupermemoryConfigFromEnv)) as Effect.Effect<
           SupermemoryConfig,
           unknown,
           never
@@ -60,7 +63,7 @@ describe("SupermemoryConfigService Integration", () => {
         const program = Effect.gen(function* () {
           const config = yield* SupermemoryConfigService;
           return config;
-        }).pipe(Effect.provide(SupermemoryConfigLive)) as Effect.Effect<
+        }).pipe(Effect.provide(SupermemoryConfigFromEnv)) as Effect.Effect<
           SupermemoryConfig,
           unknown,
           never
@@ -88,7 +91,7 @@ describe("SupermemoryConfigService Integration", () => {
         const program = Effect.gen(function* () {
           const config = yield* SupermemoryConfigService;
           return config;
-        }).pipe(Effect.provide(SupermemoryConfigLive)) as Effect.Effect<
+        }).pipe(Effect.provide(SupermemoryConfigFromEnv)) as Effect.Effect<
           SupermemoryConfig,
           unknown,
           never
@@ -113,7 +116,7 @@ describe("SupermemoryConfigService Integration", () => {
         const program = Effect.gen(function* () {
           const config = yield* SupermemoryConfigService;
           return config;
-        }).pipe(Effect.provide(SupermemoryConfigLive)) as Effect.Effect<
+        }).pipe(Effect.provide(SupermemoryConfigFromEnv)) as Effect.Effect<
           SupermemoryConfig,
           unknown,
           never
@@ -138,7 +141,7 @@ describe("SupermemoryConfigService Integration", () => {
         const program = Effect.gen(function* () {
           const config = yield* SupermemoryConfigService;
           return config;
-        }).pipe(Effect.provide(SupermemoryConfigLive)) as Effect.Effect<
+        }).pipe(Effect.provide(SupermemoryConfigFromEnv)) as Effect.Effect<
           SupermemoryConfig,
           unknown,
           never
@@ -164,7 +167,7 @@ describe("SupermemoryConfigService Integration", () => {
         const program = Effect.gen(function* () {
           const config = yield* SupermemoryConfigService;
           return config;
-        }).pipe(Effect.provide(SupermemoryConfigLive)) as Effect.Effect<
+        }).pipe(Effect.provide(SupermemoryConfigFromEnv)) as Effect.Effect<
           SupermemoryConfig,
           unknown,
           never
@@ -188,7 +191,7 @@ describe("SupermemoryConfigService Integration", () => {
         const program = Effect.gen(function* () {
           const config = yield* SupermemoryConfigService;
           return config;
-        }).pipe(Effect.provide(SupermemoryConfigLive)) as Effect.Effect<
+        }).pipe(Effect.provide(SupermemoryConfigFromEnv)) as Effect.Effect<
           SupermemoryConfig,
           unknown,
           never
@@ -212,7 +215,7 @@ describe("SupermemoryConfigService Integration", () => {
         const program = Effect.gen(function* () {
           const config = yield* SupermemoryConfigService;
           return config;
-        }).pipe(Effect.provide(SupermemoryConfigLive)) as Effect.Effect<
+        }).pipe(Effect.provide(SupermemoryConfigFromEnv)) as Effect.Effect<
           SupermemoryConfig,
           unknown,
           never
@@ -238,7 +241,7 @@ describe("SupermemoryConfigService Integration", () => {
         const program = Effect.gen(function* () {
           const config = yield* SupermemoryConfigService;
           return config;
-        }).pipe(Effect.provide(SupermemoryConfigLive)) as Effect.Effect<
+        }).pipe(Effect.provide(SupermemoryConfigFromEnv)) as Effect.Effect<
           SupermemoryConfig,
           unknown,
           never
@@ -261,7 +264,7 @@ describe("SupermemoryConfigService Integration", () => {
         const program = Effect.gen(function* () {
           const config = yield* SupermemoryConfigService;
           return config;
-        }).pipe(Effect.provide(SupermemoryConfigLive)) as Effect.Effect<
+        }).pipe(Effect.provide(SupermemoryConfigFromEnv)) as Effect.Effect<
           SupermemoryConfig,
           unknown,
           never
@@ -290,7 +293,7 @@ describe("SupermemoryConfigService Integration", () => {
             apiKey: Redacted.value(config.apiKey),
             workspaceId: config.workspaceId,
           };
-        }).pipe(Effect.provide(SupermemoryConfigLive)) as Effect.Effect<
+        }).pipe(Effect.provide(SupermemoryConfigFromEnv)) as Effect.Effect<
           { apiKey: string; workspaceId: string | undefined },
           unknown,
           never

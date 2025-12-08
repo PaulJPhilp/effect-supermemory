@@ -8,7 +8,7 @@
 
 import { SERVICE_TAGS } from "@/Constants.js";
 import { describe, expect, it } from "vitest";
-import { MemoriesService, MemoriesServiceLive } from "../service.js";
+import { MemoriesService } from "../service.js";
 import type {
   Memory,
   MemoryAddParams,
@@ -35,8 +35,8 @@ describe("MemoriesService", () => {
       expect(typeof MemoriesService).toBe("function");
     });
 
-    it("should export MemoriesServiceLive layer", () => {
-      expect(MemoriesServiceLive).toBeDefined();
+    it("should export Default layer via MemoriesService.Default", () => {
+      expect(MemoriesService.Default).toBeDefined();
     });
 
     it("should have the correct service tag", () => {

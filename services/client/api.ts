@@ -4,7 +4,7 @@
  * @since 1.0.0
  * @module Client
  */
-/** biome-ignore-all assist/source/organizeImports: <> */
+/** biome-ignore-all assist/source/organizeImports: Effect imports must come first */
 
 import type { SupermemoryError } from "@/Errors.js";
 import type { HttpBody } from "@effect/platform/HttpBody";
@@ -20,7 +20,6 @@ import type { Effect, Schema } from "effect";
  * @since 1.0.0
  * @category Services
  */
-// biome-ignore lint/style/useShorthandFunctionType: Interface preferred for object contracts per TS_RULES.md
 export type SupermemoryHttpClient = {
   /**
    * Make a request to an API endpoint (no version prefix added).

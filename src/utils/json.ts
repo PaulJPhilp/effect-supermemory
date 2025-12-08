@@ -12,13 +12,12 @@ import type { Effect } from "effect";
 import {
   jsonBackend,
   jsoncBackend,
-  ParseError,
-  StringifyError,
-  ValidationError,
+  type ParseError,
+  type StringifyError,
 } from "effect-json";
 
 // Re-export error types from effect-json
-export { ParseError, StringifyError, ValidationError };
+export type { ParseError, StringifyError, ValidationError } from "effect-json";
 
 /**
  * Parse JSON string.
@@ -37,11 +36,8 @@ export { ParseError, StringifyError, ValidationError };
 export function parseJson(
   input: string | Buffer
 ): Effect.Effect<unknown, ParseError> {
-  // Cast through unknown due to effect-json bundling its own effect version
-  return jsonBackend.parse(input) as unknown as Effect.Effect<
-    unknown,
-    ParseError
-  >;
+  // @ts-expect-error effect-json bundles its own effect version causing type mismatch
+  return jsonBackend.parse(input);
 }
 
 /**
@@ -65,11 +61,8 @@ export function parseJson(
 export function parseJsonc(
   input: string | Buffer
 ): Effect.Effect<unknown, ParseError> {
-  // Cast through unknown due to effect-json bundling its own effect version
-  return jsoncBackend.parse(input) as unknown as Effect.Effect<
-    unknown,
-    ParseError
-  >;
+  // @ts-expect-error effect-json bundles its own effect version causing type mismatch
+  return jsoncBackend.parse(input);
 }
 
 /**
@@ -91,9 +84,6 @@ export function stringifyJson(
   value: unknown,
   options?: { indent?: number }
 ): Effect.Effect<string, StringifyError> {
-  // Cast through unknown due to effect-json bundling its own effect version
-  return jsonBackend.stringify(value, options) as unknown as Effect.Effect<
-    string,
-    StringifyError
-  >;
+  // @ts-expect-error effect-json bundles its own effect version causing type mismatch
+  return jsonBackend.stringify(value, options);
 }

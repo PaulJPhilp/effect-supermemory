@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { ConnectionsService, ConnectionsServiceLive } from "../service.js";
+import { ConnectionsService } from "../service.js";
 import type {
   Connection,
   ConnectionCreateParams,
@@ -35,8 +35,8 @@ describe("ConnectionsService", () => {
       expect(typeof ConnectionsService).toBe("function");
     });
 
-    it("should export ConnectionsServiceLive layer", () => {
-      expect(ConnectionsServiceLive).toBeDefined();
+    it("should export Default layer via ConnectionsService.Default", () => {
+      expect(ConnectionsService.Default).toBeDefined();
     });
 
     it("should have the correct service tag", () => {
