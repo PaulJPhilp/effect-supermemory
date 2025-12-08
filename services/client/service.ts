@@ -9,9 +9,9 @@
  */
 /** biome-ignore-all assist/source/organizeImports: <> */
 
-import { SPANS, TELEMETRY_ATTRIBUTES } from "@/Constants.js";
-import { type SupermemoryError, SupermemoryValidationError } from "@/Errors.js";
-import type { HttpBody } from "@effect/platform/HttpBody";
+import { ERROR_MESSAGES, SPANS, TELEMETRY_ATTRIBUTES } from "@/Constants.js";
+import { SupermemoryValidationError, type SupermemoryError } from "@/Errors.js";
+import type { HttpBody, HttpBodyError } from "@effect/platform/HttpBody";
 import { HttpClient } from "@effect/platform/HttpClient";
 import type * as HttpClientError from "@effect/platform/HttpClientError";
 import { SupermemoryConfigService } from "@services/config/service.js";
@@ -62,9 +62,9 @@ export const makeSupermemoryHttpClient = Effect.gen(function* () {
         options?.body
       ).pipe(
         Effect.mapError(
-          (error: HttpClientError.HttpClientError) =>
+          (error: HttpBodyError) =>
             new SupermemoryValidationError({
-              message: `Request creation failed: ${error._tag}`,
+              message: `${ERROR_MESSAGES.REQUEST_CREATION_FAILED}: ${error._tag}`,
               details: error,
             })
         )
@@ -74,7 +74,7 @@ export const makeSupermemoryHttpClient = Effect.gen(function* () {
         Effect.mapError(
           (error: HttpClientError.HttpClientError) =>
             new SupermemoryValidationError({
-              message: `HTTP request failed: ${error._tag}`,
+              message: `${ERROR_MESSAGES.HTTP_REQUEST_FAILED}: ${error._tag}`,
               details: error,
             })
         ),

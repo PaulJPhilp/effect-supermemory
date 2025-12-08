@@ -1,13 +1,19 @@
 /** @effect-diagnostics classSelfMismatch:skip-file */
+/** biome-ignore-all assist/source/organizeImports: <> */
 /**
  * @since 1.0.0
  * @module Search
  */
 
+import {
+  API_ENDPOINTS,
+  ERROR_MESSAGES,
+  SPANS,
+  TELEMETRY_ATTRIBUTES,
+} from "@/Constants.js";
+import { SupermemoryValidationError, type SupermemoryError } from "@/Errors.js";
 import { SupermemoryHttpClientService } from "@services/client/service.js";
 import { Effect, Schema } from "effect";
-import { API_ENDPOINTS, SPANS, TELEMETRY_ATTRIBUTES } from "@/Constants.js";
-import type { SupermemoryError } from "@/Errors.js";
 import type { SearchServiceOps } from "./api.js";
 import { buildSearchParams } from "./helpers.js";
 import type {
@@ -32,17 +38,16 @@ const makeSearchService = Effect.gen(function* () {
     options?: SearchOptions
   ): Effect.Effect<readonly DocumentChunk[], SupermemoryError> =>
     Effect.gen(function* () {
-      // Validate query
-      const validatedQuery = yield* Schema.decodeUnknown(Schema.String)(
-        query
-      ).pipe(
+      // Validate query (must be non-empty string)
+      const validatedQuery = yield* Schema.decodeUnknown(
+        Schema.String.pipe(Schema.minLength(1))
+      )(query).pipe(
         Effect.mapError(
           (error) =>
-            ({
-              _tag: "SupermemoryValidationError",
-              message: "Query must be a non-empty string",
+            new SupermemoryValidationError({
+              message: ERROR_MESSAGES.QUERY_MUST_BE_NON_EMPTY_STRING,
               details: error,
-            }) as SupermemoryError
+            })
         )
       );
 
@@ -75,17 +80,16 @@ const makeSearchService = Effect.gen(function* () {
     options?: SearchOptions
   ): Effect.Effect<readonly SupermemoryMemory[], SupermemoryError> =>
     Effect.gen(function* () {
-      // Validate query
-      const validatedQuery = yield* Schema.decodeUnknown(Schema.String)(
-        query
-      ).pipe(
+      // Validate query (must be non-empty string)
+      const validatedQuery = yield* Schema.decodeUnknown(
+        Schema.String.pipe(Schema.minLength(1))
+      )(query).pipe(
         Effect.mapError(
           (error) =>
-            ({
-              _tag: "SupermemoryValidationError",
-              message: "Query must be a non-empty string",
+            new SupermemoryValidationError({
+              message: ERROR_MESSAGES.QUERY_MUST_BE_NON_EMPTY_STRING,
               details: error,
-            }) as SupermemoryError
+            })
         )
       );
 

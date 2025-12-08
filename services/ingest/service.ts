@@ -1,13 +1,22 @@
 /** @effect-diagnostics classSelfMismatch:skip-file */
+/** biome-ignore-all assist/source/organizeImports: <explanation> */
 /**
  * @since 1.0.0
  * @module Ingest
  */
 
+import {
+  API_ENDPOINTS,
+  API_FIELD_NAMES,
+  ERROR_MESSAGES,
+  HTTP_METHODS,
+  SERVICE_TAGS,
+  SPANS,
+  TELEMETRY_ATTRIBUTES,
+} from "@/Constants.js";
+import { type SupermemoryError, SupermemoryValidationError } from "@/Errors.js";
 import { SupermemoryHttpClientService } from "@services/client/service.js";
 import { Effect, Schema } from "effect";
-import { API_ENDPOINTS, SPANS, TELEMETRY_ATTRIBUTES } from "@/Constants.js";
-import type { SupermemoryError } from "@/Errors.js";
 import type { IngestServiceOps } from "./api.js";
 import type { IngestOptions, IngestResponse } from "./types.js";
 
@@ -31,25 +40,28 @@ const makeIngestService = Effect.gen(function* () {
       ).pipe(
         Effect.mapError(
           (error) =>
-            ({
-              _tag: "SupermemoryValidationError",
-              message: "Content must be a non-empty string",
+            new SupermemoryValidationError({
+              message: ERROR_MESSAGES.CONTENT_MUST_BE_NON_EMPTY_STRING,
               details: error,
-            }) as SupermemoryError
+            })
         )
       );
 
       // Build request body
       const body = {
-        content: validatedContent,
-        ...(options?.tags && { tags: options.tags }),
-        ...(options?.customId && { customId: options.customId }),
-        ...(options?.metadata && { metadata: options.metadata }),
+        [API_FIELD_NAMES.CONTENT]: validatedContent,
+        ...(options?.tags && { [API_FIELD_NAMES.TAGS]: options.tags }),
+        ...(options?.customId && {
+          [API_FIELD_NAMES.CUSTOM_ID]: options.customId,
+        }),
+        ...(options?.metadata && {
+          [API_FIELD_NAMES.METADATA]: options.metadata,
+        }),
       };
 
       // Make request to v3 documents endpoint
       return yield* httpClient.requestV3<IngestResponse, unknown, never>(
-        "POST",
+        HTTP_METHODS.POST,
         API_ENDPOINTS.V3.DOCUMENTS,
         {
           body,
@@ -74,39 +86,37 @@ const makeIngestService = Effect.gen(function* () {
       const validatedUrl = yield* Schema.decodeUnknown(Schema.String)(url).pipe(
         Effect.mapError(
           (error) =>
-            ({
-              _tag: "SupermemoryValidationError",
-              message: "URL must be a valid string",
+            new SupermemoryValidationError({
+              message: ERROR_MESSAGES.URL_MUST_BE_VALID_STRING,
               details: error,
-            }) as SupermemoryError
+            })
         )
       );
 
       // Validate URL format using Effect.try
       yield* Effect.try({
         try: () => new URL(validatedUrl),
-        catch: () => new Error(`Invalid URL format: ${validatedUrl}`),
-      }).pipe(
-        Effect.mapError(
-          (error) =>
-            ({
-              _tag: "SupermemoryValidationError",
-              message: error.message,
-            }) as SupermemoryError
-        )
-      );
+        catch: () =>
+          new SupermemoryValidationError({
+            message: `${ERROR_MESSAGES.INVALID_URL_FORMAT}: ${validatedUrl}`,
+          }),
+      });
 
       // Build request body
       const body = {
-        url: validatedUrl,
-        ...(options?.tags && { tags: options.tags }),
-        ...(options?.customId && { customId: options.customId }),
-        ...(options?.metadata && { metadata: options.metadata }),
+        [API_FIELD_NAMES.URL]: validatedUrl,
+        ...(options?.tags && { [API_FIELD_NAMES.TAGS]: options.tags }),
+        ...(options?.customId && {
+          [API_FIELD_NAMES.CUSTOM_ID]: options.customId,
+        }),
+        ...(options?.metadata && {
+          [API_FIELD_NAMES.METADATA]: options.metadata,
+        }),
       };
 
       // Make request to v3 documents endpoint
       return yield* httpClient.requestV3<IngestResponse, unknown, never>(
-        "POST",
+        HTTP_METHODS.POST,
         API_ENDPOINTS.V3.DOCUMENTS,
         {
           body,
@@ -135,7 +145,7 @@ const makeIngestService = Effect.gen(function* () {
  * @category Context
  */
 export class IngestService extends Effect.Service<IngestServiceOps>()(
-  "@effect-supermemory/Ingest",
+  SERVICE_TAGS.INGEST,
   {
     accessors: true,
     effect: makeIngestService,

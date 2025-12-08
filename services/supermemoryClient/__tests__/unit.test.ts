@@ -1,6 +1,12 @@
 import { HttpClient } from "@services/httpClient/service.js";
 import type { HttpUrl } from "@services/httpClient/types.js";
 import type { MemoryKey, MemoryValue } from "@services/inMemoryClient/types.js";
+import {
+  ApiKey,
+  Namespace,
+  PositiveInteger,
+  ValidatedHttpUrl,
+} from "@services/inMemoryClient/types.js";
 import { Cause, Effect, Layer, Option } from "effect";
 import { afterEach, describe, expect, it } from "vitest";
 import { SupermemoryClient } from "../service.js";
@@ -8,10 +14,10 @@ import type { SupermemoryClientConfigType } from "../types.js";
 
 // Integration test configuration
 const TEST_CONFIG: SupermemoryClientConfigType = {
-  namespace: "test-supermemory-client",
-  baseUrl: "https://api.supermemory.ai",
-  apiKey: process.env.SUPERMEMORY_API_KEY || "test-api-key",
-  timeoutMs: 10_000,
+  namespace: Namespace("test-supermemory-client"),
+  baseUrl: ValidatedHttpUrl("https://api.supermemory.ai"),
+  apiKey: ApiKey(process.env.SUPERMEMORY_API_KEY || "test-api-key"),
+  timeoutMs: PositiveInteger(10_000),
 };
 
 // Create test layers

@@ -1,3 +1,4 @@
+import { API_FIELD_NAMES } from "@/Constants.js";
 import { type FilterExpression, toJSON } from "./filterBuilder.js";
 import type { SearchOptions } from "./types.js";
 
@@ -12,23 +13,25 @@ export const buildSearchParams = (
   options?: SearchOptions
 ): Record<string, unknown> => {
   const params: Record<string, unknown> = {
-    query,
+    [API_FIELD_NAMES.QUERY]: query,
   };
 
   if (options?.topK !== undefined) {
-    params.topK = options.topK;
+    params[API_FIELD_NAMES.TOP_K] = options.topK;
   }
 
   if (options?.threshold !== undefined) {
-    params.threshold = options.threshold;
+    params[API_FIELD_NAMES.THRESHOLD] = options.threshold;
   }
 
   if (options?.rerank) {
-    params.rerank = options.rerank;
+    params[API_FIELD_NAMES.RERANK] = options.rerank;
   }
 
   if (options?.filters) {
-    params.filters = toJSON(options.filters as FilterExpression);
+    params[API_FIELD_NAMES.FILTERS] = toJSON(
+      options.filters as FilterExpression
+    );
   }
 
   return params;

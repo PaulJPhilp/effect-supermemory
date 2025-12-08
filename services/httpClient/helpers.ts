@@ -1,3 +1,10 @@
+/** biome-ignore-all assist/source/organizeImports: <> */
+import {
+  ERROR_MESSAGES,
+  ERROR_TAGS,
+  HTTP_HEADERS,
+  HTTP_VALUES,
+} from "@/Constants.js";
 import { parseJson } from "@/utils/json.js";
 import type { HttpBody } from "@effect/platform/HttpBody";
 import { Effect } from "effect";
@@ -79,9 +86,9 @@ export const isHttpClientError = (error: unknown): error is HttpClientError =>
 export const isRetryableErrorType = (
   error: HttpClientError | { _tag: string }
 ): error is HttpError | NetworkError | TooManyRequestsError =>
-  error._tag === "NetworkError" ||
-  error._tag === "HttpError" ||
-  error._tag === "TooManyRequestsError";
+  error._tag === ERROR_TAGS.NETWORK_ERROR ||
+  error._tag === ERROR_TAGS.HTTP_ERROR ||
+  error._tag === ERROR_TAGS.TOO_MANY_REQUESTS_ERROR;
 
 /**
  * Type guard to check if an error is a NetworkError.
@@ -93,7 +100,7 @@ export const isNetworkError = (error: HttpClientError): error is NetworkError =>
  * Type guard to check if an error is an HttpError.
  */
 export const isHttpError = (error: HttpClientError): error is HttpError =>
-  error._tag === "HttpError";
+  error._tag === ERROR_TAGS.HTTP_ERROR;
 
 /**
  * Type guard to check if an error is an HttpError with a specific status code.
@@ -101,21 +108,23 @@ export const isHttpError = (error: HttpClientError): error is HttpError =>
 export const isHttpErrorWithStatus = (
   error: HttpClientError,
   status: number
-): error is HttpError => error._tag === "HttpError" && error.status === status;
+): error is HttpError =>
+  error._tag === ERROR_TAGS.HTTP_ERROR && error.status === status;
 
 /**
  * Type guard to check if an error is an AuthorizationError.
  */
 export const isAuthorizationError = (
   error: HttpClientError
-): error is AuthorizationError => error._tag === "AuthorizationError";
+): error is AuthorizationError => error._tag === ERROR_TAGS.AUTHORIZATION_ERROR;
 
 /**
  * Type guard to check if an error is a TooManyRequestsError.
  */
 export const isTooManyRequestsError = (
   error: HttpClientError
-): error is TooManyRequestsError => error._tag === "TooManyRequestsError";
+): error is TooManyRequestsError =>
+  error._tag === ERROR_TAGS.TOO_MANY_REQUESTS_ERROR;
 
 /**
  * Handles fetch errors and converts them to HttpClientError.
@@ -130,14 +139,14 @@ export const handleFetchError = (
   if (error instanceof Error) {
     if (error.name === "AbortError") {
       return new NetworkError({
-        cause: new Error("Request timed out or aborted"),
+        cause: new Error(ERROR_MESSAGES.REQUEST_TIMED_OUT_OR_ABORTED),
         url,
       });
     }
     return createNetworkError(error, url);
   }
   return new RequestError({
-    cause: new Error("Unknown request error"),
+    cause: new Error(ERROR_MESSAGES.UNKNOWN_REQUEST_ERROR),
     details: error,
   });
 };
@@ -147,11 +156,11 @@ export const handleFetchError = (
  * Uses effect-json for JSON parsing.
  */
 export const parseResponseBody = async <T>(response: Response): Promise<T> => {
-  const contentType = response.headers.get("Content-Type");
+  const contentType = response.headers.get(HTTP_HEADERS.CONTENT_TYPE);
   // Handle NDJSON as text (not JSON) since it's newline-delimited
   if (
-    contentType?.includes("application/json") &&
-    !contentType?.includes("application/x-ndjson")
+    contentType?.includes(HTTP_VALUES.APPLICATION_JSON) &&
+    !contentType?.includes(HTTP_VALUES.APPLICATION_NDJSON)
   ) {
     const text = await response.text();
     const parsed = await Effect.runPromise(parseJson(text));
@@ -159,7 +168,7 @@ export const parseResponseBody = async <T>(response: Response): Promise<T> => {
   }
   if (
     contentType?.includes("text/") ||
-    contentType?.includes("application/x-ndjson")
+    contentType?.includes(HTTP_VALUES.APPLICATION_NDJSON)
   ) {
     return (await response.text()) as T;
   }
@@ -257,7 +266,10 @@ export const createRequestHeaders = (
 ): Record<string, string> => {
   const headers = { ...(defaultHeaders || {}), ...(optionsHeaders || {}) };
   if (hasBody) {
-    return { "Content-Type": "application/json", ...headers };
+    return {
+      [HTTP_HEADERS.CONTENT_TYPE]: HTTP_VALUES.APPLICATION_JSON,
+      ...headers,
+    };
   }
   return headers;
 };

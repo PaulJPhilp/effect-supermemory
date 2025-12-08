@@ -1,21 +1,52 @@
 import type { HttpStatusCode } from "@services/httpClient/types.js";
+import type {
+  ApiKey,
+  Namespace,
+  PositiveInteger,
+  ValidatedHttpUrl,
+} from "@services/inMemoryClient/types.js";
 import { Brand } from "effect";
 
 export type SupermemoryId = string & Brand.Brand<"SupermemoryId">;
-export const SupermemoryId = Brand.nominal<SupermemoryId>();
+
+/**
+ * Branded type for Supermemory IDs with validation.
+ *
+ * A SupermemoryId must be a non-empty string.
+ *
+ * @example
+ * ```typescript
+ * const valid: SupermemoryId = SupermemoryId("abc123");
+ * const invalid: SupermemoryId = SupermemoryId(""); // Throws error (empty)
+ * ```
+ */
+export const SupermemoryId = Brand.refined<SupermemoryId>(
+  (id) => typeof id === "string" && id.length > 0,
+  (id) =>
+    Brand.error(`SupermemoryId must be a non-empty string, got: ${String(id)}`)
+);
 
 export type RetryScheduleConfig = {
   readonly attempts: number; // Total number of attempts (1 means no retries, just initial call)
   readonly delayMs: number; // Fixed delay in milliseconds between attempts
 };
 
-// Configuration for the SupermemoryClient service itself
+/**
+ * Configuration for the SupermemoryClient service itself.
+ *
+ * @since 1.0.0
+ */
 export type SupermemoryClientConfigType = {
-  readonly namespace: string;
-  readonly baseUrl: string; // Supermemory API base URL
-  readonly apiKey: string; // API key for Authorization header
-  readonly timeoutMs?: number; // Optional timeout for HTTP requests
-  readonly retries?: RetryScheduleConfig; // New: Optional retry configuration
+  /** The namespace to isolate memory operations (validated namespace string) */
+  readonly namespace: Namespace;
+  /** The base URL for the Supermemory API (validated HTTP/HTTPS URL) */
+  readonly baseUrl: ValidatedHttpUrl;
+  /** The API key for authentication (validated non-empty string) */
+  readonly apiKey: ApiKey;
+  /** Optional timeout for HTTP requests in milliseconds (must be positive integer) */
+  readonly timeoutMs?: PositiveInteger;
+  /** Optional retry configuration */
+  readonly retries?: RetryScheduleConfig;
 };
 
 // Represents a memory as stored/returned by the Supermemory backend

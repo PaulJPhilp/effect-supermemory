@@ -4,11 +4,24 @@
  * This module provides utility functions for encoding and decoding base64 strings
  * used in supermemory operations and API communications.
  */
+/** biome-ignore-all assist/source/organizeImports: <> */
 
+import { ENCODING, ERROR_MESSAGES, HTTP_STATUS } from "@/Constants.js";
+import type { HttpClientError } from "@services/httpClient/errors.js";
+import {
+  isAuthorizationError,
+  isHttpError,
+  isHttpErrorWithStatus,
+} from "@services/httpClient/helpers.js";
+import type { MemoryError } from "@services/inMemoryClient/errors.js";
+import {
+  MemoryNotFoundError,
+  MemoryValidationError,
+} from "@services/inMemoryClient/errors.js";
 import type { MemoryKey } from "@services/inMemoryClient/types.js";
-import { Effect, Exit, Option } from "effect";
+import { Duration, Effect, Exit, Option, Schedule } from "effect";
 import type { SupermemoryClientApi } from "./api.js";
-import type { MemoryError } from "./errors.js";
+import type { RetryScheduleConfig } from "./types.js";
 
 /**
  * Converts a string to base64 encoding.
@@ -26,7 +39,7 @@ import type { MemoryError } from "./errors.js";
  * ```
  */
 export const toBase64 = (str: string): string =>
-  Buffer.from(str).toString("base64");
+  Buffer.from(str).toString(ENCODING.BASE64);
 
 /**
  * Decodes a base64-encoded string back to its original form.
@@ -44,7 +57,7 @@ export const toBase64 = (str: string): string =>
  * ```
  */
 export const fromBase64 = (b64: string): string =>
-  Buffer.from(b64, "base64").toString("utf8");
+  Buffer.from(b64, ENCODING.BASE64).toString(ENCODING.UTF8);
 
 /**
  * Validates that a string is valid base64 using Effect.try.
@@ -62,9 +75,9 @@ export const fromBase64 = (b64: string): string =>
 export const validateBase64 = (str: string): Effect.Effect<void, Error> =>
   Effect.try({
     try: () => {
-      Buffer.from(str, "base64").toString("utf8");
+      Buffer.from(str, ENCODING.BASE64).toString(ENCODING.UTF8);
     },
-    catch: () => new Error(`Invalid base64 string: ${str}`),
+    catch: () => new Error(`${ERROR_MESSAGES.INVALID_BASE64_STRING}: ${str}`),
   });
 
 /**
@@ -85,8 +98,8 @@ export const isValidBase64 = (str: string): boolean =>
   Exit.match(
     Effect.runSyncExit(
       Effect.try({
-        try: () => Buffer.from(str, "base64").toString("utf8"),
-        catch: () => new Error("Invalid base64"),
+        try: () => Buffer.from(str, ENCODING.BASE64).toString(ENCODING.UTF8),
+        catch: () => new Error(ERROR_MESSAGES.INVALID_BASE64_STRING),
       })
     ),
     {
@@ -129,7 +142,7 @@ export const safeToBase64 = (str: string): Effect.Effect<string, Error> =>
     try: () => toBase64(str),
     catch: (e) =>
       new Error(
-        `Failed to encode to base64: ${
+        `${ERROR_MESSAGES.FAILED_TO_ENCODE_TO_BASE64}: ${
           e instanceof Error ? e.message : String(e)
         }`
       ),
@@ -153,7 +166,7 @@ export const safeFromBase64 = (b64: string): Effect.Effect<string, Error> =>
     try: () => fromBase64(b64),
     catch: (e) =>
       new Error(
-        `Failed to decode from base64: ${
+        `${ERROR_MESSAGES.FAILED_TO_DECODE_FROM_BASE64}: ${
           e instanceof Error ? e.message : String(e)
         }`
       ),
@@ -183,3 +196,104 @@ export const getOption =
   (client: SupermemoryClientApi) =>
   (key: MemoryKey): Effect.Effect<Option.Option<string>, MemoryError> =>
     client.get(key).pipe(Effect.map(Option.fromNullable));
+
+/**
+ * Checks if an HttpClientError is a server error (5xx status code).
+ *
+ * Server errors are typically retryable as they indicate temporary issues
+ * on the server side rather than client-side problems.
+ *
+ * @param error - The HttpClientError to check
+ * @returns True if the error is an HTTP error with status code 500-599
+ *
+ * @example
+ * ```typescript
+ * if (isServerError(error)) {
+ *   // Retry the request
+ * }
+ * ```
+ */
+export const isServerError = (error: HttpClientError): boolean =>
+  isHttpError(error) &&
+  error.status >= HTTP_STATUS.SERVER_ERROR_MIN &&
+  error.status <= HTTP_STATUS.SERVER_ERROR_MAX;
+
+/**
+ * Creates a retry Schedule from a RetryScheduleConfig.
+ *
+ * The schedule tracks iteration count and is compatible with Effect.retry.
+ * If no retry config is provided, returns undefined (no retries).
+ *
+ * @param retries - Optional retry configuration
+ * @returns A Schedule for retries, or undefined if no retries configured
+ *
+ * @example
+ * ```typescript
+ * const schedule = createRetrySchedule({ attempts: 3, delayMs: 1000 });
+ * const result = await myEffect.pipe(
+ *   Effect.retry(schedule ?? Schedule.never)
+ * );
+ * ```
+ */
+export const createRetrySchedule = (
+  retries: RetryScheduleConfig | undefined
+): Schedule.Schedule<number, unknown, never> | undefined =>
+  retries
+    ? Schedule.addDelay(Schedule.recurs(retries.attempts - 1), () =>
+        Duration.millis(retries.delayMs)
+      )
+    : undefined;
+
+/**
+ * Translates HttpClient errors to Memory errors.
+ *
+ * This helper function maps HTTP client errors to the appropriate memory error types,
+ * handling authorization errors, 404 errors, and network errors appropriately.
+ *
+ * @param error - The HttpClientError to translate
+ * @param key - Optional key for 404 error translation (MemoryNotFoundError)
+ * @returns The appropriate MemoryError
+ *
+ * @example
+ * ```typescript
+ * const memoryError = translateHttpClientError(httpError, "my-key");
+ * ```
+ */
+export const translateHttpClientError = (
+  error: HttpClientError,
+  key?: string
+): MemoryError => {
+  if (isAuthorizationError(error)) {
+    // If we decide to introduce a distinct MemoryAuthError later, it would go here.
+    // For now, mapping to MemoryValidationError as per CTO directive.
+    return new MemoryValidationError({
+      message: `${ERROR_MESSAGES.AUTHORIZATION_FAILED}: ${error.reason}`,
+    });
+  }
+  if (isHttpErrorWithStatus(error, 404) && key) {
+    // This should ideally be handled by the consuming method (get, exists)
+    // but useful for direct error translation if a general API call expects an item.
+    return new MemoryNotFoundError({ key });
+  }
+  // Generic mapping for other HttpClient errors to MemoryValidationError
+  let errorMessage: string;
+  if (error._tag === "NetworkError") {
+    // NetworkError has a cause property with the actual error and a url property
+    const causeMsg = error.cause.message || String(error.cause);
+    const urlInfo = error.url ? ` (URL: ${error.url})` : "";
+    errorMessage = `${causeMsg}${urlInfo}`;
+  } else if ("message" in error && typeof error.message === "string") {
+    errorMessage = error.message;
+    if ("url" in error && typeof error.url === "string") {
+      errorMessage += ` (URL: ${error.url})`;
+    }
+  } else if (error instanceof Error) {
+    errorMessage = error.message;
+  } else {
+    errorMessage = String(error);
+  }
+
+  return new MemoryValidationError({
+    message: `${ERROR_MESSAGES.API_REQUEST_FAILED}: ${error._tag} - ${errorMessage}`,
+  });
+};

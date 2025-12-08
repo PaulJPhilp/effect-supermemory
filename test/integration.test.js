@@ -1,21 +1,30 @@
-import { describe, expect, it } from "vitest";
 import { Chunk, Effect, Layer, Stream } from "effect";
+import { describe, expect, it } from "vitest";
 import { HttpClient } from "../services/httpClient/service.js";
+import {
+  ApiKey,
+  Namespace,
+  PositiveInteger,
+  ValidatedHttpUrl,
+} from "../services/inMemoryClient/types.js";
 import { MemoryStreamClient, SupermemoryClient } from "../src/index.js";
 
 // Integration test configuration
 // Note: Requires real API access - no mocks allowed per anti-mocking policy
 // Loads API key from .env file automatically
 const TEST_CONFIG = {
-  namespace: "test-integration",
-  baseUrl: process.env.SUPERMEMORY_BASE_URL || "https://api.supermemory.dev",
-  apiKey: process.env.SUPERMEMORY_API_KEY || "test-api-key",
-  timeoutMs: 5000,
+  namespace: Namespace("test-integration"),
+  baseUrl: ValidatedHttpUrl(
+    process.env.SUPERMEMORY_BASE_URL || "https://api.supermemory.dev"
+  ),
+  apiKey: ApiKey(process.env.SUPERMEMORY_API_KEY || "test-api-key"),
+  timeoutMs: PositiveInteger(5000),
 };
 
 // Skip tests unless explicitly enabled via environment variable
 // This prevents tests from running when API server is unavailable
-const shouldSkipTests = process.env.SUPERMEMORY_RUN_INTEGRATION_TESTS !== "true";
+const shouldSkipTests =
+  process.env.SUPERMEMORY_RUN_INTEGRATION_TESTS !== "true";
 
 // Create HttpClient layer
 const HttpClientTestLayer = HttpClient.Default({

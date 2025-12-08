@@ -302,3 +302,28 @@ See `docs/adr/001-error-taxonomy-layer-design.md` for the architectural decision
 - Layer-based dependency injection
 - Implementation standards for all services
 
+
+## CRITICAL: Respect User Decisions
+
+**NEVER undo, revert, or change the user's decisions without explicit permission.**
+
+This includes but is not limited to:
+
+1. **Library choices** - If the user chose a specific library (e.g., `effect-json`), do not replace it with an alternative approach
+2. **Architecture decisions** - Do not refactor or restructure code the user has intentionally designed
+3. **Implementation patterns** - Do not change the user's chosen patterns to "simpler" alternatives
+4. **Dependencies** - Do not remove or replace dependencies the user has added
+5. **Code style** - Do not change the user's coding style preferences
+
+### When You See Code That Looks "Wrong"
+
+If you see code that appears incorrect or suboptimal:
+
+1. **ASK FIRST** - "I notice X. Should I change it to Y, or is this intentional?"
+2. **EXPLAIN** - Describe why you think there might be an issue
+3. **WAIT** - Do not make changes until the user confirms
+
+### Examples
+
+❌ **WRONG**: "The file has been fixed to use Effect.try instead of effect-json"
+✅ **RIGHT**: "I see you're using effect-json. Should I help fix the type error while keeping effect-json?"

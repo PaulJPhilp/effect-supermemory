@@ -1,5 +1,10 @@
 /** biome-ignore-all assist/source/organizeImports: <> */
-import { HTTP_HEADERS, HTTP_STATUS, HTTP_VALUES } from "@/Constants.js";
+import {
+  ERROR_MESSAGES,
+  HTTP_HEADERS,
+  HTTP_STATUS,
+  HTTP_VALUES,
+} from "@/Constants.js";
 import {
   SupermemoryAuthenticationError,
   SupermemoryRateLimitError,
@@ -7,7 +12,7 @@ import {
   SupermemoryValidationError,
   type SupermemoryError,
 } from "@/Errors.js";
-import type { HttpClientError } from "@effect/platform/HttpClientError";
+import type { HttpBodyError } from "@effect/platform/HttpBody";
 import {
   bodyJson,
   make,
@@ -96,13 +101,21 @@ export const mapHttpError = (
 
 /**
  * Create the base request with authentication and common headers.
+ *
+ * @param method - HTTP method (GET, POST, PUT, DELETE)
+ * @param url - Full URL for the request
+ * @param apiKey - API key for authentication (redacted)
+ * @param body - Optional request body to serialize as JSON
+ * @returns Effect that resolves with the configured HttpClientRequest
+ * @since 1.0.0
+ * @category Request Building
  */
 export const makeBaseRequest = (
   method: HttpMethod,
   url: string,
   apiKey: Redacted.Redacted<string>,
   body?: unknown
-): Effect.Effect<HttpClientRequest, HttpClientError> =>
+): Effect.Effect<HttpClientRequest, HttpBodyError> =>
   Effect.gen(function* () {
     let request = make(method)(url).pipe(
       setHeader(
@@ -114,9 +127,7 @@ export const makeBaseRequest = (
     );
 
     if (body !== undefined) {
-      request = yield* bodyJson(request, body).pipe(
-        Effect.mapError((error) => error as unknown as HttpClientError)
-      );
+      request = yield* bodyJson(request, body);
     }
 
     return request;
@@ -134,25 +145,21 @@ export const processResponse = <A, I, R>(
 
     // Handle error responses
     if (status >= HTTP_STATUS.BAD_REQUEST) {
-      const body = yield* Effect.tryPromise({
-        try: () => response.json.pipe(Effect.runPromise),
-        catch: () => ({}),
-      }).pipe(Effect.orElseSucceed(() => ({})));
+      const body = yield* response.json.pipe(Effect.orElseSucceed(() => ({})));
 
-      return yield* Effect.fail<SupermemoryError>(
-        mapHttpError(status, body, response.headers) as SupermemoryError
-      );
+      return yield* Effect.fail(mapHttpError(status, body, response.headers));
     }
 
     // Parse successful response
-    const json = yield* Effect.tryPromise({
-      try: () => response.json.pipe(Effect.runPromise),
-      catch: (error) =>
-        new SupermemoryValidationError({
-          message: "Failed to parse response JSON",
-          details: error,
-        }),
-    }) as Effect.Effect<unknown, SupermemoryError, never>;
+    const json = yield* response.json.pipe(
+      Effect.mapError(
+        (error) =>
+          new SupermemoryValidationError({
+            message: ERROR_MESSAGES.FAILED_TO_PARSE_RESPONSE_JSON,
+            details: error,
+          })
+      )
+    );
 
     // Validate against schema if provided
     if (schema) {
@@ -160,7 +167,7 @@ export const processResponse = <A, I, R>(
         Effect.mapError(
           (error) =>
             new SupermemoryValidationError({
-              message: "Response validation failed",
+              message: ERROR_MESSAGES.RESPONSE_VALIDATION_FAILED,
               details: error,
             })
         )

@@ -1,0 +1,21 @@
+# Code Review Completed
+
+**Directory**: src
+**Date**: 2025-12-08
+
+## Files Reviewed
+
+- Constants.ts - API constants, HTTP values, error tags
+- Domain.ts - Schema definitions for domain models
+- Errors.ts - Data.TaggedError error hierarchy
+- index.ts - Re-exports for public API
+- Program.ts - Demo runtime initialization
+
+## Review Notes
+
+All files follow TS_RULES.md:
+- Constants.ts: Uses `as const` for literal types, good JSDoc
+- Domain.ts: Proper Schema definitions with validation
+- Errors.ts: Proper Data.TaggedError usage, union type for error union
+- index.ts: Proper re-exports with import type where needed
+- Program.ts: Demo file showing proper layer composition

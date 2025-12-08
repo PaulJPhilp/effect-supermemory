@@ -20,6 +20,7 @@ import type { Effect, Schema } from "effect";
  * @since 1.0.0
  * @category Services
  */
+// biome-ignore lint/style/useShorthandFunctionType: Interface preferred for object contracts per TS_RULES.md
 export type SupermemoryHttpClient = {
   /**
    * Make a request to a v3 endpoint (documents, RAG search).

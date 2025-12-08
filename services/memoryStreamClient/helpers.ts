@@ -4,8 +4,17 @@
  * This module provides utility functions for stream processing, NDJSON decoding,
  * and data transformation operations used in memory streaming.
  */
+/** biome-ignore-all assist/source/organizeImports: <> */
 
-import { HTTP_HEADERS, HTTP_STATUS, HTTP_VALUES } from "@/Constants.js";
+import {
+  API_FIELD_NAMES,
+  ERROR_MESSAGES,
+  HTTP_HEADERS,
+  HTTP_METHODS,
+  HTTP_STATUS,
+  HTTP_VALUES,
+  QUERY_PARAMS,
+} from "@/Constants.js";
 import { parseJson } from "@/utils/json.js";
 import type { HttpClientError } from "@services/httpClient/errors.js";
 import { isHttpError, isNetworkError } from "@services/httpClient/helpers.js";
@@ -66,7 +75,7 @@ export const ndjsonDecoder = (
         Effect.mapError(
           (error) =>
             new StreamReadError({
-              message: `Failed to parse JSON: ${error.message}`,
+              message: `${ERROR_MESSAGES.FAILED_TO_PARSE_JSON}: ${error.message}`,
               cause: error,
             })
         )
@@ -117,7 +126,7 @@ export const validateUtf8Chunk = (
     },
     catch: (e): StreamReadError =>
       new StreamReadError({
-        message: `Invalid UTF-8 encoding: ${
+        message: `${ERROR_MESSAGES.INVALID_UTF8_ENCODING}: ${
           e instanceof Error ? e.message : String(e)
         }`,
       }),
@@ -173,7 +182,7 @@ export const validateJson = (
     Effect.mapError(
       (error) =>
         new StreamReadError({
-          message: `Invalid JSON: ${error.message}`,
+          message: `${ERROR_MESSAGES.INVALID_JSON}: ${error.message}`,
           cause: error,
         })
     )
@@ -206,7 +215,7 @@ export const isCompleteJson = (str: string): boolean =>
  * Builds request options for list keys requests.
  */
 export const buildKeysRequestOptions = (): HttpRequestOptions => ({
-  method: "GET",
+  method: HTTP_METHODS.GET,
   headers: {
     [HTTP_HEADERS.CONTENT_TYPE]: HTTP_VALUES.APPLICATION_JSON,
     [HTTP_HEADERS.ACCEPT]: HTTP_VALUES.APPLICATION_NDJSON,
@@ -223,7 +232,7 @@ export const buildSearchRequestOptions = (
     filters?: Record<string, string | number | boolean | readonly string[]>;
   }
 ): HttpRequestOptions => ({
-  method: "GET",
+  method: HTTP_METHODS.GET,
   headers: {
     [HTTP_HEADERS.CONTENT_TYPE]: HTTP_VALUES.APPLICATION_JSON,
     [HTTP_HEADERS.ACCEPT]: HTTP_VALUES.APPLICATION_NDJSON,
@@ -242,10 +251,10 @@ export const buildSearchQueryParams = (
   }
 ): Record<string, string> => {
   const params = new URLSearchParams();
-  params.set("q", query);
+  params.set(QUERY_PARAMS.QUERY, query);
 
   if (options?.limit) {
-    params.set("limit", options.limit.toString());
+    params.set(QUERY_PARAMS.LIMIT, options.limit.toString());
   }
   if (options?.filters) {
     for (const [key, value] of Object.entries(options.filters)) {
@@ -276,12 +285,14 @@ export const translateHttpClientError = (
   }
   if (isNetworkError(error)) {
     return new StreamReadError({
-      message: `Network error: ${error.message}`,
+      message: `${ERROR_MESSAGES.NETWORK_ERROR}: ${
+        error.cause.message || String(error.cause)
+      }`,
       cause: error as unknown,
     });
   }
   return new StreamReadError({
-    message: `HTTP client error: ${error._tag}`,
+    message: `${ERROR_MESSAGES.HTTP_CLIENT_ERROR}: ${error._tag}`,
     cause: error as unknown,
   });
 };
@@ -313,6 +324,38 @@ export const validateStreamResponse = (
 };
 
 /**
+ * Parses a single line as a key string.
+ *
+ * Expects a JSON object with a `key` property and extracts the key value.
+ *
+ * @param line - The NDJSON line to parse
+ * @returns Effect that succeeds with the key string, or fails with StreamReadError
+ *
+ * @example
+ * ```typescript
+ * const result = await parseKeyLine('{"key": "my-key"}').pipe(
+ *   Effect.runPromise
+ * ); // "my-key"
+ * ```
+ */
+export const parseKeyLine = (
+  line: string
+): Effect.Effect<string, StreamReadError> =>
+  parseJson(line).pipe(
+    Effect.map(
+      (parsed) =>
+        (parsed as { [API_FIELD_NAMES.KEY]: string })[API_FIELD_NAMES.KEY]
+    ),
+    Effect.mapError(
+      (error) =>
+        new StreamReadError({
+          message: `${ERROR_MESSAGES.FAILED_TO_PARSE_KEY_FROM_LINE} "${line}": ${error.message}`,
+          cause: error,
+        })
+    )
+  );
+
+/**
  * Parses a single line as a SearchResult.
  */
 export const parseSearchResultLine = (
@@ -323,7 +366,7 @@ export const parseSearchResultLine = (
     Effect.mapError(
       (error) =>
         new StreamReadError({
-          message: `Failed to parse search result from line "${line}": ${error.message}`,
+          message: `${ERROR_MESSAGES.FAILED_TO_PARSE_SEARCH_RESULT_FROM_LINE} "${line}": ${error.message}`,
           cause: error,
         })
     )

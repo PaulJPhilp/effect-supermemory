@@ -1,6 +1,12 @@
 import { SupermemoryConfigFromValues } from "@services/config/service.js";
 import { HttpClient } from "@services/httpClient/service.js";
 import type { HttpUrl } from "@services/httpClient/types.js";
+import {
+  ApiKey,
+  Namespace,
+  PositiveInteger,
+  ValidatedHttpUrl,
+} from "@services/inMemoryClient/types.js";
 import { SupermemoryClient } from "@services/supermemoryClient/service.js";
 import { Effect, Layer, Redacted } from "effect";
 
@@ -9,17 +15,17 @@ const supermemoryConfigLayer = SupermemoryConfigFromValues({
 });
 
 const httpClientLayer = HttpClient.Default({
-  baseUrl: "https://api.supermemory.ai" as HttpUrl,
+  baseUrl: ValidatedHttpUrl("https://api.supermemory.ai") as HttpUrl,
   headers: {},
-  timeoutMs: 5000,
+  timeoutMs: PositiveInteger(5000),
 });
 
 const supermemoryClientLayer = Layer.provide(
   SupermemoryClient.Default({
-    namespace: "demo-namespace",
-    baseUrl: "https://api.supermemory.ai",
-    apiKey: "test-api-key",
-    timeoutMs: 5000,
+    namespace: Namespace("demo-namespace"),
+    baseUrl: ValidatedHttpUrl("https://api.supermemory.ai"),
+    apiKey: ApiKey("test-api-key"),
+    timeoutMs: PositiveInteger(5000),
   }),
   httpClientLayer
 );

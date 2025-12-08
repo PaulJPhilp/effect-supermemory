@@ -1,3 +1,10 @@
+import {
+  API_ENDPOINTS,
+  ERROR_MESSAGES,
+  HTTP_METHODS,
+  HTTP_STATUS,
+  QUERY_PARAMS,
+} from "@/Constants.js";
 import { isHttpErrorWithStatus } from "@services/httpClient/helpers.js";
 import { HttpClient } from "@services/httpClient/service.js";
 import type {
@@ -7,7 +14,6 @@ import type {
 import { MemoryValidationError } from "@services/inMemoryClient/errors.js";
 import type { SupermemoryClientConfigType } from "@services/supermemoryClient/types.js";
 import { Effect } from "effect";
-import { API_ENDPOINTS, HTTP_STATUS } from "@/Constants.js";
 import type { SearchClientApi } from "./api.js";
 import { type SearchError, SearchQueryError } from "./errors.js";
 import { encodeFilters, fromBase64 } from "./helpers.js";
@@ -42,7 +48,7 @@ export class SearchClient extends Effect.Service<SearchClient>()(
               });
             }
             return new MemoryValidationError({
-              message: `Search request failed: ${error._tag} - ${error.message}`,
+              message: `${ERROR_MESSAGES.SEARCH_REQUEST_FAILED}: ${error._tag} - ${error.message}`,
             });
           })
         );
@@ -61,9 +67,9 @@ export class SearchClient extends Effect.Service<SearchClient>()(
             }>;
             total: number;
           }>(API_ENDPOINTS.V1.SEARCH, {
-            method: "GET",
+            method: HTTP_METHODS.GET,
             queryParams: {
-              q: query,
+              [QUERY_PARAMS.QUERY]: query,
               ...(options?.limit !== undefined && {
                 limit: options.limit.toString(),
               }),

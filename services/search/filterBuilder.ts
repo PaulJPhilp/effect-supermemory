@@ -7,6 +7,47 @@
  * compile to the JSON format expected by Supermemory API.
  */
 
+import {
+  API_FIELD_NAMES,
+  FILTER_JSON_OPERATORS,
+  FILTER_OPERATORS,
+  FILTER_TAGS,
+} from "@/Constants.js";
+
+/**
+ * Comparison operators for metadata field filtering.
+ *
+ * - `eq`: Equal to
+ * - `ne`: Not equal to
+ * - `lt`: Less than
+ * - `lte`: Less than or equal to
+ * - `gt`: Greater than
+ * - `gte`: Greater than or equal to
+ * - `in`: Value is in array
+ *
+ * @since 1.0.0
+ * @category Types
+ */
+export type FilterOperator = "eq" | "ne" | "lt" | "lte" | "gt" | "gte" | "in";
+
+/**
+ * Primitive value types supported in filter comparisons.
+ *
+ * @since 1.0.0
+ * @category Types
+ */
+export type FilterPrimitive = string | number | boolean;
+
+/**
+ * Value types accepted by metadata filters.
+ *
+ * Can be a single primitive or an array of primitives (for `in` operator).
+ *
+ * @since 1.0.0
+ * @category Types
+ */
+export type FilterValue = FilterPrimitive | FilterPrimitive[];
+
 /**
  * Represents a single filter condition.
  *
@@ -28,7 +69,7 @@ export type FilterExpression =
  * @category Types
  */
 export type TagFilter = {
-  readonly _tag: "TagFilter";
+  readonly _tag: typeof FILTER_TAGS.TAG_FILTER;
   readonly value: string;
 };
 
@@ -39,10 +80,10 @@ export type TagFilter = {
  * @category Types
  */
 export type MetadataFilter = {
-  readonly _tag: "MetadataFilter";
+  readonly _tag: typeof FILTER_TAGS.METADATA_FILTER;
   readonly field: string;
-  readonly operator: "eq" | "ne" | "lt" | "lte" | "gt" | "gte" | "in";
-  readonly value: string | number | boolean | (string | number | boolean)[];
+  readonly operator: FilterOperator;
+  readonly value: FilterValue;
 };
 
 /**
@@ -52,7 +93,7 @@ export type MetadataFilter = {
  * @category Types
  */
 export type ScoreFilter = {
-  readonly _tag: "ScoreFilter";
+  readonly _tag: typeof FILTER_TAGS.SCORE_FILTER;
   readonly min: number | undefined;
   readonly max: number | undefined;
 };
@@ -64,7 +105,7 @@ export type ScoreFilter = {
  * @category Types
  */
 export type AndFilter = {
-  readonly _tag: "AndFilter";
+  readonly _tag: typeof FILTER_TAGS.AND_FILTER;
   readonly conditions: readonly FilterExpression[];
 };
 
@@ -75,7 +116,7 @@ export type AndFilter = {
  * @category Types
  */
 export type OrFilter = {
-  readonly _tag: "OrFilter";
+  readonly _tag: typeof FILTER_TAGS.OR_FILTER;
   readonly conditions: readonly FilterExpression[];
 };
 
@@ -86,7 +127,7 @@ export type OrFilter = {
  * @category Types
  */
 export type NotFilter = {
-  readonly _tag: "NotFilter";
+  readonly _tag: typeof FILTER_TAGS.NOT_FILTER;
   readonly condition: FilterExpression;
 };
 
@@ -98,26 +139,34 @@ export type NotFilter = {
  */
 export const toJSON = (filter: FilterExpression): Record<string, unknown> => {
   switch (filter._tag) {
-    case "TagFilter":
-      return { tag: filter.value };
+    case FILTER_TAGS.TAG_FILTER:
+      return { [API_FIELD_NAMES.TAG]: filter.value };
 
-    case "MetadataFilter": {
-      const key = `metadata.${filter.field}`;
+    case FILTER_TAGS.METADATA_FILTER: {
+      const key = `${API_FIELD_NAMES.METADATA_PREFIX}${filter.field}`;
       switch (filter.operator) {
-        case "eq":
+        case FILTER_OPERATORS.EQUAL:
           return { [key]: filter.value };
-        case "ne":
-          return { [key]: { $ne: filter.value } };
-        case "lt":
-          return { [key]: { $lt: filter.value } };
-        case "lte":
-          return { [key]: { $lte: filter.value } };
-        case "gt":
-          return { [key]: { $gt: filter.value } };
-        case "gte":
-          return { [key]: { $gte: filter.value } };
-        case "in":
-          return { [key]: { $in: filter.value } };
+        case FILTER_OPERATORS.NOT_EQUAL:
+          return { [key]: { [FILTER_JSON_OPERATORS.NOT_EQUAL]: filter.value } };
+        case FILTER_OPERATORS.LESS_THAN:
+          return { [key]: { [FILTER_JSON_OPERATORS.LESS_THAN]: filter.value } };
+        case FILTER_OPERATORS.LESS_THAN_OR_EQUAL:
+          return {
+            [key]: { [FILTER_JSON_OPERATORS.LESS_THAN_OR_EQUAL]: filter.value },
+          };
+        case FILTER_OPERATORS.GREATER_THAN:
+          return {
+            [key]: { [FILTER_JSON_OPERATORS.GREATER_THAN]: filter.value },
+          };
+        case FILTER_OPERATORS.GREATER_THAN_OR_EQUAL:
+          return {
+            [key]: {
+              [FILTER_JSON_OPERATORS.GREATER_THAN_OR_EQUAL]: filter.value,
+            },
+          };
+        case FILTER_OPERATORS.IN:
+          return { [key]: { [FILTER_JSON_OPERATORS.IN]: filter.value } };
         default: {
           const _exhaustive: never = filter.operator;
           return _exhaustive;
@@ -125,13 +174,21 @@ export const toJSON = (filter: FilterExpression): Record<string, unknown> => {
       }
     }
 
-    case "ScoreFilter": {
+    case FILTER_TAGS.SCORE_FILTER: {
       const conditions: Record<string, unknown>[] = [];
       if (filter.min !== undefined) {
-        conditions.push({ score: { $gte: filter.min } });
+        conditions.push({
+          [API_FIELD_NAMES.SCORE]: {
+            [FILTER_JSON_OPERATORS.GREATER_THAN_OR_EQUAL]: filter.min,
+          },
+        });
       }
       if (filter.max !== undefined) {
-        conditions.push({ score: { $lte: filter.max } });
+        conditions.push({
+          [API_FIELD_NAMES.SCORE]: {
+            [FILTER_JSON_OPERATORS.LESS_THAN_OR_EQUAL]: filter.max,
+          },
+        });
       }
       if (conditions.length === 0) {
         return {};
@@ -143,22 +200,22 @@ export const toJSON = (filter: FilterExpression): Record<string, unknown> => {
         }
         return firstCondition;
       }
-      return { $and: conditions };
+      return { [FILTER_JSON_OPERATORS.AND]: conditions };
     }
 
-    case "AndFilter":
+    case FILTER_TAGS.AND_FILTER:
       return {
-        $and: filter.conditions.map(toJSON),
+        [FILTER_JSON_OPERATORS.AND]: filter.conditions.map(toJSON),
       };
 
-    case "OrFilter":
+    case FILTER_TAGS.OR_FILTER:
       return {
-        $or: filter.conditions.map(toJSON),
+        [FILTER_JSON_OPERATORS.OR]: filter.conditions.map(toJSON),
       };
 
-    case "NotFilter":
+    case FILTER_TAGS.NOT_FILTER:
       return {
-        $not: toJSON(filter.condition),
+        [FILTER_JSON_OPERATORS.NOT]: toJSON(filter.condition),
       };
 
     default: {
@@ -181,7 +238,7 @@ export const Filter = {
    * Filter.tag("archived")
    */
   tag: (value: string): TagFilter => ({
-    _tag: "TagFilter",
+    _tag: FILTER_TAGS.TAG_FILTER,
     value,
   }),
 
@@ -192,10 +249,10 @@ export const Filter = {
    */
   meta: (
     field: string,
-    operator: "eq" | "ne" | "lt" | "lte" | "gt" | "gte" | "in",
-    value: string | number | boolean | (string | number | boolean)[]
+    operator: FilterOperator,
+    value: FilterValue
   ): MetadataFilter => ({
-    _tag: "MetadataFilter",
+    _tag: FILTER_TAGS.METADATA_FILTER,
     field,
     operator,
     value,
@@ -207,7 +264,7 @@ export const Filter = {
    * Filter.scoreRange(0.5, 1.0)
    */
   scoreRange: (min?: number, max?: number): ScoreFilter => ({
-    _tag: "ScoreFilter",
+    _tag: FILTER_TAGS.SCORE_FILTER,
     min,
     max,
   }),
@@ -218,7 +275,7 @@ export const Filter = {
    * Filter.and(Filter.tag("archived"), Filter.meta("version", "gt", 2))
    */
   and: (...conditions: FilterExpression[]): AndFilter => ({
-    _tag: "AndFilter",
+    _tag: FILTER_TAGS.AND_FILTER,
     conditions,
   }),
 
@@ -228,7 +285,7 @@ export const Filter = {
    * Filter.or(Filter.tag("draft"), Filter.tag("archived"))
    */
   or: (...conditions: FilterExpression[]): OrFilter => ({
-    _tag: "OrFilter",
+    _tag: FILTER_TAGS.OR_FILTER,
     conditions,
   }),
 
@@ -238,7 +295,7 @@ export const Filter = {
    * Filter.not(Filter.tag("archived"))
    */
   not: (condition: FilterExpression): NotFilter => ({
-    _tag: "NotFilter",
+    _tag: FILTER_TAGS.NOT_FILTER,
     condition,
   }),
 } as const;

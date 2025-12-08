@@ -4,6 +4,7 @@
  * @since 1.0.0
  * @module Search
  */
+/** biome-ignore-all assist/source/organizeImports: <> */
 
 import type { SupermemoryError } from "@/Errors.js";
 import type { Effect } from "effect";

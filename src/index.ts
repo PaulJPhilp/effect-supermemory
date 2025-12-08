@@ -37,6 +37,15 @@ export {
 } from "@services/inMemoryClient/errors.js";
 export { getOption as inMemoryGetOption } from "@services/inMemoryClient/helpers.js";
 export { InMemoryClient } from "@services/inMemoryClient/service.js";
+export {
+  ApiKey,
+  Namespace,
+  NonNegativeInteger,
+  PositiveInteger,
+  ValidatedHttpUrl,
+  type MemoryKey,
+  type MemoryValue,
+} from "@services/inMemoryClient/types.js";
 
 // Memory Stream Client exports
 export type { MemoryStreamClientApi } from "@services/memoryStreamClient/api.js";
@@ -62,7 +71,6 @@ export { getOption as supermemoryGetOption } from "@services/supermemoryClient/h
 export {
   MemoryNotFoundError as SupermemoryMemoryNotFoundError,
   MemoryValidationError as SupermemoryMemoryValidationError,
-  translateHttpClientError,
   type MemoryError as SupermemoryMemoryError,
 } from "@services/supermemoryClient/errors.js";
 export {
@@ -72,6 +80,7 @@ export {
   safeFromBase64,
   safeToBase64,
   toBase64,
+  translateHttpClientError,
   validateBase64,
 } from "@services/supermemoryClient/helpers.js";
 export { SupermemoryClient } from "@services/supermemoryClient/service.js";

@@ -5,3 +5,9 @@ export type {
   SearchOptions,
   SupermemoryMemory,
 } from "@/Domain.js";
+
+export type {
+  FilterOperator,
+  FilterPrimitive,
+  FilterValue,
+} from "./filterBuilder.js";

@@ -11,6 +11,12 @@ import { Effect, Layer } from "effect";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { HttpClient } from "../../services/httpClient/index.js";
 import type { HttpUrl } from "../../services/httpClient/types.js";
+import {
+  ApiKey,
+  Namespace,
+  PositiveInteger,
+  ValidatedHttpUrl,
+} from "../../services/inMemoryClient/types.js";
 import { SupermemoryClient } from "../../services/supermemoryClient/index.js";
 import {
   type CompatibilityAdapter,
@@ -26,10 +32,14 @@ import {
 // Test configuration
 // Loads from .env file: SUPERMEMORY_API_KEY and SUPERMEMORY_BASE_URL
 const TEST_CONFIG = {
-  namespace: process.env.SUPERMEMORY_TEST_NAMESPACE || "test-compatibility",
-  baseUrl: process.env.SUPERMEMORY_BASE_URL || "https://api.supermemory.dev", // Real API server - no mocks allowed per anti-mocking policy
-  apiKey: process.env.SUPERMEMORY_API_KEY || "test-api-key",
-  timeoutMs: 5000,
+  namespace: Namespace(
+    process.env.SUPERMEMORY_TEST_NAMESPACE || "test-compatibility"
+  ),
+  baseUrl: ValidatedHttpUrl(
+    process.env.SUPERMEMORY_BASE_URL || "https://api.supermemory.dev"
+  ), // Real API server - no mocks allowed per anti-mocking policy
+  apiKey: ApiKey(process.env.SUPERMEMORY_API_KEY || "test-api-key"),
+  timeoutMs: PositiveInteger(5000),
 };
 
 // Skip tests unless explicitly enabled via environment variable

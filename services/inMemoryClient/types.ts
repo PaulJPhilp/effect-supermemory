@@ -190,3 +190,85 @@ export const PositiveInteger = Brand.refined<PositiveInteger>(
   (n) => Number.isInteger(n) && n > 0,
   (n) => Brand.error(`Expected ${n} to be a positive integer`)
 );
+
+/**
+ * Branded type for API keys with validation.
+ * Represents a validated API key (non-empty string).
+ *
+ * @since 1.0.0
+ */
+export type ApiKey = string & Brand.Brand<"ApiKey">;
+
+/**
+ * Constructor for ApiKey that validates the value is a non-empty string.
+ *
+ * @param key - The string to validate and brand as an API key
+ * @returns A branded ApiKey value
+ * @throws BrandErrors if the value is not a valid API key
+ *
+ * @example
+ * ```typescript
+ * const key: ApiKey = ApiKey("sk-abc123"); // Valid
+ * const invalid: ApiKey = ApiKey(""); // Throws error (empty)
+ * ```
+ */
+export const ApiKey = Brand.refined<ApiKey>(
+  (key) => typeof key === "string" && key.length > 0,
+  (key) => Brand.error(`ApiKey must be a non-empty string, got: ${String(key)}`)
+);
+
+import type { HttpUrl } from "@services/httpClient/types.js";
+
+/**
+ * Branded type for HTTP URLs with validation.
+ * Represents a validated HTTP/HTTPS URL string.
+ * Extends HttpUrl to ensure compatibility with HttpClient.
+ *
+ * @since 1.0.0
+ */
+export type ValidatedHttpUrl = HttpUrl & Brand.Brand<"ValidatedHttpUrl">;
+
+/**
+ * Constructor for ValidatedHttpUrl that validates the value is a valid HTTP/HTTPS URL.
+ *
+ * @param url - The string to validate and brand as an HTTP URL
+ * @returns A branded ValidatedHttpUrl value
+ * @throws BrandErrors if the value is not a valid HTTP URL
+ *
+ * @example
+ * ```typescript
+ * const url: ValidatedHttpUrl = ValidatedHttpUrl("https://api.example.com"); // Valid
+ * const invalid: ValidatedHttpUrl = ValidatedHttpUrl("not-a-url"); // Throws error
+ * ```
+ */
+export const ValidatedHttpUrl = Brand.refined<ValidatedHttpUrl>(
+  (url) => {
+    if (!url || typeof url !== "string" || url.length === 0) {
+      return false;
+    }
+    try {
+      const parsed = new URL(url);
+      return parsed.protocol === "http:" || parsed.protocol === "https:";
+    } catch {
+      return false;
+    }
+  },
+  (url) => {
+    if (!url || typeof url !== "string" || url.length === 0) {
+      return Brand.error("ValidatedHttpUrl must be a non-empty string");
+    }
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+        return Brand.error(
+          `ValidatedHttpUrl must use http:// or https:// protocol, got: ${parsed.protocol}`
+        );
+      }
+    } catch {
+      return Brand.error(
+        `ValidatedHttpUrl must be a valid URL, got: ${String(url)}`
+      );
+    }
+    return Brand.error(`Invalid HTTP URL: ${String(url)}`);
+  }
+);
