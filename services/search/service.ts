@@ -54,12 +54,12 @@ const makeSearchService = Effect.gen(function* () {
       // Build request body
       const body = buildSearchParams(validatedQuery, options);
 
-      // Make request to v3 search endpoint
-      const response = yield* httpClient.requestV3<
+      // Make request to search documents endpoint
+      const response = yield* httpClient.request<
         SearchDocumentsResponse,
         unknown,
         never
-      >("POST", API_ENDPOINTS.V3.SEARCH, {
+      >("POST", API_ENDPOINTS.SEARCH.DOCUMENTS, {
         body,
       });
 
@@ -96,12 +96,12 @@ const makeSearchService = Effect.gen(function* () {
       // Build request body
       const body = buildSearchParams(validatedQuery, options);
 
-      // Make request to v4 search endpoint
-      const response = yield* httpClient.requestV4<
+      // Make request to search memories endpoint
+      const response = yield* httpClient.request<
         SearchMemoriesResponse,
         unknown,
         never
-      >("POST", API_ENDPOINTS.V4.SEARCH, {
+      >("POST", API_ENDPOINTS.SEARCH.MEMORIES, {
         body,
       });
 

@@ -1,5 +1,5 @@
 /** @effect-diagnostics classSelfMismatch:skip-file */
-/** biome-ignore-all assist/source/organizeImports: <explanation> */
+/** biome-ignore-all assist/source/organizeImports: Effect imports must come first */
 /**
  * @since 1.0.0
  * @module Ingest
@@ -59,10 +59,10 @@ const makeIngestService = Effect.gen(function* () {
         }),
       };
 
-      // Make request to v3 documents endpoint
-      return yield* httpClient.requestV3<IngestResponse, unknown, never>(
+      // Make request to memories endpoint (v1)
+      return yield* httpClient.request<IngestResponse, unknown, never>(
         HTTP_METHODS.POST,
-        API_ENDPOINTS.V3.DOCUMENTS,
+        API_ENDPOINTS.MEMORIES.BASE,
         {
           body,
         }
@@ -114,10 +114,10 @@ const makeIngestService = Effect.gen(function* () {
         }),
       };
 
-      // Make request to v3 documents endpoint
-      return yield* httpClient.requestV3<IngestResponse, unknown, never>(
+      // Make request to memories endpoint (v1)
+      return yield* httpClient.request<IngestResponse, unknown, never>(
         HTTP_METHODS.POST,
-        API_ENDPOINTS.V3.DOCUMENTS,
+        API_ENDPOINTS.MEMORIES.BASE,
         {
           body,
         }

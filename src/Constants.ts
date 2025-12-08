@@ -5,26 +5,40 @@
 
 /**
  * API Endpoints used across services.
+ * Based on official Supermemory SDK v3.10.0
  * @since 1.0.0
  */
 export const API_ENDPOINTS = {
-  V1: {
-    MEMORIES: "/api/v1/memories",
-    MEMORIES_BATCH: "/api/v1/memories/batch",
-    MEMORIES_BATCH_GET: "/api/v1/memories/batchGet",
-    SEARCH: "/api/v1/search",
+  /**
+   * Memories (documents) endpoints
+   */
+  MEMORIES: {
+    BASE: "/v1/memories",
+    BY_ID: (id: string) => `/v1/memories/${encodeURIComponent(id)}`,
+    UPLOAD: "/v1/memories/upload",
   },
-  V3: {
-    SEARCH: "/search",
-    DOCUMENTS: "/documents",
+  /**
+   * Search endpoints
+   */
+  SEARCH: {
+    DOCUMENTS: "/v1/search/documents",
+    EXECUTE: "/v1/search",
+    MEMORIES: "/v1/search/memories",
   },
-  V4: {
-    SEARCH: "/search",
+  /**
+   * Connections endpoints
+   */
+  CONNECTIONS: {
+    BASE: "/v1/connections",
+    BY_ID: (id: string) => `/v1/connections/${encodeURIComponent(id)}`,
+    BY_PROVIDER: (provider: string) =>
+      `/v1/connections/${encodeURIComponent(provider)}`,
   },
-  STREAM: {
-    KEYS: (namespace: string) => `/v1/keys/${encodeURIComponent(namespace)}`,
-    SEARCH: (namespace: string) =>
-      `/v1/search/${encodeURIComponent(namespace)}/stream`,
+  /**
+   * Settings endpoints
+   */
+  SETTINGS: {
+    BASE: "/v1/settings",
   },
 } as const;
 
@@ -242,6 +256,8 @@ export const ERROR_MESSAGES = {
 export const HTTP_METHODS = {
   GET: "GET",
   POST: "POST",
+  PATCH: "PATCH",
+  PUT: "PUT",
   DELETE: "DELETE",
 } as const;
 
@@ -269,7 +285,10 @@ export const QUERY_PARAMS = {
  * @since 1.0.0
  */
 export const SERVICE_TAGS = {
+  MEMORIES: "@effect-supermemory/Memories",
   SEARCH: "@effect-supermemory/Search",
+  CONNECTIONS: "@effect-supermemory/Connections",
+  SETTINGS: "@effect-supermemory/Settings",
+  /** @deprecated Use MEMORIES instead */
   INGEST: "@effect-supermemory/Ingest",
-  SUPERMEMORY_CLIENT: "SupermemoryClient",
 } as const;

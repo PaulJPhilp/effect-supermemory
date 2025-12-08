@@ -1,0 +1,11 @@
+{
+  "sdkRepo": "supermemoryai/sdk-ts",
+  "sdkPackage": "supermemory",
+  "current": {
+    "version": "3.10.0",
+    "syncedAt": "2024-12-08",
+    "status": "in-progress",
+    "notes": "Initial alignment to official SDK. Previous implementation targeted unknown/older API."
+  },
+  "history": []
+}

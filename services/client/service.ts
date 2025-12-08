@@ -93,6 +93,14 @@ export const makeSupermemoryHttpClient = Effect.gen(function* () {
     ) as Effect.Effect<A, SupermemoryError, R>;
 
   return {
+    request: <A, I, R>(
+      method: HttpMethod,
+      path: string,
+      options?: {
+        readonly body?: unknown;
+        readonly schema?: Schema.Schema<A, I, R>;
+      }
+    ) => makeRequest<A, I, R>("", method, path, options),
     requestV3: <A, I, R>(
       method: HttpMethod,
       path: string,

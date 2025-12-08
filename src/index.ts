@@ -1,6 +1,11 @@
-// Re-export configuration and errors
-/** biome-ignore-all assist/source/organizeImports: we want to re-export all the things */
-/** biome-ignore-all lint/performance/noBarrelFile: we want to re-export all the things */
+/**
+ * effect-supermemory - Effect-native SDK for Supermemory.ai
+ *
+ * @since 1.0.0
+ * @module index
+ */
+/** biome-ignore-all assist/source/organizeImports: barrel file */
+/** biome-ignore-all lint/performance/noBarrelFile: barrel file */
 
 // HTTP Client exports
 export type { HttpClientApi } from "@services/httpClient/api.js";
@@ -25,79 +30,13 @@ export type {
   HttpUrl,
 } from "@services/httpClient/types.js";
 
-// In-Memory Client exports
-export type { InMemoryClientApi } from "@services/inMemoryClient/api.js";
-export {
-  MemoryBatchPartialFailure,
-  MemoryNotFoundError,
-  MemoryValidationError,
-  type MemoryBatchError,
-  type MemoryError,
-  type MemoryFailureError,
-} from "@services/inMemoryClient/errors.js";
-export { getOption as inMemoryGetOption } from "@services/inMemoryClient/helpers.js";
-export { InMemoryClient } from "@services/inMemoryClient/service.js";
-export {
-  ApiKey,
-  Namespace,
-  NonNegativeInteger,
-  PositiveInteger,
-  ValidatedHttpUrl,
-  type MemoryKey,
-  type MemoryValue,
-} from "@services/inMemoryClient/types.js";
-
-// Memory Stream Client exports
-export type { MemoryStreamClientApi } from "@services/memoryStreamClient/api.js";
-export {
-  StreamReadError,
-  type StreamError,
-} from "@services/memoryStreamClient/errors.js";
-export {
-  decodeUint8Array,
-  isCompleteJson,
-  ndjsonDecoder,
-  splitIntoLines,
-  validateJson,
-  validateUtf8Chunk,
-  type ParseError,
-  type ValidationError,
-} from "@services/memoryStreamClient/helpers.js";
-export { MemoryStreamClient } from "@services/memoryStreamClient/service.js";
-export type { MemoryStreamClientConfigType } from "@services/memoryStreamClient/types.js";
-export type { SupermemoryClientApi } from "@services/supermemoryClient/api.js";
-export { getOption as supermemoryGetOption } from "@services/supermemoryClient/helpers.js";
-// Supermemory Client exports
-export {
-  MemoryNotFoundError as SupermemoryMemoryNotFoundError,
-  MemoryValidationError as SupermemoryMemoryValidationError,
-  type MemoryError as SupermemoryMemoryError,
-} from "@services/supermemoryClient/errors.js";
-export {
-  encodeBasicAuth,
-  fromBase64,
-  isValidBase64,
-  safeFromBase64,
-  safeToBase64,
-  toBase64,
-  translateHttpClientError,
-  validateBase64,
-} from "@services/supermemoryClient/helpers.js";
-export { SupermemoryClient } from "@services/supermemoryClient/service.js";
-export {
-  SupermemoryId,
-  type RetryScheduleConfig,
-  type SupermemoryApiMemory,
-  type SupermemoryBatchResponse,
-  type SupermemoryBatchResponseItem,
-  type SupermemoryClientConfigType,
-} from "@services/supermemoryClient/types.js";
-// Re-export HTTP client
+// Supermemory HTTP Client exports
 export type { SupermemoryHttpClient } from "@services/client/api.js";
 export { mapHttpError } from "@services/client/helpers.js";
 export { SupermemoryHttpClientService } from "@services/client/service.js";
 export { ApiVersions } from "@services/client/types.js";
 
+// Configuration exports
 export type { SupermemoryConfig } from "@services/config/api.js";
 export {
   SupermemoryConfigFromValues,
@@ -105,7 +44,7 @@ export {
   SupermemoryConfigService,
 } from "@services/config/service.js";
 
-// Re-export domain models
+// Domain models
 export {
   DeleteResponse,
   DocumentChunk,
@@ -120,6 +59,8 @@ export {
   SupermemoryMemory,
   Threshold,
 } from "./Domain.js";
+
+// Error types
 export {
   SupermemoryAuthenticationError,
   SupermemoryRateLimitError,
@@ -128,11 +69,40 @@ export {
   type SupermemoryError,
 } from "./Errors.js";
 
-// Re-export Ingest service
+// Memories service (V1.0)
+export type { MemoriesServiceApi } from "@services/memories/api.js";
+export {
+  MemoriesService,
+  MemoriesServiceLive,
+} from "@services/memories/service.js";
+export type {
+  Memory,
+  MemoryAddParams,
+  MemoryAddResponse,
+  MemoryFilterAnd,
+  MemoryFilterOr,
+  MemoryListItem,
+  MemoryListParams,
+  MemoryListResponse,
+  MemoryMetadata,
+  MemoryStatus,
+  MemoryType,
+  MemoryUpdateParams,
+  MemoryUpdateResponse,
+  MemoryUploadFileParams,
+  MemoryUploadFileResponse,
+  Pagination,
+  SortField,
+  SortOrder,
+} from "@services/memories/types.js";
+
+// Ingest service (deprecated - use MemoriesService)
+/** @deprecated Use MemoriesService instead */
 export type { IngestServiceOps } from "@services/ingest/api.js";
+/** @deprecated Use MemoriesService instead */
 export { IngestService, IngestServiceLive } from "@services/ingest/service.js";
 
-// Re-export Search service and Filter API
+// Search service and Filter API
 export type { SearchServiceOps } from "@services/search/api.js";
 export {
   Filter,

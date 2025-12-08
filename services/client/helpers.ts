@@ -24,12 +24,27 @@ import type { HttpMethod } from "@services/httpClient/types.js";
 import { Effect, Redacted, Schema } from "effect";
 
 /**
+ * Headers type that accepts both Effect Headers and plain objects for testing.
+ */
+type HeadersLike =
+  | Record<string, string | undefined>
+  | { get?: (key: string) => string | null };
+
+/**
+ * Get a header value from headers (supports both plain objects and Headers instances).
+ */
+function getHeader(headers: HeadersLike, key: string): string | undefined {
+  if (typeof headers.get === "function") {
+    return headers.get(key) ?? undefined;
+  }
+  return (headers as Record<string, string | undefined>)[key];
+}
+
+/**
  * Extract retry-after value from response headers.
  */
-export const extractRetryAfter = (
-  headers: HttpClientResponse["headers"]
-): number | undefined => {
-  const retryAfter = headers[HTTP_HEADERS.RETRY_AFTER];
+export const extractRetryAfter = (headers: HeadersLike): number | undefined => {
+  const retryAfter = getHeader(headers, HTTP_HEADERS.RETRY_AFTER);
   if (!retryAfter) {
     return;
   }
@@ -73,7 +88,7 @@ function hasMessage(value: unknown): value is { message: string } {
 export const mapHttpError = (
   status: number,
   body: unknown,
-  headers: HttpClientResponse["headers"]
+  headers: HeadersLike
 ): SupermemoryError => {
   const message = hasMessage(body) ? body.message : `HTTP ${status}`;
 

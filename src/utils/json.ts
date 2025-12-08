@@ -34,9 +34,15 @@ export { ParseError, StringifyError, ValidationError };
  * @since 1.0.0
  * @category Parsing
  */
-export const parseJson = (
+export function parseJson(
   input: string | Buffer
-): Effect.Effect<unknown, ParseError> => jsonBackend.parse(input);
+): Effect.Effect<unknown, ParseError> {
+  // Cast through unknown due to effect-json bundling its own effect version
+  return jsonBackend.parse(input) as unknown as Effect.Effect<
+    unknown,
+    ParseError
+  >;
+}
 
 /**
  * Parse JSONC (JSON with Comments) string.
@@ -56,9 +62,15 @@ export const parseJson = (
  * @since 1.0.0
  * @category Parsing
  */
-export const parseJsonc = (
+export function parseJsonc(
   input: string | Buffer
-): Effect.Effect<unknown, ParseError> => jsoncBackend.parse(input);
+): Effect.Effect<unknown, ParseError> {
+  // Cast through unknown due to effect-json bundling its own effect version
+  return jsoncBackend.parse(input) as unknown as Effect.Effect<
+    unknown,
+    ParseError
+  >;
+}
 
 /**
  * Stringify value to JSON.
@@ -75,8 +87,13 @@ export const parseJsonc = (
  * @since 1.0.0
  * @category Stringification
  */
-export const stringifyJson = (
+export function stringifyJson(
   value: unknown,
   options?: { indent?: number }
-): Effect.Effect<string, StringifyError> =>
-  jsonBackend.stringify(value, options);
+): Effect.Effect<string, StringifyError> {
+  // Cast through unknown due to effect-json bundling its own effect version
+  return jsonBackend.stringify(value, options) as unknown as Effect.Effect<
+    string,
+    StringifyError
+  >;
+}
