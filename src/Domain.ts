@@ -165,6 +165,16 @@ export const SearchOptions = Schema.Struct({
    * Filter expression (built via FilterBuilder).
    */
   filters: Schema.optional(Schema.Unknown),
+
+  /**
+   * Container tag to filter search results (single tag, for v4 memories endpoint).
+   */
+  containerTag: Schema.optional(Schema.String),
+
+  /**
+   * Container tags to filter search results (multiple tags, for v3 search endpoint).
+   */
+  containerTags: Schema.optional(Schema.Array(Schema.String)),
 });
 export type SearchOptions = Schema.Schema.Type<typeof SearchOptions>;
 

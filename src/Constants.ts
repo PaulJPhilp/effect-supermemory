@@ -188,6 +188,8 @@ export const API_FIELD_NAMES = {
   THRESHOLD: "threshold",
   RERANK: "rerank",
   FILTERS: "filters",
+  CONTAINER_TAG: "containerTag",
+  CONTAINER_TAGS: "containerTags",
 } as const;
 
 /**

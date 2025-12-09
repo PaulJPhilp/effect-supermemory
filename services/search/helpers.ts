@@ -34,5 +34,16 @@ export const buildSearchParams = (
     );
   }
 
+  if (options?.containerTag !== undefined) {
+    params[API_FIELD_NAMES.CONTAINER_TAG] = options.containerTag;
+  }
+
+  if (
+    options?.containerTags !== undefined &&
+    options.containerTags.length > 0
+  ) {
+    params[API_FIELD_NAMES.CONTAINER_TAGS] = options.containerTags;
+  }
+
   return params;
 };

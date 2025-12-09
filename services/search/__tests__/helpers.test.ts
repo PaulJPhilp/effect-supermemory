@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildSearchParams } from "../helpers.js";
 import { Filter } from "../filterBuilder.js";
+import { buildSearchParams } from "../helpers.js";
 
 describe("Search Helpers", () => {
   describe("buildSearchParams()", () => {
@@ -58,6 +58,52 @@ describe("Search Helpers", () => {
     it("handles undefined options", () => {
       const result = buildSearchParams("test", undefined);
       expect(result).toEqual({ query: "test" });
+    });
+
+    it("includes containerTag when provided", () => {
+      const result = buildSearchParams("test", { containerTag: "user-123" });
+      expect(result).toEqual({ query: "test", containerTag: "user-123" });
+    });
+
+    it("includes containerTags when provided", () => {
+      const result = buildSearchParams("test", {
+        containerTags: ["user-123", "project-456"],
+      });
+      expect(result).toEqual({
+        query: "test",
+        containerTags: ["user-123", "project-456"],
+      });
+    });
+
+    it("does not include containerTags when empty array", () => {
+      const result = buildSearchParams("test", { containerTags: [] });
+      expect(result).toEqual({ query: "test" });
+    });
+
+    it("includes both containerTag and containerTags when provided", () => {
+      const result = buildSearchParams("test", {
+        containerTag: "single-tag",
+        containerTags: ["tag1", "tag2"],
+      });
+      expect(result).toEqual({
+        query: "test",
+        containerTag: "single-tag",
+        containerTags: ["tag1", "tag2"],
+      });
+    });
+
+    it("includes containerTags with other options", () => {
+      const result = buildSearchParams("test query", {
+        topK: 5,
+        threshold: 0.7,
+        containerTags: ["user-123"],
+      });
+      expect(result).toEqual({
+        query: "test query",
+        topK: 5,
+        threshold: 0.7,
+        containerTags: ["user-123"],
+      });
     });
   });
 });
