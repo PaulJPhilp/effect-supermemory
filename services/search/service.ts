@@ -13,7 +13,7 @@ import {
 } from "@/Constants.js";
 import { SupermemoryValidationError, type SupermemoryError } from "@/Errors.js";
 import { SupermemoryHttpClientService } from "@services/client/service.js";
-import { Effect, Schema } from "effect";
+import { Duration, Effect, Schema } from "effect";
 import type { SearchServiceOps } from "./api.js";
 import { buildSearchParams } from "./helpers.js";
 import type {
@@ -38,34 +38,51 @@ const makeSearchService = Effect.gen(function* () {
     query: string,
     options?: SearchOptions
   ): Effect.Effect<readonly DocumentChunk[], SupermemoryError> =>
-    Effect.gen(function* () {
-      // Validate query (must be non-empty string)
-      const validatedQuery = yield* Schema.decodeUnknown(
-        Schema.String.pipe(Schema.minLength(1))
-      )(query).pipe(
-        Effect.mapError(
-          (error) =>
-            new SupermemoryValidationError({
-              message: ERROR_MESSAGES.QUERY_MUST_BE_NON_EMPTY_STRING,
-              details: error,
-            })
-        )
-      );
+    Effect.timed(
+      Effect.gen(function* () {
+        // Validate query (must be non-empty string)
+        const validatedQuery = yield* Schema.decodeUnknown(
+          Schema.String.pipe(Schema.minLength(1))
+        )(query).pipe(
+          Effect.mapError(
+            (error) =>
+              new SupermemoryValidationError({
+                message: ERROR_MESSAGES.QUERY_MUST_BE_NON_EMPTY_STRING,
+                details: error,
+              })
+          )
+        );
 
-      // Build request body
-      const body = buildSearchParams(validatedQuery, options);
+        // Build request body
+        const body = buildSearchParams(validatedQuery, options);
 
-      // Make request to search documents endpoint
-      const response = yield* httpClient.request<
-        SearchDocumentsResponse,
-        unknown,
-        never
-      >("POST", API_ENDPOINTS.SEARCH.DOCUMENTS, {
-        body,
-      });
+        // Make request to search documents endpoint
+        const response = yield* httpClient.request<
+          SearchDocumentsResponse,
+          unknown,
+          never
+        >("POST", API_ENDPOINTS.SEARCH.DOCUMENTS, {
+          body,
+        });
 
-      return response.results;
-    }).pipe(
+        return response.results;
+      })
+    ).pipe(
+      Effect.flatMap(([duration, results]) =>
+        Effect.gen(function* () {
+          const latencyMs = Duration.toMillis(duration);
+          const resultCount = results.length;
+
+          // Log metrics for observability
+          yield* Effect.log({
+            message: "Search operation completed",
+            [TELEMETRY_ATTRIBUTES.LATENCY]: latencyMs,
+            [TELEMETRY_ATTRIBUTES.RESULT_COUNT]: resultCount,
+          }).pipe(Effect.asVoid);
+
+          return results;
+        })
+      ),
       Effect.withSpan(SPANS.SEARCH_DOCUMENTS, {
         attributes: {
           [TELEMETRY_ATTRIBUTES.QUERY_LENGTH]: query.length,
@@ -80,34 +97,51 @@ const makeSearchService = Effect.gen(function* () {
     query: string,
     options?: SearchOptions
   ): Effect.Effect<readonly DocumentChunk[], SupermemoryError> =>
-    Effect.gen(function* () {
-      // Validate query (must be non-empty string)
-      const validatedQuery = yield* Schema.decodeUnknown(
-        Schema.String.pipe(Schema.minLength(1))
-      )(query).pipe(
-        Effect.mapError(
-          (error) =>
-            new SupermemoryValidationError({
-              message: ERROR_MESSAGES.QUERY_MUST_BE_NON_EMPTY_STRING,
-              details: error,
-            })
-        )
-      );
+    Effect.timed(
+      Effect.gen(function* () {
+        // Validate query (must be non-empty string)
+        const validatedQuery = yield* Schema.decodeUnknown(
+          Schema.String.pipe(Schema.minLength(1))
+        )(query).pipe(
+          Effect.mapError(
+            (error) =>
+              new SupermemoryValidationError({
+                message: ERROR_MESSAGES.QUERY_MUST_BE_NON_EMPTY_STRING,
+                details: error,
+              })
+          )
+        );
 
-      // Build request body
-      const body = buildSearchParams(validatedQuery, options);
+        // Build request body
+        const body = buildSearchParams(validatedQuery, options);
 
-      // Make request to search execute endpoint
-      const response = yield* httpClient.request<
-        SearchExecuteResponse,
-        unknown,
-        never
-      >("POST", API_ENDPOINTS.SEARCH.EXECUTE, {
-        body,
-      });
+        // Make request to search execute endpoint
+        const response = yield* httpClient.request<
+          SearchExecuteResponse,
+          unknown,
+          never
+        >("POST", API_ENDPOINTS.SEARCH.EXECUTE, {
+          body,
+        });
 
-      return response.results;
-    }).pipe(
+        return response.results;
+      })
+    ).pipe(
+      Effect.flatMap(([duration, results]) =>
+        Effect.gen(function* () {
+          const latencyMs = Duration.toMillis(duration);
+          const resultCount = results.length;
+
+          // Log metrics for observability
+          yield* Effect.log({
+            message: "Search execute operation completed",
+            [TELEMETRY_ATTRIBUTES.LATENCY]: latencyMs,
+            [TELEMETRY_ATTRIBUTES.RESULT_COUNT]: resultCount,
+          }).pipe(Effect.asVoid);
+
+          return results;
+        })
+      ),
       Effect.withSpan(SPANS.SEARCH_EXECUTE, {
         attributes: {
           [TELEMETRY_ATTRIBUTES.QUERY_LENGTH]: query.length,
@@ -122,34 +156,51 @@ const makeSearchService = Effect.gen(function* () {
     query: string,
     options?: SearchOptions
   ): Effect.Effect<readonly SupermemoryMemory[], SupermemoryError> =>
-    Effect.gen(function* () {
-      // Validate query (must be non-empty string)
-      const validatedQuery = yield* Schema.decodeUnknown(
-        Schema.String.pipe(Schema.minLength(1))
-      )(query).pipe(
-        Effect.mapError(
-          (error) =>
-            new SupermemoryValidationError({
-              message: ERROR_MESSAGES.QUERY_MUST_BE_NON_EMPTY_STRING,
-              details: error,
-            })
-        )
-      );
+    Effect.timed(
+      Effect.gen(function* () {
+        // Validate query (must be non-empty string)
+        const validatedQuery = yield* Schema.decodeUnknown(
+          Schema.String.pipe(Schema.minLength(1))
+        )(query).pipe(
+          Effect.mapError(
+            (error) =>
+              new SupermemoryValidationError({
+                message: ERROR_MESSAGES.QUERY_MUST_BE_NON_EMPTY_STRING,
+                details: error,
+              })
+          )
+        );
 
-      // Build request body
-      const body = buildSearchParams(validatedQuery, options);
+        // Build request body
+        const body = buildSearchParams(validatedQuery, options);
 
-      // Make request to search memories endpoint
-      const response = yield* httpClient.request<
-        SearchMemoriesResponse,
-        unknown,
-        never
-      >("POST", API_ENDPOINTS.SEARCH.MEMORIES, {
-        body,
-      });
+        // Make request to search memories endpoint
+        const response = yield* httpClient.request<
+          SearchMemoriesResponse,
+          unknown,
+          never
+        >("POST", API_ENDPOINTS.SEARCH.MEMORIES, {
+          body,
+        });
 
-      return response.results;
-    }).pipe(
+        return response.results;
+      })
+    ).pipe(
+      Effect.flatMap(([duration, results]) =>
+        Effect.gen(function* () {
+          const latencyMs = Duration.toMillis(duration);
+          const resultCount = results.length;
+
+          // Log metrics for observability
+          yield* Effect.log({
+            message: "Search memories operation completed",
+            [TELEMETRY_ATTRIBUTES.LATENCY]: latencyMs,
+            [TELEMETRY_ATTRIBUTES.RESULT_COUNT]: resultCount,
+          }).pipe(Effect.asVoid);
+
+          return results;
+        })
+      ),
       Effect.withSpan(SPANS.SEARCH_MEMORIES, {
         attributes: {
           [TELEMETRY_ATTRIBUTES.QUERY_LENGTH]: query.length,

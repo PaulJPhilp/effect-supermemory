@@ -104,6 +104,8 @@ export const TELEMETRY_ATTRIBUTES = {
   VERSION: "supermemory.version",
   PATH: "supermemory.path",
   METHOD: "supermemory.method",
+  LATENCY: "supermemory.latency",
+  RESULT_COUNT: "supermemory.result_count",
 } as const;
 
 /**
@@ -292,6 +294,7 @@ export const SERVICE_TAGS = {
   SEARCH: "@effect-supermemory/Search",
   CONNECTIONS: "@effect-supermemory/Connections",
   SETTINGS: "@effect-supermemory/Settings",
+  TOOLS: "@effect-supermemory/Tools",
   /** @deprecated Use MEMORIES instead */
   INGEST: "@effect-supermemory/Ingest",
 } as const;

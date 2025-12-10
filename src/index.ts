@@ -138,3 +138,15 @@ export type {
   SettingsUpdateParams,
   SettingsUpdateResponse,
 } from "@services/settings/types.js";
+
+// Tools service (AI SDK tool definitions)
+export type {
+  RememberToolOptions,
+  SearchToolOptions,
+  ToolsServiceOps,
+} from "@services/tools/api.js";
+export { ToolsService } from "@services/tools/service.js";
+export type {
+  ParameterDefinition,
+  ToolDefinition,
+} from "@services/tools/types.js";

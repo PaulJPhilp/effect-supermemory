@@ -16,7 +16,7 @@ import {
 } from "@/Constants.js";
 import { type SupermemoryError, SupermemoryValidationError } from "@/Errors.js";
 import { SupermemoryHttpClientService } from "@services/client/service.js";
-import { Effect, Schema } from "effect";
+import { Duration, Effect, Schema } from "effect";
 import type { IngestServiceOps } from "./api.js";
 import type { IngestOptions, IngestResponse } from "./types.js";
 
@@ -59,14 +59,27 @@ const makeIngestService = Effect.gen(function* () {
         }),
       };
 
-      // Make request to memories endpoint (v1)
-      return yield* httpClient.request<IngestResponse, unknown, never>(
-        HTTP_METHODS.POST,
-        API_ENDPOINTS.MEMORIES.BASE,
-        {
-          body,
-        }
+      // Make request to memories endpoint (v1) and measure latency
+      const [duration, response] = yield* Effect.timed(
+        httpClient.request<IngestResponse, unknown, never>(
+          HTTP_METHODS.POST,
+          API_ENDPOINTS.MEMORIES.BASE,
+          {
+            body,
+          }
+        )
       );
+
+      const latencyMs = Duration.toMillis(duration);
+
+      // Log metrics for observability
+      yield* Effect.log({
+        message: "Ingest addText operation completed",
+        [TELEMETRY_ATTRIBUTES.LATENCY]: latencyMs,
+        [TELEMETRY_ATTRIBUTES.RESULT_COUNT]: 1, // Ingest operations return a single response
+      }).pipe(Effect.asVoid);
+
+      return response;
     }).pipe(
       Effect.withSpan(SPANS.INGEST_ADD_TEXT, {
         attributes: {
@@ -114,14 +127,27 @@ const makeIngestService = Effect.gen(function* () {
         }),
       };
 
-      // Make request to memories endpoint (v1)
-      return yield* httpClient.request<IngestResponse, unknown, never>(
-        HTTP_METHODS.POST,
-        API_ENDPOINTS.MEMORIES.BASE,
-        {
-          body,
-        }
+      // Make request to memories endpoint (v1) and measure latency
+      const [duration, response] = yield* Effect.timed(
+        httpClient.request<IngestResponse, unknown, never>(
+          HTTP_METHODS.POST,
+          API_ENDPOINTS.MEMORIES.BASE,
+          {
+            body,
+          }
+        )
       );
+
+      const latencyMs = Duration.toMillis(duration);
+
+      // Log metrics for observability
+      yield* Effect.log({
+        message: "Ingest addUrl operation completed",
+        [TELEMETRY_ATTRIBUTES.LATENCY]: latencyMs,
+        [TELEMETRY_ATTRIBUTES.RESULT_COUNT]: 1, // Ingest operations return a single response
+      }).pipe(Effect.asVoid);
+
+      return response;
     }).pipe(
       Effect.withSpan(SPANS.INGEST_ADD_URL, {
         attributes: {
